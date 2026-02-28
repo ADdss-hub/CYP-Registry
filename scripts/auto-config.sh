@@ -24,12 +24,15 @@ warn() { printf "⚠️  %s\n" "$1"; }
 rand_hex() {
   # 32 bytes -> 64 hex chars
   if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 32
-  elif [ -r /dev/urandom ]; then
-    # fallback
-    od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+    openssl rand -hex 32 2>/dev/null || true
+  elif [ -r /dev/urandom ] && command -v od >/dev/null 2>&1; then
+    od -An -N32 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' || true
+  elif command -v date >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
+    date +%s 2>/dev/null | sha256sum 2>/dev/null | awk '{print $1}' || true
+  elif command -v date >/dev/null 2>&1 && command -v shasum >/dev/null 2>&1; then
+    date +%s 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}' || true
   else
-    date +%s | sha256sum | awk '{print $1}'
+    printf '%s' "$(date +%s 2>/dev/null || echo 0)"
   fi
 }
 
@@ -101,6 +104,9 @@ GRAFANA_ADMIN_PASSWORD=admin
 CLEANUP_ON_SHUTDOWN=${CLEANUP_ON_SHUTDOWN:-0}
 EOF
 
+  # 设置文件权限（跨平台兼容）
+  # Linux/macOS: chmod 600
+  # Windows: chmod 可能无效，但不影响功能
   chmod 600 "${ENV_FILE}" 2>/dev/null || true
   ok "全局配置中心已初始化：${ENV_FILE}"
   ok "已为 DB_PASSWORD / REDIS_PASSWORD / JWT_SECRET 生成强随机值，可直接用于生产环境。"

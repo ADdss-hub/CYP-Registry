@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
@@ -58,10 +58,46 @@ CYP-Registry 是一款面向个人开发者和中小型团队的中文私有容�
 
 ### 前置要求
 
-- Docker 20.10+ 
-- Docker Compose 2.0+
+- Docker 20.10+ 或 Podman 4.0+
+- Docker Compose 2.0+（可选，单镜像模式可直接使用 `docker run`）
 - 4GB+ 可用内存
 - 10GB+ 可用磁盘空间
+
+### 支持的环境和平台
+
+**操作系统：**
+- ✅ Linux（Ubuntu、CentOS、Debian、Alpine、RHEL、SUSE 等）
+  - ✅ Ubuntu 18.04+ / Debian 10+（标准 GNU 工具集）
+  - ✅ CentOS 7+ / RHEL 7+（SELinux 兼容，容器内通常不需要特殊配置）
+  - ✅ Alpine Linux 3.15+（BusyBox 工具集，已优化兼容性）
+  - ✅ SUSE Linux Enterprise Server / openSUSE（标准 Linux 工具集）
+- ✅ macOS（Docker Desktop for Mac）
+- ✅ Windows（Docker Desktop for Windows、WSL2）
+- ✅ NAS 系统（群晖 Synology、QNAP、威联通等）
+
+**文件系统支持：**
+- ✅ ext4（Linux 标准文件系统）
+- ✅ xfs（RHEL/CentOS 常用）
+- ✅ btrfs（SUSE/openSUSE 常用）
+- ✅ zfs（高级 NAS 系统）
+- ✅ overlay2（Docker 默认存储驱动）
+- ✅ tmpfs（/run、/tmp 等临时文件系统）
+
+**架构支持：**
+- ✅ AMD64/x86_64（默认）
+- ⚠️ ARM64（需自行构建，见下方说明）
+- ⚠️ ARMv7（需自行构建）
+
+**容器运行时：**
+- ✅ Docker（推荐）
+- ✅ Podman（兼容 Docker CLI）
+- ✅ containerd（通过 Docker/containerd）
+
+**部署方式：**
+- ✅ Docker Compose
+- ✅ Docker 直接运行
+- ✅ Kubernetes（需自行编写 YAML，见下方说明）
+- ✅ 云平台（AWS ECS、Azure Container Instances、GCP Cloud Run 等）
 
 ### 方式一：单镜像模式（推荐）
 
@@ -91,16 +127,32 @@ docker compose -f docker-compose.single.yml logs -f
 - Registry API：http://localhost:8080/v2/
 - API 文档：http://localhost:8080/docs
 
+**使用 Podman（替代 Docker）：**
+```bash
+# Podman 兼容 Docker CLI，只需将 docker 替换为 podman
+podman compose -f docker-compose.single.yml up -d --build
+
+# 或直接运行
+podman run -d \
+  --name cyp-registry \
+  -p 8080:8080 \
+  -v cyp-registry-pg-data:/var/lib/postgresql/data \
+  -v cyp-registry-redis-data:/data/redis \
+  -v cyp-registry-storage:/data/storage \
+  -v cyp-registry-logs:/app/logs \
+  ghcr.io/addss-hub/cyp-registry:v1.0.3
+```
+
 ### 方式二：使用预构建镜像
 
 #### 从 GitHub Container Registry (GHCR) 拉取
 
 ```bash
 # 拉取指定版本（推荐生产环境）
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.3
 
 # 或拉取带日期的版本号
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2-2026-02-28
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.3-2026-02-28
 
 # 运行容器（单镜像模式）
 docker run -d \
@@ -110,14 +162,14 @@ docker run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.0.2
+  ghcr.io/addss-hub/cyp-registry:v1.0.3
 ```
 
 #### 从 Docker Hub 拉取（如果已同步）
 
 ```bash
 # 拉取指定版本
-docker pull addss-hub/cyp-registry:v1.0.2
+docker pull addss-hub/cyp-registry:v1.0.3
 
 # 运行容器
 docker run -d \
@@ -127,12 +179,12 @@ docker run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  addss-hub/cyp-registry:v1.0.2
+  addss-hub/cyp-registry:v1.0.3
 ```
 
 **镜像版本说明：**
-- `v1.0.2`：标准版本号（语义化版本，推荐使用）
-- `v1.0.2-2026-02-28`：带日期的版本号（便于识别发布日期）
+- `v1.0.3`：标准版本号（语义化版本，推荐使用）
+- `v1.0.3-2026-02-28`：带日期的版本号（便于识别发布日期）
 - **注意**：镜像仓库使用语义化版本号标签，不提供 `latest` 标签。请使用具体的版本号标签拉取镜像。
 
 #### 在其他环境部署（生产环境推荐）
@@ -150,7 +202,7 @@ version: '3.8'
 
 services:
   cyp-registry:
-    image: ghcr.io/addss-hub/cyp-registry:v1.0.2
+    image: ghcr.io/addss-hub/cyp-registry:v1.0.3
     container_name: cyp-registry
     restart: unless-stopped
     ports:
@@ -235,11 +287,17 @@ docker compose logs -f
 
 ```bash
 # 拉取镜像
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.3
 
-# 创建数据目录
+# 创建数据目录（Linux/macOS）
 mkdir -p /data/cyp-registry/{pg-data,redis-data,storage,logs}
 chmod -R 755 /data/cyp-registry
+
+# Windows/NAS 环境：建议使用 Docker 命名卷（自动管理权限）
+# docker volume create cyp-registry-pg-data
+# docker volume create cyp-registry-redis-data
+# docker volume create cyp-registry-storage
+# docker volume create cyp-registry-logs
 
 # 运行容器
 docker run -d \
@@ -254,7 +312,22 @@ docker run -d \
   -v /data/cyp-registry/redis-data:/data/redis \
   -v /data/cyp-registry/storage:/data/storage \
   -v /data/cyp-registry/logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.0.2
+  ghcr.io/addss-hub/cyp-registry:v1.0.3
+
+# Windows/NAS 环境使用命名卷的示例：
+# docker run -d \
+#   --name cyp-registry \
+#   --restart unless-stopped \
+#   -p 8080:8080 \
+#   -e APP_ENV=production \
+#   -e DB_PASSWORD=your_strong_db_password \
+#   -e REDIS_PASSWORD=your_redis_password \
+#   -e JWT_SECRET=your_jwt_secret \
+#   -v cyp-registry-pg-data:/var/lib/postgresql/data \
+#   -v cyp-registry-redis-data:/data/redis \
+#   -v cyp-registry-storage:/data/storage \
+#   -v cyp-registry-logs:/app/logs \
+#   ghcr.io/addss-hub/cyp-registry:v1.0.3
 ```
 
 **生产环境注意事项：**
@@ -269,6 +342,7 @@ docker run -d \
    - ✅ 使用命名卷或绑定挂载确保数据持久化
    - ✅ 定期备份 PostgreSQL 数据目录
    - ✅ 监控磁盘空间使用情况
+   - ✅ **NAS/Windows 环境**：建议使用 Docker 命名卷而非绑定挂载，避免权限问题
 
 3. **网络配置：**
    - ✅ 生产环境建议使用反向代理（Nginx/Caddy）
@@ -279,6 +353,12 @@ docker run -d \
    - ✅ 配置健康检查（已内置）
    - ✅ 设置日志轮转
    - ✅ 监控容器资源使用情况
+
+5. **NAS/Windows Docker 环境特殊说明：**
+   - ✅ 系统会自动检测挂载点并在需要时使用子目录（`/var/lib/postgresql/data/pgdata`）
+   - ✅ 所有权限设置都有重试机制，兼容不同的权限模型
+   - ✅ 日志文件会自动创建并设置正确的权限
+   - ✅ 健康检查使用 `wget`，兼容 Alpine/BusyBox 环境
 
 **访问服务：**
 - Web 界面：http://your-server-ip:8080
@@ -420,7 +500,7 @@ curl -X GET http://localhost:8080/api/v1/users/me \
 3. 选择 "从 URL 添加"
 4. 填写镜像信息：
    - **镜像**（必填）：输入镜像名称或完整 URL
-     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.2`（注意：本仓库使用版本号标签，不使用 latest）
+     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.3`（注意：本仓库使用版本号标签，不使用 latest）
      - 支持 Docker Hub、GHCR、Quay.io 等公共仓库
    - **用户**（选填）：私有仓库的用户名（如果需要认证）
    - **密码**（选填）：私有仓库的密码或访问令牌
@@ -469,12 +549,12 @@ docker run -d \
 docker login
 
 # 标记镜像（使用版本号标签）
-docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.2
-docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.2-2026-02-28
+docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.3
+docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.3-2026-02-28
 
 # 推送镜像
-docker push addss-hub/cyp-registry:v1.0.2
-docker push addss-hub/cyp-registry:v1.0.2-2026-02-28
+docker push addss-hub/cyp-registry:v1.0.3
+docker push addss-hub/cyp-registry:v1.0.3-2026-02-28
 ```
 
 ## 🧪 测试

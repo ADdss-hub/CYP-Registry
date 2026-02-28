@@ -206,7 +206,18 @@ if [ "$ENV_TYPE" == "Host" ] && [ ! -d "$STORAGE_PATH" ]; then
 fi
 
 if [ -d "$STORAGE_PATH" ]; then
-    STORAGE_PERM=$(stat -c "%a" "$STORAGE_PATH" 2>/dev/null || stat -f "%OLp" "$STORAGE_PATH" 2>/dev/null || echo "Unknown")
+    # 跨平台权限检测（兼容不同 Linux 发行版）
+    # Linux: stat -c "%a" (GNU coreutils)
+    # macOS: stat -f "%OLp" (BSD stat)
+    # Alpine/BusyBox: 可能不支持 stat -c，使用 ls 作为 fallback
+    if stat -c "%a" "$STORAGE_PATH" >/dev/null 2>&1; then
+        STORAGE_PERM=$(stat -c "%a" "$STORAGE_PATH" 2>/dev/null)
+    elif stat -f "%OLp" "$STORAGE_PATH" >/dev/null 2>&1; then
+        STORAGE_PERM=$(stat -f "%OLp" "$STORAGE_PATH" 2>/dev/null)
+    else
+        # Fallback: 使用 ls 命令（Alpine/BusyBox 兼容）
+        STORAGE_PERM=$(ls -ld "$STORAGE_PATH" 2>/dev/null | awk '{print $1}' || echo "Unknown")
+    fi
     print_success "存储路径: $STORAGE_PATH (权限: $STORAGE_PERM)"
 else
     print_warning "存储路径不可访问: $STORAGE_PATH"

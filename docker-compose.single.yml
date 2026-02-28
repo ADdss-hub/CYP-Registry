@@ -53,11 +53,17 @@ services:
     volumes:
       # 挂载宿主机项目根目录到容器内 /workspace：
       # - 入口脚本会在此目录自动生成 .env（如不存在），并仅将其中未在环境中显式设置的变量加载到容器环境
-      # - 生成的 .env 将直接同步回宿主机项目根目录，实现“docker compose up 即自动生成 .env”
+      # - 生成的 .env 将直接同步回宿主机项目根目录，实现"docker compose up 即自动生成 .env"
+      # 注意：NAS/Windows 环境下，建议使用命名卷而非绑定挂载，避免权限问题
       - ./:/workspace
+      # PostgreSQL 数据目录（命名卷，兼容 NAS/Windows Docker）
+      # 注意：脚本会自动检测挂载点并在需要时使用子目录 /var/lib/postgresql/data/pgdata
       - single_pg_data:/var/lib/postgresql/data
+      # Redis 数据目录（命名卷）
       - single_redis_data:/data/redis
+      # 存储目录（命名卷）
       - storage_data:/data/storage
+      # 日志目录（命名卷）
       - logs_data:/app/logs
       # 可选：自定义配置文件
       # - 默认无需提供 config.yaml：单镜像入口脚本会在容器内自动生成 /app/config.yaml（仅首次生成时提示一次日志）

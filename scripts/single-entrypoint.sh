@@ -14,6 +14,36 @@ warn() { echo "[single] WARN: $*" >&2; }
 debug() { [[ "${DEBUG:-0}" == "1" ]] && echo "[single] DEBUG: $*" >&2 || true; }
 
 # ----------------------------
+# 跨平台基础能力层（命令/输出差异统一封装）
+# ----------------------------
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+# 读取 stdin 的第一行（兼容 GNU/BSD/BusyBox）
+first_line() {
+  head -n 1 2>/dev/null || head -1 2>/dev/null || sed -n '1p' 2>/dev/null || true
+}
+
+# 输出文件末尾 N 行（兼容 GNU/BSD/BusyBox）
+tail_lines() {
+  local n="${1:-50}"
+  local file="${2:-}"
+  [[ -z "${file}" ]] && return 0
+  if tail -n "${n}" "${file}" 2>/dev/null; then
+    return 0
+  fi
+  if tail "-${n}" "${file}" 2>/dev/null; then
+    return 0
+  fi
+  tail "${file}" 2>/dev/null || true
+}
+
+# 取某个 glob 最新的一个文件（依赖 ls -t；跨平台 head 差异由 first_line 处理）
+latest_file() {
+  # 注意：传入 glob（不能整体加引号）
+  ls -t $1 2>/dev/null | first_line || true
+}
+
+# ----------------------------
 # 在任何启动逻辑之前：自动生成并加载宿主机 .env
 # ----------------------------
 # APP_ROOT：容器内应用根目录（镜像内固定为 /app）
@@ -98,8 +128,16 @@ export DB_PORT="${DB_PORT:-5432}"
 # 若 APP_NAME 未设置或生成失败，则回退到 "registry"
 if [[ -z "${DB_USER:-}" ]]; then
   # 从 APP_NAME 生成数据库用户名（与默认管理员账号逻辑一致）
+  # 跨平台兼容：使用 tr 和 sed（POSIX 标准命令）
+  # Linux/macOS/Alpine: tr 和 sed 都可用
+  # Windows (Git Bash): tr 和 sed 都可用
   app_name="${APP_NAME:-CYP-Registry}"
-  db_user_from_app_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+  # 使用 tr 进行大小写转换（跨平台兼容）
+  # 使用 sed 进行字符替换（跨平台兼容，但注意不同 sed 实现的差异）
+  db_user_from_app_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' 2>/dev/null | \
+    sed 's/[^a-z0-9]/-/g' 2>/dev/null | \
+    sed 's/--*/-/g' 2>/dev/null | \
+    sed 's/^-\|-$//g' 2>/dev/null || echo "registry")
   # 确保以字母/数字开头，长度 3-64
   if [[ -z "$db_user_from_app_name" ]] || [[ ! "$db_user_from_app_name" =~ ^[a-z0-9] ]]; then
     db_user_from_app_name="cyp-${db_user_from_app_name}"
@@ -157,7 +195,12 @@ determine_pg_data_dir() {
   local has_system_files_only=true
   
   # 统计目录中的文件（包括隐藏文件）
-  # 使用 find 命令更可靠，兼容各种文件系统
+  # 使用 find 命令更可靠，兼容各种文件系统（ext4、xfs、btrfs、zfs 等）
+  # Linux 发行版兼容性：
+  # - Ubuntu/Debian: GNU findutils，支持 -print0
+  # - CentOS/RHEL: GNU findutils，支持 -print0
+  # - Alpine: BusyBox find，支持 -print0（但功能可能有限）
+  # - SUSE: GNU findutils，支持 -print0
   if command -v find >/dev/null 2>&1; then
     while IFS= read -r -d '' item; do
       [[ -z "${item}" ]] && continue
@@ -235,13 +278,20 @@ JWT_SECRET_FILE="${SECRETS_DIR}/.cyp_registry_jwt_secret"
 ensure_secret_file() {
   local file="$1"
   local value="$2"
+  # 保存当前 umask
+  local old_umask=$(umask)
+  # 设置严格的 umask（077 = 仅所有者可读写）
   umask 077
   mkdir -p "${SECRETS_DIR}" 2>/dev/null || true
   # 仅当文件不存在或为空时写入，避免覆盖既有密钥
   if [[ ! -s "${file}" ]]; then
     printf '%s' "${value}" > "${file}"
+    # 确保文件权限为 600（仅所有者可读写）
+    # Linux 环境下，umask 077 应该已经设置了正确的权限，但显式设置更安全
     chmod 600 "${file}" 2>/dev/null || true
   fi
+  # 恢复原始 umask
+  umask "${old_umask}" 2>/dev/null || true
 }
 
 read_secret_file() {
@@ -282,12 +332,26 @@ export APP_REDIS_PASSWORD="${APP_REDIS_PASSWORD:-${REDIS_PASSWORD:-}}"
 
 gen_random_hex() {
   # 32 bytes -> 64 hex chars
+  # 跨平台随机数生成兼容性：
+  # - Linux/macOS: openssl rand, /dev/urandom + od
+  # - Alpine/BusyBox: openssl(若安装), /dev/urandom + od
+  # - Windows (Git Bash/WSL): openssl(若安装), /dev/urandom(WSL), date + sha256sum/shasum
   if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 32
-  elif [ -r /dev/urandom ]; then
-    od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+    openssl rand -hex 32 2>/dev/null || echo ""
+  elif [ -r /dev/urandom ] && command -v od >/dev/null 2>&1; then
+    od -An -N32 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' || echo ""
+  elif command -v date >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
+    date +%s 2>/dev/null | sha256sum 2>/dev/null | awk '{print $1}' || echo ""
+  elif command -v date >/dev/null 2>&1 && command -v shasum >/dev/null 2>&1; then
+    date +%s 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}' || echo ""
   else
-    date +%s | sha256sum | awk '{print $1}'
+    # 最后兜底：简单时间戳 + /dev/urandom 组合（若可用）
+    {
+      date +%s 2>/dev/null || echo "0"
+      if [ -r /dev/urandom ] && command -v od >/dev/null 2>&1; then
+        od -An -N32 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n'
+      fi
+    } | tr -d '\n' | head -c 64
   fi
 }
 
@@ -327,8 +391,13 @@ generate_config_yaml_if_missing() {
 
   if [[ ! -f "${CONFIG_GENERATED_MARKER}" ]]; then
     log "未检测到配置文件 ${CONFIG_FILE}，将根据当前环境变量自动生成（单镜像默认；该提示仅首次显示）"
-    umask 077
+    # 保存当前 umask
+    local old_umask=$(umask)
+    # 配置文件不需要严格权限，使用默认 umask
+    umask 0022
     touch "${CONFIG_GENERATED_MARKER}" 2>/dev/null || true
+    # 恢复原始 umask
+    umask "${old_umask}" 2>/dev/null || true
   fi
   mkdir -p "$(dirname "${CONFIG_FILE}")" 2>/dev/null || true
 
@@ -450,12 +519,29 @@ fix_permissions() {
     fi
   done
   
+  # 设置 umask 确保新创建的文件有正确的权限（Linux 环境兼容性）
+  # 保存当前 umask，避免影响后续操作
+  local old_umask=$(umask)
+  umask 0022  # 默认：目录 755，文件 644
+  
   # 设置应用用户目录权限（多次尝试，兼容不同的权限模型）
+  # 兼容性说明：
+  # - Ubuntu/Debian: 标准 chown/chmod
+  # - CentOS/RHEL: 可能受 SELinux 影响，需要 chcon（容器内通常不需要）
+  # - Alpine: BusyBox 工具集，命令参数可能略有不同
+  # - SUSE: 标准 Linux 工具
   local app_dirs=("/data/storage" "/data/redis" "/app/logs")
   for dir in "${app_dirs[@]}"; do
     local attempts=0
     while [[ ${attempts} -lt 3 ]]; do
+      # 优先使用 chown，失败时尝试 chmod（兼容只读文件系统或特殊权限模型）
       if chown -R appuser:appuser "${dir}" 2>/dev/null; then
+        # 确保目录权限正确（Linux 标准：目录 755）
+        chmod 755 "${dir}" 2>/dev/null || true
+        break
+      elif chmod -R 755 "${dir}" 2>/dev/null; then
+        # Fallback：仅设置权限，不改变所有者（某些容器环境可能不需要 chown）
+        debug "使用 chmod 设置 ${dir} 权限（chown 不可用）"
         break
       fi
       attempts=$((attempts + 1))
@@ -464,17 +550,26 @@ fix_permissions() {
   done
   
   # 确保 PostgreSQL 相关目录权限正确（包括挂载点场景）
+  # PostgreSQL 需要 postgres 用户和组，这在 Alpine 镜像中已预配置
   local pg_dirs=("/var/lib/postgresql" "/run/postgresql")
   for dir in "${pg_dirs[@]}"; do
     local attempts=0
     while [[ ${attempts} -lt 3 ]]; do
+      # PostgreSQL 目录需要 postgres:postgres 所有者和 700 权限（安全）
       if chown -R postgres:postgres "${dir}" 2>/dev/null; then
+        chmod 700 "${dir}" 2>/dev/null || true
+        break
+      elif chmod 700 "${dir}" 2>/dev/null; then
+        debug "使用 chmod 设置 ${dir} 权限（chown 不可用）"
         break
       fi
       attempts=$((attempts + 1))
       [[ ${attempts} -lt 3 ]] && sleep 0.3 || debug "无法设置 ${dir} 权限（某些环境可能不需要）"
     done
   done
+  
+  # 恢复原始 umask
+  umask "${old_umask}" 2>/dev/null || true
 }
 
 start_postgres() {
@@ -518,17 +613,35 @@ start_postgres() {
   # 设置日志目录权限
   local log_chown_attempts=0
   while [[ ${log_chown_attempts} -lt 3 ]]; do
-    if chown postgres:postgres "${pg_log_dir}" 2>/dev/null || chmod 755 "${pg_log_dir}" 2>/dev/null; then
+    chown postgres:postgres "${pg_log_dir}" 2>/dev/null || true
+    chmod 755 "${pg_log_dir}" 2>/dev/null || true
+    # 使用 postgres 用户实际验证可写性（避免 root 的 -w 误判）
+    if su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
       break
     fi
     log_chown_attempts=$((log_chown_attempts + 1))
     [[ ${log_chown_attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置日志目录权限，继续尝试"
   done
   
-  # 确保 postgres 用户可以写入日志目录
-  if [[ -d "${pg_log_dir}" ]] && [[ ! -w "${pg_log_dir}" ]]; then
-    warn "日志目录不可写，尝试修复权限: ${pg_log_dir}"
-    chmod 755 "${pg_log_dir}" 2>/dev/null || true
+  # 若数据目录下日志目录仍不可写，则回退到 /app/logs/postgres 或 /tmp（更适合 NAS/Windows 权限模型）
+  if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+    warn "数据目录下日志目录对 postgres 不可写，回退到 /app/logs/postgres 或 /tmp"
+    if mkdir -p /app/logs/postgres 2>/dev/null; then
+      chown -R postgres:postgres /app/logs/postgres 2>/dev/null || true
+      chmod 755 /app/logs/postgres 2>/dev/null || true
+      if su-exec postgres:postgres sh -c "test -w /app/logs/postgres" >/dev/null 2>&1; then
+        pg_log_dir="/app/logs/postgres"
+      fi
+    fi
+  fi
+  if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+    if mkdir -p /tmp/postgres-logs 2>/dev/null; then
+      chown -R postgres:postgres /tmp/postgres-logs 2>/dev/null || true
+      chmod 755 /tmp/postgres-logs 2>/dev/null || true
+      if su-exec postgres:postgres sh -c "test -w /tmp/postgres-logs" >/dev/null 2>&1; then
+        pg_log_dir="/tmp/postgres-logs"
+      fi
+    fi
   fi
 
   # 初始化数据库目录（仅首次）
@@ -573,34 +686,50 @@ start_postgres() {
     log "PostgreSQL 数据目录初始化完成"
   fi
 
-  # 启动 PostgreSQL（后台运行，输出日志到文件）
+  # 启动 PostgreSQL（后台运行）
+  # 关键：优先保证“能启动”，日志按可用性降级（避免因日志文件权限导致 postgres 根本起不来）
   local pg_log_file="${pg_log_dir}/postgresql-$(date +%Y%m%d-%H%M%S).log"
-  log "启动 PostgreSQL，日志文件: ${pg_log_file}"
-  
-  # 配置 PostgreSQL 日志（在 postgresql.conf 中设置）
+  local can_use_log_file=0
+  if su-exec postgres:postgres sh -c "umask 0077; : >'${pg_log_file}'" >/dev/null 2>&1; then
+    can_use_log_file=1
+  fi
+  if [[ ${can_use_log_file} -eq 1 ]]; then
+    log "启动 PostgreSQL，日志文件: ${pg_log_file}"
+  else
+    warn "无法在 ${pg_log_dir} 创建/写入 PostgreSQL 日志文件，将输出到容器标准输出"
+  fi
+
+  # 配置 PostgreSQL 日志（仅当日志目录可写时启用 collector；否则强制 stderr）
   if [[ -f "${PG_DATA_DIR}/postgresql.conf" ]]; then
-    # 确保日志配置存在
-    if ! grep -q "^log_directory" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
-      echo "log_directory = 'log'" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || true
-    fi
-    if ! grep -q "^logging_collector" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
-      echo "logging_collector = on" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || true
+    if [[ ${can_use_log_file} -eq 1 ]]; then
+      if [[ "${pg_log_dir}" == "${PG_DATA_DIR}/log" ]]; then
+        grep -q "^log_directory" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || \
+          su-exec postgres:postgres sh -c "echo \"log_directory = 'log'\" >>'${PG_DATA_DIR}/postgresql.conf'" 2>/dev/null || true
+      else
+        grep -q "^log_directory" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || \
+          su-exec postgres:postgres sh -c "echo \"log_directory = '${pg_log_dir}'\" >>'${PG_DATA_DIR}/postgresql.conf'" 2>/dev/null || true
+      fi
+      grep -q "^logging_collector" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || \
+        su-exec postgres:postgres sh -c "echo \"logging_collector = on\" >>'${PG_DATA_DIR}/postgresql.conf'" 2>/dev/null || true
+    else
+      grep -q "^logging_collector" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || \
+        su-exec postgres:postgres sh -c "echo \"logging_collector = off\" >>'${PG_DATA_DIR}/postgresql.conf'" 2>/dev/null || true
+      grep -q "^log_destination" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || \
+        su-exec postgres:postgres sh -c "echo \"log_destination = 'stderr'\" >>'${PG_DATA_DIR}/postgresql.conf'" 2>/dev/null || true
     fi
   fi
-  
-  # 使用 su-exec 启动 PostgreSQL
-  # 将标准输出和错误输出重定向到日志文件
-  # 注意：在 Windows/NAS 环境下，确保使用绝对路径
+
+  # Socket 目录权限（部分环境对 700/继承权限敏感，统一到 775 更稳）
+  chmod 775 /run/postgresql 2>/dev/null || true
+  chown postgres:postgres /run/postgresql 2>/dev/null || true
+
   log "执行启动命令: postgres -D ${PG_DATA_DIR} -k /run/postgresql"
-  
-  # 确保日志文件可以被创建（提前创建，避免权限问题）
-  touch "${pg_log_file}" 2>/dev/null || true
-  chown postgres:postgres "${pg_log_file}" 2>/dev/null || chmod 666 "${pg_log_file}" 2>/dev/null || true
-  
-  # 启动 PostgreSQL（后台运行）
-  # 使用 exec 重定向确保输出到日志文件
-  # 在 Windows/NAS 环境下，确保使用正确的用户和路径
-  su-exec postgres:postgres sh -c "exec postgres -D '${PG_DATA_DIR}' -k /run/postgresql >>'${pg_log_file}' 2>&1" &
+  if [[ ${can_use_log_file} -eq 1 ]]; then
+    # 使用 sh -c 包装命令，确保重定向在各种 su-exec/BusyBox 环境下工作
+    su-exec postgres:postgres sh -c "exec postgres -D '${PG_DATA_DIR}' -k /run/postgresql >>'${pg_log_file}' 2>&1" &
+  else
+    su-exec postgres:postgres postgres -D "${PG_DATA_DIR}" -k /run/postgresql &
+  fi
   
   PG_PID=$!
   
@@ -629,15 +758,40 @@ start_postgres() {
   log "等待 PostgreSQL 进程启动..."
   sleep 3
   
-  # 检查进程是否真的在运行
-  if ! ps -p "${PG_PID}" >/dev/null 2>&1 && ! kill -0 "${PG_PID}" 2>/dev/null; then
-    error "PostgreSQL 进程未运行（PID: ${PG_PID}）"
-    error "请检查日志文件: ${pg_log_file}"
-    if [[ -f "${pg_log_file}" ]]; then
-      error "日志内容："
-      cat "${pg_log_file}" >&2 || true
+  # 检查进程是否真的在运行（兼容 Alpine/BusyBox）
+  # 使用 kill -0 作为主要检测方式（最兼容）
+  if ! kill -0 "${PG_PID}" 2>/dev/null; then
+    # 尝试使用 ps 命令作为辅助检测（如果可用）
+    local ps_check=false
+    if command -v ps >/dev/null 2>&1; then
+      # 跨平台进程检测兼容性：
+      # - Linux (GNU coreutils): ps aux, ps -p, ps -o pid=
+      # - Alpine/BusyBox: ps aux (可能不支持 ps -p)
+      # - macOS: ps aux, ps -p (BSD ps)
+      # 优先使用 ps aux（兼容性最好），fallback 到 ps -p
+      if ps aux >/dev/null 2>&1; then
+        # 使用 ps aux（最兼容）
+        if ps aux 2>/dev/null | grep -q "[[:space:]]${PG_PID}[[:space:]]"; then
+          ps_check=true
+        fi
+      elif ps -o pid= -p "${PG_PID}" >/dev/null 2>&1; then
+        # Fallback: 使用 ps -o pid=（GNU/BSD ps）
+        ps_check=true
+      elif ps -p "${PG_PID}" >/dev/null 2>&1; then
+        # Fallback: 使用 ps -p（某些系统）
+        ps_check=true
+      fi
     fi
-    exit 1
+    
+    if [[ "${ps_check}" == false ]]; then
+      error "PostgreSQL 进程未运行（PID: ${PG_PID}）"
+      error "请检查日志文件: ${pg_log_file}"
+      if [[ -f "${pg_log_file}" ]]; then
+        error "日志内容："
+        cat "${pg_log_file}" >&2 || true
+      fi
+      exit 1
+    fi
   fi
   
   # 检查进程是否还在运行
@@ -649,7 +803,14 @@ start_postgres() {
     # 输出日志文件内容（最后 50 行）
     if [[ -f "${pg_log_file}" ]]; then
       error "PostgreSQL 启动日志（最后 50 行）："
-      tail -n 50 "${pg_log_file}" >&2 || true
+      # 跨平台 tail 兼容性：优先使用 tail -n，fallback 到 tail
+      if tail -n 50 "${pg_log_file}" >&2 2>/dev/null; then
+        : # 成功
+      elif tail -50 "${pg_log_file}" >&2 2>/dev/null; then
+        : # Fallback: BSD tail 格式
+      else
+        tail "${pg_log_file}" >&2 2>/dev/null || true
+      fi
     else
       # 如果没有日志文件，尝试检查标准错误
       error "未找到日志文件，可能的原因："
@@ -657,10 +818,29 @@ start_postgres() {
       error "2. 日志目录权限问题: ${pg_log_dir}"
       error "3. postgres 用户无法执行 postgres 命令"
       
-      # 检查数据目录权限
+      # 检查数据目录权限（兼容不同 Linux 发行版的 stat 命令）
+      # Linux 发行版兼容性：
+      # - Ubuntu/Debian/CentOS/RHEL/SUSE: GNU coreutils，使用 stat -c "%a"
+      # - Alpine: BusyBox stat，可能不支持 -c，使用 ls 作为 fallback
+      # - macOS: BSD stat，使用 stat -f "%OLp"
       if [[ -d "${PG_DATA_DIR}" ]]; then
-        local dir_perm=$(stat -c "%a" "${PG_DATA_DIR}" 2>/dev/null || ls -ld "${PG_DATA_DIR}" 2>/dev/null || echo "unknown")
+        local dir_perm="unknown"
+        # 尝试使用 stat 命令（GNU/Linux 格式 - 大多数 Linux 发行版）
+        if stat -c "%a" "${PG_DATA_DIR}" >/dev/null 2>&1; then
+          dir_perm=$(stat -c "%a" "${PG_DATA_DIR}" 2>/dev/null)
+        # 尝试使用 stat 命令（BSD/macOS 格式）
+        elif stat -f "%OLp" "${PG_DATA_DIR}" >/dev/null 2>&1; then
+          dir_perm=$(stat -f "%OLp" "${PG_DATA_DIR}" 2>/dev/null)
+        # Fallback：使用 ls 命令（Alpine/BusyBox 兼容）
+        else
+          dir_perm=$(ls -ld "${PG_DATA_DIR}" 2>/dev/null | awk '{print $1}' || echo "unknown")
+        fi
         error "数据目录权限: ${dir_perm}"
+        
+        # 检查目录是否可写
+        if [[ ! -w "${PG_DATA_DIR}" ]]; then
+          error "数据目录不可写: ${PG_DATA_DIR}"
+        fi
       fi
       
       # 检查 postgres 用户和命令
@@ -694,12 +874,22 @@ start_postgres() {
       error "PostgreSQL 进程意外退出（PID: ${PG_PID}）"
       error "数据目录: ${PG_DATA_DIR}"
       
-      # 查找最新的日志文件
-      local latest_log=$(ls -t "${pg_log_dir}"/*.log 2>/dev/null | head -1)
+      # 查找最新的日志文件（跨平台兼容）
+      local latest_log=""
+      if [[ -d "${pg_log_dir}" ]]; then
+        latest_log="$(latest_file "${pg_log_dir}"/*.log)"
+      fi
       if [[ -n "${latest_log}" ]] && [[ -f "${latest_log}" ]]; then
         error "PostgreSQL 日志文件: ${latest_log}"
         error "日志内容（最后 30 行）："
-        tail -n 30 "${latest_log}" >&2 || true
+        # 跨平台 tail 兼容性
+        if tail -n 30 "${latest_log}" >&2 2>/dev/null; then
+          : # 成功
+        elif tail -30 "${latest_log}" >&2 2>/dev/null; then
+          : # Fallback: BSD tail 格式
+        else
+          tail "${latest_log}" >&2 2>/dev/null || true
+        fi
       else
         error "未找到 PostgreSQL 日志文件"
         error "请检查数据目录权限: ${PG_DATA_DIR}"
@@ -731,20 +921,34 @@ start_postgres() {
       error "PostgreSQL 进程已退出"
     fi
     
-    # 输出日志
+    # 输出日志（跨平台兼容）
     local latest_log=""
     if [[ -d "${pg_log_dir}" ]]; then
-      latest_log=$(ls -t "${pg_log_dir}"/*.log 2>/dev/null | head -1)
+      latest_log="$(latest_file "${pg_log_dir}"/*.log)"
     fi
     
     if [[ -n "${latest_log}" ]] && [[ -f "${latest_log}" ]]; then
       error "PostgreSQL 日志文件: ${latest_log}"
       error "日志内容（最后 50 行）："
-      tail -n 50 "${latest_log}" >&2 || true
+      # 跨平台 tail 兼容性
+      if tail -n 50 "${latest_log}" >&2 2>/dev/null; then
+        : # 成功
+      elif tail -50 "${latest_log}" >&2 2>/dev/null; then
+        : # Fallback: BSD tail 格式
+      else
+        tail "${latest_log}" >&2 2>/dev/null || true
+      fi
     elif [[ -f "${pg_log_file}" ]]; then
       error "PostgreSQL 日志文件: ${pg_log_file}"
       error "日志内容（最后 50 行）："
-      tail -n 50 "${pg_log_file}" >&2 || true
+      # 跨平台 tail 兼容性
+      if tail -n 50 "${pg_log_file}" >&2 2>/dev/null; then
+        : # 成功
+      elif tail -50 "${pg_log_file}" >&2 2>/dev/null; then
+        : # Fallback: BSD tail 格式
+      else
+        tail "${pg_log_file}" >&2 2>/dev/null || true
+      fi
     fi
     
     exit 1
@@ -915,8 +1119,32 @@ start_redis() {
     REDIS_AUTH_ARGS+=(--requirepass "${REDIS_PASSWORD}")
   fi
 
-  # 启动 Redis（后台运行）
-  if ! redis-server \
+  # 创建 Redis 日志目录（使用局部变量，确保作用域正确）
+  local redis_log_dir="/data/redis/log"
+  if ! mkdir -p "${redis_log_dir}" 2>/dev/null; then
+    warn "无法创建 Redis 日志目录: ${redis_log_dir}，将使用数据目录"
+    redis_log_dir="/data/redis"
+  fi
+  
+  # 设置日志目录权限
+  local log_chown_attempts=0
+  while [[ ${log_chown_attempts} -lt 3 ]]; do
+    if chown appuser:appuser "${redis_log_dir}" 2>/dev/null || chmod 755 "${redis_log_dir}" 2>/dev/null; then
+      break
+    fi
+    log_chown_attempts=$((log_chown_attempts + 1))
+    [[ ${log_chown_attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置 Redis 日志目录权限，继续尝试"
+  done
+  
+  local redis_log_file="${redis_log_dir}/redis-$(date +%Y%m%d-%H%M%S).log"
+  log "启动 Redis，日志文件: ${redis_log_file}"
+  
+  # 确保日志文件可以被创建
+  touch "${redis_log_file}" 2>/dev/null || true
+  chown appuser:appuser "${redis_log_file}" 2>/dev/null || chmod 666 "${redis_log_file}" 2>/dev/null || true
+  
+  # 启动 Redis（后台运行，输出到日志文件）
+  redis-server \
     --bind 127.0.0.1 \
     --port "${REDIS_PORT}" \
     --dir /data/redis \
@@ -924,20 +1152,47 @@ start_redis() {
     --appendfilename "appendonly.aof" \
     --save 900 1 --save 300 10 --save 60 10000 \
     "${REDIS_AUTH_ARGS[@]}" \
-    >/dev/null 2>&1 &
-  then
-    error "无法启动 Redis 进程"
-    exit 1
-  fi
+    >>"${redis_log_file}" 2>&1 &
   
   export REDIS_PID=$!
   
-  # 等待进程启动
-  sleep 1
+  # 验证进程是否真的启动
+  if [[ -z "${REDIS_PID}" ]] || [[ "${REDIS_PID}" -eq 0 ]]; then
+    error "无法获取 Redis 进程 PID"
+    error "请检查 redis-server 命令是否可用"
+    
+    if ! command -v redis-server >/dev/null 2>&1; then
+      error "redis-server 命令不存在"
+    fi
+    
+    exit 1
+  fi
   
-  # 检查进程是否还在运行
+  log "Redis 进程已启动，PID: ${REDIS_PID}"
+  
+  # 等待进程启动（Windows/NAS 环境可能需要更长时间）
+  sleep 2
+  
+  # 检查进程是否还在运行（使用 kill -0，最兼容）
   if ! kill -0 "${REDIS_PID}" 2>/dev/null; then
-    error "Redis 进程启动后立即退出，请检查配置和日志"
+    error "Redis 进程启动后立即退出（PID: ${REDIS_PID}）"
+    error "日志文件: ${redis_log_file}"
+    
+    if [[ -f "${redis_log_file}" ]]; then
+      error "Redis 启动日志（最后 30 行）："
+      # 跨平台 tail 兼容性
+      if tail -n 30 "${redis_log_file}" >&2 2>/dev/null; then
+        : # 成功
+      elif tail -30 "${redis_log_file}" >&2 2>/dev/null; then
+        : # Fallback: BSD tail 格式
+      else
+        tail "${redis_log_file}" >&2 2>/dev/null || true
+      fi
+    else
+      error "未找到 Redis 日志文件"
+      error "请检查 Redis 数据目录权限: /data/redis"
+    fi
+    
     exit 1
   fi
   
@@ -953,6 +1208,37 @@ start_redis() {
     # 检查进程是否还在运行
     if ! kill -0 "${REDIS_PID}" 2>/dev/null; then
       error "Redis 进程意外退出（PID: ${REDIS_PID}）"
+      
+      # 查找最新的日志文件（跨平台兼容）
+      local latest_redis_log=""
+      if [[ -d "${redis_log_dir}" ]]; then
+        latest_redis_log="$(latest_file "${redis_log_dir}"/*.log)"
+      fi
+      
+      if [[ -n "${latest_redis_log}" ]] && [[ -f "${latest_redis_log}" ]]; then
+        error "Redis 日志文件: ${latest_redis_log}"
+        error "日志内容（最后 30 行）："
+        # 跨平台 tail 兼容性
+        if tail -n 30 "${latest_redis_log}" >&2 2>/dev/null; then
+          : # 成功
+        elif tail -30 "${latest_redis_log}" >&2 2>/dev/null; then
+          : # Fallback: BSD tail 格式
+        else
+          tail "${latest_redis_log}" >&2 2>/dev/null || true
+        fi
+      elif [[ -f "${redis_log_file}" ]]; then
+        error "Redis 日志文件: ${redis_log_file}"
+        error "日志内容（最后 30 行）："
+        # 跨平台 tail 兼容性
+        if tail -n 30 "${redis_log_file}" >&2 2>/dev/null; then
+          : # 成功
+        elif tail -30 "${redis_log_file}" >&2 2>/dev/null; then
+          : # Fallback: BSD tail 格式
+        else
+          tail "${redis_log_file}" >&2 2>/dev/null || true
+        fi
+      fi
+      
       exit 1
     fi
     
@@ -962,6 +1248,48 @@ start_redis() {
   
   if ! redis-cli -h 127.0.0.1 -p "${REDIS_PORT}" ping >/dev/null 2>&1; then
     error "Redis 启动超时（${max_attempts} 秒后仍未就绪）"
+    error "进程 PID: ${REDIS_PID}"
+    
+    # 检查进程状态
+    if kill -0 "${REDIS_PID}" 2>/dev/null; then
+      error "Redis 进程仍在运行，但无法连接"
+      error "可能的原因："
+      error "1. Redis 配置问题（端口、绑定地址）"
+      error "2. 网络连接问题"
+    else
+      error "Redis 进程已退出"
+    fi
+    
+    # 输出日志
+    local latest_redis_log=""
+    if [[ -d "${redis_log_dir}" ]]; then
+      latest_redis_log="$(latest_file "${redis_log_dir}"/*.log)"
+    fi
+    
+    if [[ -n "${latest_redis_log}" ]] && [[ -f "${latest_redis_log}" ]]; then
+      error "Redis 日志文件: ${latest_redis_log}"
+      error "日志内容（最后 50 行）："
+      # 跨平台 tail 兼容性
+      if tail -n 50 "${latest_redis_log}" >&2 2>/dev/null; then
+        : # 成功
+      elif tail -50 "${latest_redis_log}" >&2 2>/dev/null; then
+        : # Fallback: BSD tail 格式
+      else
+        tail "${latest_redis_log}" >&2 2>/dev/null || true
+      fi
+    elif [[ -f "${redis_log_file}" ]]; then
+      error "Redis 日志文件: ${redis_log_file}"
+      error "日志内容（最后 50 行）："
+      # 跨平台 tail 兼容性
+      if tail -n 50 "${redis_log_file}" >&2 2>/dev/null; then
+        : # 成功
+      elif tail -50 "${redis_log_file}" >&2 2>/dev/null; then
+        : # Fallback: BSD tail 格式
+      else
+        tail "${redis_log_file}" >&2 2>/dev/null || true
+      fi
+    fi
+    
     exit 1
   fi
 }
@@ -969,11 +1297,25 @@ start_redis() {
 shutdown() {
   log "收到退出信号，正在停止服务..."
   
-  # 优雅停止 Redis
+  # 优雅停止 Redis（跨平台信号处理）
+  # Linux/macOS: SIGTERM, SIGKILL
+  # Windows (WSL): SIGTERM, SIGKILL (通过 kill 命令)
+  # Alpine/BusyBox: SIGTERM, SIGKILL
   if [[ -n "${REDIS_PID:-}" ]] && kill -0 "${REDIS_PID}" 2>/dev/null; then
     log "停止 Redis (PID: ${REDIS_PID})..."
-    redis-cli -h 127.0.0.1 -p "${REDIS_PORT:-6379}" SHUTDOWN SAVE >/dev/null 2>&1 || \
+    # 优先使用 redis-cli SHUTDOWN（优雅关闭）
+    if command -v redis-cli >/dev/null 2>&1; then
+      if [[ -n "${REDIS_PASSWORD:-}" ]]; then
+        redis-cli -h 127.0.0.1 -p "${REDIS_PORT:-6379}" -a "${REDIS_PASSWORD}" SHUTDOWN SAVE >/dev/null 2>&1 || \
+          kill -TERM "${REDIS_PID}" 2>/dev/null || true
+      else
+        redis-cli -h 127.0.0.1 -p "${REDIS_PORT:-6379}" SHUTDOWN SAVE >/dev/null 2>&1 || \
+          kill -TERM "${REDIS_PID}" 2>/dev/null || true
+      fi
+    else
+      # Fallback: 直接发送 SIGTERM
       kill -TERM "${REDIS_PID}" 2>/dev/null || true
+    fi
     
     # 等待进程退出（最多 10 秒）
     local wait_count=0
@@ -982,18 +1324,24 @@ shutdown() {
       wait_count=$((wait_count + 1))
     done
     
-    # 如果还在运行，强制终止
+    # 如果还在运行，强制终止（SIGKILL）
     if kill -0 "${REDIS_PID}" 2>/dev/null; then
       warn "Redis 未正常退出，强制终止"
-      kill -KILL "${REDIS_PID}" 2>/dev/null || true
+      kill -KILL "${REDIS_PID}" 2>/dev/null || kill -9 "${REDIS_PID}" 2>/dev/null || true
     fi
   fi
   
-  # 优雅停止 PostgreSQL
+  # 优雅停止 PostgreSQL（跨平台信号处理）
   if [[ -n "${PG_PID:-}" ]] && kill -0 "${PG_PID}" 2>/dev/null; then
     log "停止 PostgreSQL (PID: ${PG_PID})..."
-    su-exec postgres:postgres pg_ctl stop -D "${PG_DATA_DIR:-/var/lib/postgresql/data}" -m fast >/dev/null 2>&1 || \
+    # 优先使用 pg_ctl stop（优雅关闭）
+    if command -v pg_ctl >/dev/null 2>&1 && [[ -n "${PG_DATA_DIR:-}" ]]; then
+      su-exec postgres:postgres pg_ctl stop -D "${PG_DATA_DIR}" -m fast >/dev/null 2>&1 || \
+        kill -TERM "${PG_PID}" 2>/dev/null || true
+    else
+      # Fallback: 直接发送 SIGTERM
       kill -TERM "${PG_PID}" 2>/dev/null || true
+    fi
     
     # 等待进程退出（最多 15 秒）
     local wait_count=0
@@ -1002,17 +1350,21 @@ shutdown() {
       wait_count=$((wait_count + 1))
     done
     
-    # 如果还在运行，强制终止
+    # 如果还在运行，强制终止（SIGKILL）
     if kill -0 "${PG_PID}" 2>/dev/null; then
       warn "PostgreSQL 未正常退出，强制终止"
-      kill -KILL "${PG_PID}" 2>/dev/null || true
+      kill -KILL "${PG_PID}" 2>/dev/null || kill -9 "${PG_PID}" 2>/dev/null || true
     fi
   fi
   
   log "服务已停止"
 }
 
-trap shutdown SIGTERM SIGINT
+# 注册信号处理（跨平台兼容）
+# Linux/macOS/Alpine: SIGTERM, SIGINT, SIGHUP
+# Windows (WSL): SIGTERM, SIGINT
+# 注意：某些环境可能不支持 trap，使用 || true 避免失败
+trap shutdown SIGTERM SIGINT SIGHUP EXIT 2>/dev/null || true
 
 fix_permissions
 
@@ -1045,12 +1397,18 @@ log "╠════════════════════════
 log "║  应用名称: ${APP_NAME}"
 if [[ "${APP_HOST}" == "0.0.0.0" ]]; then
   # 如果监听所有接口，尝试获取容器IP（只获取一次，避免重复）
+  # 跨平台兼容性：
+  # - Linux: ip route (GNU iputils) 或 hostname -i
+  # - Alpine/BusyBox: hostname -i (如果安装了 iputils)
+  # - macOS Docker Desktop: hostname -i
   CONTAINER_IP=""
-  if command -v hostname &> /dev/null; then
-    CONTAINER_IP=$(hostname -i 2>/dev/null | awk '{print $1}' || echo "")
+  # 优先使用 ip 命令（更可靠）
+  if have_cmd ip; then
+    CONTAINER_IP="$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7}' | first_line || echo "")"
   fi
-  if [[ -z "${CONTAINER_IP}" ]] && command -v ip &> /dev/null; then
-    CONTAINER_IP=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7}' | head -1 || echo "")
+  # Fallback: 使用 hostname -i
+  if [[ -z "${CONTAINER_IP}" ]] && command -v hostname >/dev/null 2>&1; then
+    CONTAINER_IP=$(hostname -i 2>/dev/null | awk '{print $1}' || echo "")
   fi
   if [[ -n "${CONTAINER_IP}" ]]; then
     log "║  容器IP:   ${CONTAINER_IP}"

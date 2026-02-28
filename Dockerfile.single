@@ -28,7 +28,11 @@ RUN go mod download && go mod verify
 COPY . .
 RUN mkdir -p migrations
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+# 支持多架构构建（通过 buildx --platform 参数）
+# 默认构建 AMD64，可通过 --build-arg 指定其他架构
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o registry-server \
     -installsuffix cgo ./cmd/server
 
@@ -137,7 +141,10 @@ USER root
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+# 健康检查：使用 wget（Alpine/BusyBox 兼容）
+# 注意：NAS/Windows Docker 环境下，健康检查可能需要更长的超时时间
+# 如果健康检查失败，可以增加 --timeout 值或禁用健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD wget -q --spider http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["/bin/bash", "/app/single-entrypoint.sh"]

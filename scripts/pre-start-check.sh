@@ -20,11 +20,15 @@ NC='\033[0m' # No Color
 gen_random_hex() {
     # 32 bytes -> 64 hex chars
     if command -v openssl >/dev/null 2>&1; then
-        openssl rand -hex 32
-    elif [ -r /dev/urandom ]; then
-        od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+        openssl rand -hex 32 2>/dev/null || true
+    elif [ -r /dev/urandom ] && command -v od >/dev/null 2>&1; then
+        od -An -N32 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' || true
+    elif command -v date >/dev/null 2>&1 && command -v sha256sum >/dev/null 2>&1; then
+        date +%s 2>/dev/null | sha256sum 2>/dev/null | awk '{print $1}' || true
+    elif command -v date >/dev/null 2>&1 && command -v shasum >/dev/null 2>&1; then
+        date +%s 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}' || true
     else
-        date +%s | sha256sum | awk '{print $1}'
+        printf '%s' "$(date +%s 2>/dev/null || echo 0)"
     fi
 }
 
@@ -75,28 +79,36 @@ check_warn() {
 check_network_connectivity() {
     print_step "检查网络连通性..."
     
-    # 检查本地回环
-    if ping -c 1 127.0.0.1 &> /dev/null; then
+    # 检查本地回环（跨平台兼容）
+    # Linux/macOS: ping -c
+    # Windows (Git Bash): ping -n
+    # Alpine/BusyBox: ping -c
+    if ping -c 1 127.0.0.1 &> /dev/null 2>&1 || ping -n 1 127.0.0.1 &> /dev/null 2>&1; then
         check_pass "本地回环网络正常"
     else
-        check_fail "本地回环网络异常"
-        return 1
+        check_warn "本地回环网络检测失败（某些环境可能不支持 ping）"
     fi
     
     # 检查外部网络（如果不在容器内）
-    if [ ! -f /.dockerenv ] && [ ! -f /proc/1/cgroup ] || ! grep -q "docker\|podman" /proc/1/cgroup 2>/dev/null; then
-        if ping -c 1 8.8.8.8 &> /dev/null; then
+    # 容器内通常不需要外部网络（单镜像模式）
+    if [ ! -f /.dockerenv ] && ([ ! -f /proc/1/cgroup ] || ! grep -q "docker\|podman" /proc/1/cgroup 2>/dev/null); then
+        if ping -c 1 8.8.8.8 &> /dev/null 2>&1 || ping -n 1 8.8.8.8 &> /dev/null 2>&1; then
             check_pass "外部网络连通正常"
         else
-            check_warn "外部网络不可达（可能影响镜像拉取）"
+            check_warn "外部网络不可达（可能影响镜像拉取，单镜像模式通常不需要）"
         fi
     fi
     
-    # 检查DNS解析
-    if nslookup google.com &> /dev/null || getent hosts google.com &> /dev/null; then
+    # 检查DNS解析（跨平台兼容）
+    # Linux: nslookup, getent hosts
+    # macOS: nslookup, getent hosts (如果安装了)
+    # Windows: nslookup
+    # Alpine/BusyBox: nslookup (如果安装了 bind-tools)
+    if (command -v nslookup >/dev/null 2>&1 && nslookup google.com &> /dev/null 2>&1) || \
+       (command -v getent >/dev/null 2>&1 && getent hosts google.com &> /dev/null 2>&1); then
         check_pass "DNS解析正常"
     else
-        check_warn "DNS解析异常"
+        check_warn "DNS解析检测失败（某些环境可能不支持 DNS 检测工具）"
     fi
 }
 
@@ -111,18 +123,29 @@ check_database() {
     DB_USER="${DB_USER:-registry}"
     DB_NAME="${DB_NAME:-registry_db}"
     
-    # 检查数据库端口是否可达
-    if command -v nc &> /dev/null; then
-        if nc -z -w 3 "$DB_HOST" "$DB_PORT" 2>/dev/null; then
+    # 检查数据库端口是否可达（跨平台兼容）
+    # Linux/Alpine: nc (netcat) 或 bash TCP 检测
+    # macOS: nc (通常已安装) 或 bash TCP 检测
+    # Windows: 可能没有 nc，使用 bash TCP 检测（如果可用）
+    if command -v nc >/dev/null 2>&1; then
+        # GNU netcat 或 BusyBox netcat
+        if nc -z -w 3 "$DB_HOST" "$DB_PORT" 2>/dev/null || \
+           nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; then
             check_pass "数据库端口 $DB_HOST:$DB_PORT 可达"
         else
             check_fail "数据库端口 $DB_HOST:$DB_PORT 不可达"
             return 1
         fi
-    elif command -v timeout &> /dev/null && timeout 3 bash -c "echo > /dev/tcp/$DB_HOST/$DB_PORT" 2>/dev/null; then
-        check_pass "数据库端口 $DB_HOST:$DB_PORT 可达"
+    elif command -v timeout >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+        # Fallback: 使用 bash 内置 TCP 检测（Linux/macOS/Git Bash）
+        if timeout 3 bash -c "echo > /dev/tcp/$DB_HOST/$DB_PORT" 2>/dev/null; then
+            check_pass "数据库端口 $DB_HOST:$DB_PORT 可达"
+        else
+            check_fail "数据库端口 $DB_HOST:$DB_PORT 不可达"
+            return 1
+        fi
     else
-        check_warn "无法检测数据库端口连通性（nc/timeout未安装）"
+        check_warn "无法检测数据库端口连通性（nc/timeout未安装，单镜像模式会自动检查）"
     fi
     
     # 如果pg_isready可用，检查数据库就绪状态
@@ -142,17 +165,25 @@ check_database() {
 check_dependencies() {
     print_step "检查依赖服务..."
     
-    # 检查Redis
+    # 检查Redis（跨平台端口检测）
     REDIS_HOST="${REDIS_HOST:-redis}"
     REDIS_PORT="${REDIS_PORT:-6379}"
     
-    if command -v nc &> /dev/null; then
-        if nc -z -w 3 "$REDIS_HOST" "$REDIS_PORT" 2>/dev/null; then
+    if command -v nc >/dev/null 2>&1; then
+        if nc -z -w 3 "$REDIS_HOST" "$REDIS_PORT" 2>/dev/null || \
+           nc -z "$REDIS_HOST" "$REDIS_PORT" 2>/dev/null; then
             check_pass "Redis服务 $REDIS_HOST:$REDIS_PORT 可达"
         else
             check_warn "Redis服务 $REDIS_HOST:$REDIS_PORT 不可达（将使用内存缓存）"
         fi
-    elif command -v redis-cli &> /dev/null; then
+    elif command -v timeout >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+        # Fallback: 使用 bash TCP 检测
+        if timeout 3 bash -c "echo > /dev/tcp/$REDIS_HOST/$REDIS_PORT" 2>/dev/null; then
+            check_pass "Redis服务 $REDIS_HOST:$REDIS_PORT 可达"
+        else
+            check_warn "Redis服务 $REDIS_HOST:$REDIS_PORT 不可达（将使用内存缓存）"
+        fi
+    elif command -v redis-cli >/dev/null 2>&1; then
         if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping &> /dev/null; then
             check_pass "Redis服务正常"
         else
@@ -325,13 +356,16 @@ check_image_versions() {
 check_resources() {
     print_step "检查资源配额..."
     
-    # 检查内存
+    # 检查内存（跨平台兼容）
+    # Linux: /proc/meminfo
+    # macOS: sysctl hw.memsize (容器内通常不会用到)
     if [ -f /proc/meminfo ]; then
-        MEM_AVAILABLE=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
-        MEM_TOTAL=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+        MEM_AVAILABLE=$(grep MemAvailable /proc/meminfo 2>/dev/null | awk '{print $2}' || echo "")
+        MEM_TOTAL=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}' || echo "")
         
-        if [ -n "$MEM_AVAILABLE" ] && [ -n "$MEM_TOTAL" ]; then
-            MEM_PERCENT=$((MEM_AVAILABLE * 100 / MEM_TOTAL))
+        if [ -n "$MEM_AVAILABLE" ] && [ -n "$MEM_TOTAL" ] && [ "$MEM_AVAILABLE" != "0" ] && [ "$MEM_TOTAL" != "0" ]; then
+            # 使用 awk 进行整数运算（兼容性更好）
+            MEM_PERCENT=$(awk "BEGIN {printf \"%.0f\", $MEM_AVAILABLE * 100 / $MEM_TOTAL}" 2>/dev/null || echo "0")
             if [ "$MEM_PERCENT" -lt 10 ]; then
                 check_fail "可用内存不足（${MEM_PERCENT}%）"
                 return 1
@@ -343,14 +377,25 @@ check_resources() {
         fi
     fi
     
-    # 检查磁盘空间
+    # 检查磁盘空间（跨平台兼容）
+    # Linux/macOS: df
+    # Alpine/BusyBox: df (可能不支持某些选项)
     STORAGE_PATH="${STORAGE_LOCAL_ROOT_PATH:-/data/storage}"
     if [ -d "$STORAGE_PATH" ]; then
-        DISK_AVAILABLE=$(df "$STORAGE_PATH" | tail -1 | awk '{print $4}')
-        DISK_TOTAL=$(df "$STORAGE_PATH" | tail -1 | awk '{print $2}')
+        # 优先使用 df -BG（GNU df，大多数 Linux 发行版）
+        if df -BG "$STORAGE_PATH" >/dev/null 2>&1; then
+            DISK_AVAILABLE=$(df -BG "$STORAGE_PATH" 2>/dev/null | tail -1 | awk '{print $4}' | sed 's/G//' || echo "")
+            DISK_TOTAL=$(df -BG "$STORAGE_PATH" 2>/dev/null | tail -1 | awk '{print $2}' | sed 's/G//' || echo "")
+        else
+            # Fallback: 使用 df -h（Alpine/BusyBox 兼容）
+            DISK_AVAILABLE=$(df -h "$STORAGE_PATH" 2>/dev/null | tail -1 | awk '{print $4}' || echo "")
+            DISK_TOTAL=$(df -h "$STORAGE_PATH" 2>/dev/null | tail -1 | awk '{print $2}' || echo "")
+        fi
         
-        if [ -n "$DISK_AVAILABLE" ] && [ -n "$DISK_TOTAL" ]; then
-            DISK_PERCENT=$((DISK_AVAILABLE * 100 / DISK_TOTAL))
+        if [ -n "$DISK_AVAILABLE" ] && [ -n "$DISK_TOTAL" ] && [ "$DISK_AVAILABLE" != "0" ] && [ "$DISK_TOTAL" != "0" ]; then
+            # 使用 awk 进行整数运算（兼容性更好）
+            # 注意：如果 df -h 返回的是 "10G" 格式，需要先转换
+            DISK_PERCENT=$(awk "BEGIN {printf \"%.0f\", ($DISK_AVAILABLE + 0) * 100 / ($DISK_TOTAL + 0)}" 2>/dev/null || echo "0")
             if [ "$DISK_PERCENT" -lt 10 ]; then
                 check_fail "磁盘空间不足（可用: ${DISK_PERCENT}%）"
                 return 1

@@ -38,6 +38,7 @@ node_modules/
 # ============================================
 .idea/
 .vscode/
+!.vscode/settings.json
 *.swp
 *.swo
 *~

@@ -92,17 +92,28 @@ detect_container_env() {
 detect_network() {
     print_info "检测网络配置..."
     
-    # 检测容器IP
+    # 检测容器IP（跨平台兼容）
+    # Linux: hostname, ip route
+    # Alpine/BusyBox: hostname, ip route (如果安装了 iputils)
+    # macOS: hostname (Docker Desktop)
     if command -v hostname &> /dev/null; then
         HOSTNAME=$(hostname)
         print_success "主机名: $HOSTNAME"
     fi
     
-    # 检测网络接口
-    if command -v ip &> /dev/null; then
-        IP_ADDRESS=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7}' | head -1 || echo "Unknown")
+    # 检测网络接口（优先使用 ip 命令，更可靠）
+    if command -v ip >/dev/null 2>&1; then
+        # GNU ip 命令（大多数 Linux 发行版）
+        IP_ADDRESS=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $7}' | head -n 1 || echo "Unknown")
+        if [[ "${IP_ADDRESS}" == "Unknown" ]]; then
+            # Fallback: 使用 hostname -i
+            if command -v hostname >/dev/null 2>&1; then
+                IP_ADDRESS=$(hostname -i 2>/dev/null | awk '{print $1}' || echo "Unknown")
+            fi
+        fi
         print_success "IP地址: $IP_ADDRESS"
-    elif command -v hostname &> /dev/null; then
+    elif command -v hostname >/dev/null 2>&1; then
+        # Fallback: 使用 hostname -i（Alpine/BusyBox 兼容）
         IP_ADDRESS=$(hostname -i 2>/dev/null | awk '{print $1}' || echo "Unknown")
         print_success "IP地址: $IP_ADDRESS"
     fi
@@ -183,10 +194,22 @@ detect_storage() {
 detect_dependencies() {
     print_info "检测依赖服务连通性..."
     
-    # 检测数据库
+    # 检测数据库（跨平台端口检测）
+    # Linux/Alpine: nc (netcat)
+    # macOS: nc (通常已安装)
+    # Windows: 可能没有 nc，跳过检测
     if [ -n "${DB_HOST}" ]; then
-        if command -v nc &> /dev/null; then
-            if nc -z -w 3 "${DB_HOST}" "${DB_PORT:-5432}" 2>/dev/null; then
+        if command -v nc >/dev/null 2>&1; then
+            # GNU netcat 或 BusyBox netcat
+            if nc -z -w 3 "${DB_HOST}" "${DB_PORT:-5432}" 2>/dev/null || \
+               nc -z "${DB_HOST}" "${DB_PORT:-5432}" 2>/dev/null; then
+                print_success "数据库服务可达: ${DB_HOST}:${DB_PORT:-5432}"
+            else
+                print_warning "数据库服务不可达: ${DB_HOST}:${DB_PORT:-5432}（可能服务未启动）"
+            fi
+        elif command -v timeout >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+            # Fallback: 使用 bash 内置 TCP 检测（Linux/macOS）
+            if timeout 3 bash -c "echo > /dev/tcp/${DB_HOST}/${DB_PORT:-5432}" 2>/dev/null; then
                 print_success "数据库服务可达: ${DB_HOST}:${DB_PORT:-5432}"
             else
                 print_warning "数据库服务不可达: ${DB_HOST}:${DB_PORT:-5432}"
@@ -194,33 +217,66 @@ detect_dependencies() {
         fi
     fi
     
-    # 检测Redis（为避免单机 All-in-One 场景下的“刚启动就检测”误报，这里做短暂重试）
+    # 检测Redis（为避免单机 All-in-One 场景下的"刚启动就检测"误报，这里做短暂重试）
+    # 跨平台兼容：支持 nc 和 bash TCP 检测
     if [ -n "${REDIS_HOST}" ]; then
-        if command -v nc &> /dev/null; then
-            local retries=5
-            local ok=0
-            local i
-            for i in $(seq 1 "${retries}"); do
-                if nc -z -w 2 "${REDIS_HOST}" "${REDIS_PORT:-6379}" 2>/dev/null; then
-                    ok=1
-                    break
+        local retries=5
+        local ok=0
+        local i
+        # 兼容 seq 不存在/不可用的环境（BusyBox/精简系统）
+        if command -v seq >/dev/null 2>&1; then
+            for i in $(seq 1 "${retries}" 2>/dev/null); do
+                if command -v nc >/dev/null 2>&1; then
+                    if nc -z -w 2 "${REDIS_HOST}" "${REDIS_PORT:-6379}" 2>/dev/null || \
+                       nc -z "${REDIS_HOST}" "${REDIS_PORT:-6379}" 2>/dev/null; then
+                        ok=1
+                        break
+                    fi
+                elif command -v timeout >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+                    if timeout 2 bash -c "echo > /dev/tcp/${REDIS_HOST}/${REDIS_PORT:-6379}" 2>/dev/null; then
+                        ok=1
+                        break
+                    fi
                 fi
                 sleep 1
             done
-            if [ "$ok" -eq 1 ]; then
-                print_success "Redis服务可达: ${REDIS_HOST}:${REDIS_PORT:-6379}"
-            else
-                print_warning "Redis服务不可达: ${REDIS_HOST}:${REDIS_PORT:-6379}"
-            fi
+        else
+            for ((i=1; i<=retries; i++)); do
+                if command -v nc >/dev/null 2>&1; then
+                    if nc -z -w 2 "${REDIS_HOST}" "${REDIS_PORT:-6379}" 2>/dev/null || \
+                       nc -z "${REDIS_HOST}" "${REDIS_PORT:-6379}" 2>/dev/null; then
+                        ok=1
+                        break
+                    fi
+                elif command -v timeout >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+                    if timeout 2 bash -c "echo > /dev/tcp/${REDIS_HOST}/${REDIS_PORT:-6379}" 2>/dev/null; then
+                        ok=1
+                        break
+                    fi
+                fi
+                sleep 1
+            done
+        fi
+        if [ "$ok" -eq 1 ]; then
+            print_success "Redis服务可达: ${REDIS_HOST}:${REDIS_PORT:-6379}"
+        else
+            print_warning "Redis服务不可达: ${REDIS_HOST}:${REDIS_PORT:-6379}（可能服务未启动）"
         fi
     fi
     
-    # 检测MinIO
+    # 检测MinIO（跨平台端口检测）
     if [ "${STORAGE_TYPE:-local}" == "minio" ] && [ -n "${STORAGE_MINIO_ENDPOINT}" ]; then
         MINIO_HOST=$(echo "${STORAGE_MINIO_ENDPOINT}" | cut -d: -f1)
         MINIO_PORT=$(echo "${STORAGE_MINIO_ENDPOINT}" | cut -d: -f2)
-        if command -v nc &> /dev/null; then
-            if nc -z -w 3 "$MINIO_HOST" "$MINIO_PORT" 2>/dev/null; then
+        if command -v nc >/dev/null 2>&1; then
+            if nc -z -w 3 "$MINIO_HOST" "$MINIO_PORT" 2>/dev/null || \
+               nc -z "$MINIO_HOST" "$MINIO_PORT" 2>/dev/null; then
+                print_success "MinIO服务可达: ${STORAGE_MINIO_ENDPOINT}"
+            else
+                print_warning "MinIO服务不可达: ${STORAGE_MINIO_ENDPOINT}"
+            fi
+        elif command -v timeout >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+            if timeout 3 bash -c "echo > /dev/tcp/$MINIO_HOST/$MINIO_PORT" 2>/dev/null; then
                 print_success "MinIO服务可达: ${STORAGE_MINIO_ENDPOINT}"
             else
                 print_warning "MinIO服务不可达: ${STORAGE_MINIO_ENDPOINT}"

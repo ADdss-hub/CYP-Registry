@@ -292,7 +292,13 @@
       "staticcheck",
       "honnef",
       "cursorinfo",
-      "ehthumbs"
+      "ehthumbs",
+      "pgdata",
+      "btrfs",
+      "findutils",
+      "syno",
+      "chcon",
+      "coreutils"
   ],
   "ignorePaths": [
     "node_modules/**",
