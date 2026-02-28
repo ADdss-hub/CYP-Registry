@@ -408,14 +408,52 @@ jobs:
           registry: ${{ env.EXTERNAL_DOCKER_REGISTRY }}
           username: ${{ env.EXTERNAL_DOCKER_USERNAME }}
           password: ${{ env.EXTERNAL_DOCKER_PASSWORD }}
+        continue-on-error: true
 
       - name: Re-tag and push to external registry (optional)
         if: env.EXTERNAL_DOCKER_REGISTRY != '' && env.EXTERNAL_DOCKER_USERNAME != '' && env.EXTERNAL_DOCKER_PASSWORD != ''
+        continue-on-error: true
         run: |
           # 使用 GHCR 中已构建的镜像（全小写仓库名，使用语义化版本号，如 0.1.9）
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}
-          docker tag  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }} ${{ env.EXTERNAL_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}
-          docker push ${{ env.EXTERNAL_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}
+          set -e
+          SOURCE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}"
+          TARGET_IMAGE="${{ env.EXTERNAL_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}"
+          
+          echo "📥 从 GHCR 拉取镜像: $SOURCE_IMAGE"
+          docker pull "$SOURCE_IMAGE" || {
+            echo "❌ 拉取镜像失败: $SOURCE_IMAGE"
+            exit 1
+          }
+          
+          echo "🏷️  标记镜像: $SOURCE_IMAGE -> $TARGET_IMAGE"
+          docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE" || {
+            echo "❌ 标记镜像失败"
+            exit 1
+          }
+          
+          echo "📤 推送到外部仓库: $TARGET_IMAGE"
+          echo "   仓库: ${{ env.EXTERNAL_DOCKER_REGISTRY }}"
+          echo "   用户名: ${{ env.EXTERNAL_DOCKER_USERNAME }}"
+          echo "   镜像名: ${{ env.IMAGE_NAME_SLUG }}"
+          echo "   版本: ${{ steps.meta.outputs.version }}"
+          
+          # 验证 Docker 登录状态
+          if [ "${{ env.EXTERNAL_DOCKER_REGISTRY }}" = "docker.io" ] || [ -z "${{ env.EXTERNAL_DOCKER_REGISTRY }}" ]; then
+            echo "🔍 验证 Docker Hub 登录状态..."
+            docker info | grep -i "username" || echo "⚠️  无法验证登录状态"
+          fi
+          
+          docker push "$TARGET_IMAGE" || {
+            echo "❌ 推送失败: $TARGET_IMAGE"
+            echo "💡 可能的原因："
+            echo "   1. Docker Hub 仓库不存在或名称不匹配"
+            echo "   2. 认证信息错误"
+            echo "   3. 没有推送权限"
+            echo "   4. 仓库名称必须完全匹配（包括大小写）"
+            exit 1
+          }
+          
+          echo "✅ 成功推送到外部仓库: $TARGET_IMAGE"
 
   github-release:
     name: Release - Create GitHub Release
