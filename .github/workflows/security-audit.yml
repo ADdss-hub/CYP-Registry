@@ -26,10 +26,10 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -53,10 +53,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -87,10 +87,10 @@ jobs:
         working-directory: ./web
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v2
         with:
           node-version: '20'
           registry-url: 'https://registry.npmmirror.com'
@@ -115,7 +115,7 @@ jobs:
     if: false # 仅在构建镜像时启用
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Build Docker image
         run: |
@@ -142,10 +142,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -168,12 +168,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v2
         with:
           node-version: '20'
 

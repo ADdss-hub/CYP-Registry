@@ -281,7 +281,10 @@
       "pgrep",
       "rwxr",
       "realpath",
-      "Errorf"
+      "Errorf",
+      "softprops",
+      "staticcheck",
+      "honnef"
   ],
   "ignorePaths": [
     "node_modules/**",

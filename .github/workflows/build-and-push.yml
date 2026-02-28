@@ -15,11 +15,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       # 后端：Go 代码测试
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
 
@@ -28,7 +28,7 @@ jobs:
 
       # 前端：确保 web 能成功安装依赖并构建
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v2
         with:
           node-version: '20'
           cache: 'npm'

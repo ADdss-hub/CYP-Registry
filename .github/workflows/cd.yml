@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
       
       - name: Run Trivy Vulnerability Scan
         uses: aquasecurity/trivy-action@master
@@ -46,7 +46,7 @@ jobs:
       
       - name: Upload Vulnerability Results
         if: always()
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
 
@@ -58,7 +58,7 @@ jobs:
     needs: security-audit
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
       
@@ -102,7 +102,7 @@ jobs:
     needs: build-and-push
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
       
@@ -149,7 +149,7 @@ jobs:
       url: https://dev-registry.example.com
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
       
       - name: Deploy to Development
         run: |
@@ -172,7 +172,7 @@ jobs:
       url: https://registry.example.com
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
       
       - name: Deploy to Production
         run: |
