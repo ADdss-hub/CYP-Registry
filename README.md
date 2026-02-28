@@ -96,11 +96,10 @@ docker compose -f docker-compose.single.yml logs -f
 #### 从 GitHub Container Registry (GHCR) 拉取
 
 ```bash
-# 拉取最新版本镜像
-docker pull ghcr.io/addss-hub/cyp-registry:latest
-
-# 或拉取指定版本（推荐生产环境）
+# 拉取指定版本（推荐生产环境）
 docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2
+
+# 或拉取带日期的版本号
 docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2-2026-02-28
 
 # 运行容器（单镜像模式）
@@ -117,10 +116,7 @@ docker run -d \
 #### 从 Docker Hub 拉取（如果已同步）
 
 ```bash
-# 拉取最新版本镜像
-docker pull addss-hub/cyp-registry:latest
-
-# 或拉取指定版本
+# 拉取指定版本
 docker pull addss-hub/cyp-registry:v1.0.2
 
 # 运行容器
@@ -135,9 +131,9 @@ docker run -d \
 ```
 
 **镜像版本说明：**
-- `latest`：最新版本标签
-- `v1.0.2`：标准版本号（语义化版本）
+- `v1.0.2`：标准版本号（语义化版本，推荐使用）
 - `v1.0.2-2026-02-28`：带日期的版本号（便于识别发布日期）
+- **注意**：镜像仓库使用语义化版本号标签，不提供 `latest` 标签。请使用具体的版本号标签拉取镜像。
 
 #### 在其他环境部署（生产环境推荐）
 
@@ -424,7 +420,7 @@ curl -X GET http://localhost:8080/api/v1/users/me \
 3. 选择 "从 URL 添加"
 4. 填写镜像信息：
    - **镜像**（必填）：输入镜像名称或完整 URL
-     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.2`
+     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.2`（注意：本仓库使用版本号标签，不使用 latest）
      - 支持 Docker Hub、GHCR、Quay.io 等公共仓库
    - **用户**（选填）：私有仓库的用户名（如果需要认证）
    - **密码**（选填）：私有仓库的密码或访问令牌
@@ -472,13 +468,11 @@ docker run -d \
 # 登录 Docker Hub
 docker login
 
-# 标记镜像
-docker tag cyp-registry:single addss-hub/cyp-registry:latest
+# 标记镜像（使用版本号标签）
 docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.2
 docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.2-2026-02-28
 
 # 推送镜像
-docker push addss-hub/cyp-registry:latest
 docker push addss-hub/cyp-registry:v1.0.2
 docker push addss-hub/cyp-registry:v1.0.2-2026-02-28
 ```
