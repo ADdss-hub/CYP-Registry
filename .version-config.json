@@ -1,0 +1,96 @@
+{
+  "schema": "2.1.0",
+  "project": {
+    "name": "CYP-Registry",
+    "type": [
+      "generic"
+    ],
+    "root": "E:\\kf\\CYP-Registry"
+  },
+  "versioning": {
+    "format": "semver",
+    "prefix": "v",
+    "rules": {
+      "enforcePrefix": true,
+      "validateIncrement": true,
+      "checkDuplicate": true,
+      "maxHistoryEntries": 100
+    }
+  },
+  "changes": {
+    "types": {
+      "feat": {
+        "level": "minor",
+        "description": "新功能"
+      },
+      "fix": {
+        "level": "patch",
+        "description": "修复问题"
+      },
+      "docs": {
+        "level": "patch",
+        "description": "文档更新"
+      },
+      "style": {
+        "level": "patch",
+        "description": "代码风格"
+      },
+      "refactor": {
+        "level": "patch",
+        "description": "代码重构"
+      },
+      "perf": {
+        "level": "patch",
+        "description": "性能优化"
+      },
+      "test": {
+        "level": "patch",
+        "description": "测试相关"
+      },
+      "build": {
+        "level": "patch",
+        "description": "构建系统"
+      },
+      "ci": {
+        "level": "patch",
+        "description": "CI配置"
+      },
+      "chore": {
+        "level": "patch",
+        "description": "日常维护"
+      },
+      "revert": {
+        "level": "auto",
+        "description": "回滚提交"
+      }
+    }
+  },
+  "scanning": {
+    "patterns": [
+      "**/*.js",
+      "**/*.ts",
+      "**/*.jsx",
+      "**/*.tsx"
+    ],
+    "ignorePatterns": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      ".git/**",
+      "**/*.min.js"
+    ],
+    "versionPatterns": [
+      {},
+      {},
+      {},
+      {},
+      {}
+    ]
+  },
+  "automation": {
+    "autoIncrement": true,
+    "autoRecord": true,
+    "autoSync": true,
+    "autoGenerate": true
+  }
+}

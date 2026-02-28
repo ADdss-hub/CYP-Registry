@@ -1,0 +1,17 @@
+{
+  "version": "v1.0.0",
+  "timestamp": "2026-02-27T16:34:55.016Z",
+  "author": "Unknown",
+  "project": "CYP-Registry",
+  "changes": [
+    {
+      "type": "chore",
+      "description": "发布 1.0.0 版本"
+    }
+  ],
+  "metadata": {
+    "previousVersion": "v0.1.0",
+    "updated": true,
+    "schema": "2.1.0"
+  }
+}

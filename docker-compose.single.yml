@@ -1,0 +1,70 @@
+# ============================================
+# CYP-Registry 单镜像(All-in-One) Compose
+# 目标：只构建/运行一个镜像，不再拉取 postgres/redis/minio 等外部镜像
+# ============================================
+
+version: '3.8'
+
+services:
+  single:
+    build:
+      context: .
+      dockerfile: Dockerfile.single
+      args:
+        - GOPROXY=https://goproxy.cn,direct
+    image: cyp-registry:single
+    container_name: cyp-registry-single
+    ports:
+      - "0.0.0.0:8080:8080"  # 宿主机所有接口:8080 -> 容器8080
+    environment:
+      # 应用运行环境（可覆盖全局配置中心中的 APP_ENV）
+      - APP_ENV=production
+      # 应用监听配置（确保服务监听所有接口，允许外部访问）
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+
+      # 单容器内置 Postgres/Redis（127.0.0.1）
+      - DB_HOST=127.0.0.1
+      - DB_PORT=5432
+      - DB_USER=registry
+      - DB_NAME=registry_db
+      - DB_SSLMODE=disable
+
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+
+      # 存储：单机模式默认 local
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_ROOT_PATH=/data/storage
+
+      # 可选：单机模式默认关闭扫描器（避免依赖外部 trivy 服务镜像）
+      - SCANNER_ENABLED=false
+
+      # 服务器关闭与清理配置（可选，默认从 .env 读取）
+      # CLEANUP_ON_SHUTDOWN: 控制服务器关闭时是否清理所有数据
+      #   1 = 清理所有数据（删除模式）- 会永久删除所有用户数据、项目数据、镜像文件、缓存数据
+      #   0 或不设置 = 保留数据（停止模式）- 仅关闭服务，保留所有数据
+      # ⚠️ 警告：设置为 1 时，关闭服务器会永久删除所有数据，此操作不可恢复！
+      # 生产环境强烈建议设置为 0 或不设置，避免误操作导致数据丢失
+      # 如需启用清理模式，请在根级 .env 文件中设置 CLEANUP_ON_SHUTDOWN=1
+      - CLEANUP_ON_SHUTDOWN=1
+    volumes:
+      # 挂载宿主机项目根目录到容器内 /workspace：
+      # - 入口脚本会在此目录自动生成 .env（如不存在），并仅将其中未在环境中显式设置的变量加载到容器环境
+      # - 生成的 .env 将直接同步回宿主机项目根目录，实现“docker compose up 即自动生成 .env”
+      - ./:/workspace
+      - single_pg_data:/var/lib/postgresql/data
+      - single_redis_data:/data/redis
+      - storage_data:/data/storage
+      - logs_data:/app/logs
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+
+volumes:
+  single_pg_data:
+  single_redis_data:
+  storage_data:
+  logs_data:
+

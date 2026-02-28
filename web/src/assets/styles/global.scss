@@ -1,0 +1,350 @@
+// 全局样式重置
+// 注意：@use 语句通过 vite.config.ts 的 additionalData 自动注入，无需在此重复声明
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: $font-family;
+  font-size: $font-size-base;
+  line-height: 1.5;
+  color: $light-text;
+  background-color: $light-bg;
+}
+
+a {
+  color: $primary-color;
+  text-decoration: none;
+  transition: color $transition-fast;
+
+  &:hover {
+    color: $primary-hover;
+  }
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+// 工具类
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+// 文本颜色
+.text-primary {
+  color: $primary-color;
+}
+
+.text-success {
+  color: $success-color;
+}
+
+.text-warning {
+  color: $warning-color;
+}
+
+.text-danger {
+  color: $danger-color;
+}
+
+.text-secondary {
+  color: $secondary-color;
+}
+
+// 背景颜色
+.bg-primary {
+  background-color: $primary-color;
+}
+
+.bg-success {
+  background-color: $success-color;
+}
+
+.bg-warning {
+  background-color: $warning-color;
+}
+
+.bg-danger {
+  background-color: $danger-color;
+}
+
+// 间距
+.mt-1 { margin-top: $spacing-sm; }
+.mt-2 { margin-top: $spacing; }
+.mt-3 { margin-top: $spacing-md; }
+.mt-4 { margin-top: $spacing-lg; }
+
+.mb-1 { margin-bottom: $spacing-sm; }
+.mb-2 { margin-bottom: $spacing; }
+.mb-3 { margin-bottom: $spacing-md; }
+.mb-4 { margin-bottom: $spacing-lg; }
+
+.mx-auto {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// 卡片样式
+.card {
+  background: $light-bg-secondary;
+  border-radius: $border-radius-lg;
+  box-shadow: $shadow;
+  padding: $spacing-md;
+}
+
+// 按钮样式
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  border: none;
+  border-radius: $border-radius;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  background: $primary-color;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: $primary-hover;
+  }
+}
+
+.btn-secondary {
+  background: $light-bg;
+  color: $light-text;
+  border: 1px solid $light-border;
+
+  &:hover:not(:disabled) {
+    background: $light-border;
+  }
+}
+
+.btn-danger {
+  background: $danger-color;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: color.adjust($danger-color, $lightness: -10%);
+  }
+}
+
+// 输入框样式
+.input {
+  width: 100%;
+  padding: $spacing-sm $spacing;
+  border: 1px solid $light-border;
+  border-radius: $border-radius;
+  background: $light-bg-secondary;
+  color: $light-text;
+  transition: border-color $transition-fast;
+
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px $primary-light;
+  }
+
+  &::placeholder {
+    color: $light-text-secondary;
+  }
+}
+
+// 表格样式
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: $spacing-sm $spacing;
+    text-align: left;
+    border-bottom: 1px solid $light-border;
+  }
+
+  th {
+    font-weight: 600;
+    color: $light-text-secondary;
+    background: $light-bg;
+  }
+
+  tbody tr:hover {
+    background: $light-bg;
+  }
+}
+
+// 标签
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  border-radius: $border-radius-full;
+}
+
+.tag-primary {
+  background: $primary-light;
+  color: $primary-color;
+}
+
+.tag-success {
+  background: color.adjust($success-color, $lightness: 45%);
+  color: $success-color;
+}
+
+.tag-warning {
+  background: color.adjust($warning-color, $lightness: 45%);
+  color: $warning-color;
+}
+
+.tag-danger {
+  background: color.adjust($danger-color, $lightness: 45%);
+  color: $danger-color;
+}
+
+// 动画
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn $transition-base;
+}
+
+.slide-up {
+  animation: slideUp $transition-base;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: $light-bg;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $secondary-color;
+  border-radius: 4px;
+
+  &:hover {
+    background: color.adjust($secondary-color, $lightness: -10%);
+  }
+}
+
+// 暗色主题
+.dark-mode {
+  body {
+    color: $dark-text;
+    background-color: $dark-bg;
+  }
+
+  .card {
+    background: $dark-bg-secondary;
+  }
+
+  .btn-secondary {
+    background: $dark-bg;
+    color: $dark-text;
+    border-color: $dark-border;
+
+    &:hover:not(:disabled) {
+      background: $dark-border;
+    }
+  }
+
+  .input {
+    background: $dark-bg;
+    border-color: $dark-border;
+    color: $dark-text;
+
+    &:focus {
+      border-color: $primary-color;
+    }
+  }
+
+  .table {
+    th {
+      background: $dark-bg-secondary;
+      color: $dark-text-secondary;
+    }
+
+    tbody tr:hover {
+      background: $dark-bg-secondary;
+    }
+  }
+
+  ::-webkit-scrollbar-track {
+    background: $dark-bg;
+  }
+}
+

@@ -1,0 +1,38 @@
+{
+  "rules": [
+    "G101",
+    "G102",
+    "G103",
+    "G104",
+    "G106",
+    "G107",
+    "G108",
+    "G109",
+    "G110",
+    "G111",
+    "G112",
+    "G113",
+    "G114",
+    "G115",
+    "G116",
+    "G117",
+    "G118"
+  ],
+  "excludes": [
+    "\\.pb\\.go$",
+    "\\.mb\\.go$",
+    "\\.gw\\.go$",
+    "_test\\.go$"
+  ],
+  "confidence": 1,
+  "severity": 1,
+  "format": "sarif",
+  "exclude-path": [
+    ".git/",
+    "vendor/",
+    "node_modules/",
+    "web/node_modules/"
+  ],
+  "tags": [],
+  "show-stats": true
+}

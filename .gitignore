@@ -1,0 +1,108 @@
+# ============================================
+# .gitignore for CYP-Registry
+# 遵循《全平台通用开发任务设计规范文档》
+# ============================================
+
+# ============================================
+# Go
+# ============================================
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with Linux test binaries
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Binary output
+registry-server
+app
+
+# ============================================
+# Dependencies
+# ============================================
+vendor/
+node_modules/
+
+# ============================================
+# IDE and Editor
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Cursor IDE
+.cursor/
+.cursorinfo
+
+# ============================================
+# Configuration
+# ============================================
+.env
+.env.local
+.env.*.local
+config.yaml
+!config.yaml.example
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================
+# Build outputs
+# ============================================
+dist/
+build/
+*.tar.gz
+
+# Docker
+.docker/
+
+# ============================================
+# Testing
+# ============================================
+coverage.out
+coverage.html
+*.coverprofile
+
+# Cypress
+web/cypress/videos/
+web/cypress/screenshots/
+
+# ============================================
+# OS generated files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================
+# Temporary files
+# ============================================
+*.tmp
+*.temp
+tmp/
+temp/
+

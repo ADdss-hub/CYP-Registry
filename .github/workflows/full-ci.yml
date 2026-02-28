@@ -1,0 +1,225 @@
+# ============================================
+# Full CI Pipeline - 完整 CI/CD 流水线
+# 遵循《全平台Git与GitHub工作流管理规范》
+# ============================================
+
+name: Full CI Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'fix/**']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  # 国内镜像加速
+  GOPROXY: https://goproxy.cn,direct
+  NODE_REGISTRY: https://registry.npmmirror.com
+
+jobs:
+  # ========================================
+  # 1. 代码质量检查
+  # ========================================
+  lint-and-sec:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: ${{ env.NODE_REGISTRY }}
+      
+      # Go 代码检查
+      - name: Go Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m --enable-all
+      
+      # Go 安全扫描
+      - name: Go Security Scan
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out results.sarif ./...'
+      
+      # 前端代码检查
+      - name: Install Frontend Dependencies
+        working-directory: ./web
+        run: npm ci --registry=${{ env.NODE_REGISTRY }}
+      
+      - name: Frontend Lint
+        working-directory: ./web
+        run: npm run lint
+      
+      - name: Frontend Type Check
+        working-directory: ./web
+        run: npm run type-check
+      
+      # 前端安全扫描
+      - name: Frontend Security Audit
+        working-directory: ./web
+        run: npm audit --audit-level=high
+      
+      - name: Upload Security Results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: results.sarif
+
+  # ========================================
+  # 2. 单元测试与覆盖率
+  # ========================================
+  unit-test:
+    runs-on: ubuntu-latest
+    needs: lint-and-sec
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+      
+      - name: Run Unit Tests (Go)
+        run: |
+          go test -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+      
+      - name: Check Coverage
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ 测试覆盖率 $COVERAGE% < 80%，拒绝提交"
+            exit 1
+          fi
+          echo "✅ 测试覆盖率 $COVERAGE% ≥ 80%"
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: true
+          flags: unittests
+          verbose: true
+
+  # ========================================
+  # 3. 集成测试（使用真实容器）
+  # ========================================
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: unit-test
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: registry_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Integration Test
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: test
+          DB_NAME: registry_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          go test -tags=integration -v ./tests/integration/...
+
+  # ========================================
+  # 4. 构建验证
+  # ========================================
+  build-verify:
+    runs-on: ubuntu-latest
+    needs: integration-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Binary
+        run: go build -v -o registry-server ./cmd/server
+      
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: cyp-registry:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Trivy Image Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'cyp-registry:test'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload Trivy Results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ========================================
+  # 5. E2E 测试（仅PR到main时执行）
+  # ========================================
+  e2e-test:
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    needs: build-verify
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start Services
+        run: docker-compose -f docker-compose.test.yml up -d
+      
+      - name: Run E2E Tests
+        working-directory: ./web
+        run: |
+          npm ci
+          npx cypress run --record false
+      
+      - name: Upload Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: cypress-screenshots
+          path: web/cypress/screenshots
+

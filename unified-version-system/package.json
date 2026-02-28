@@ -1,0 +1,35 @@
+{
+  "name": "universal-version-manager",
+  "version": "2.1.0",
+  "description": "通用版本管理系统 - 基于 SemVer 2.0.0 规范，包含强制数字限制（MAJOR: 0-99, MINOR: 0-50, PATCH: 0-30）",
+  "main": "core/version-manager.js",
+  "scripts": {
+    "init": "node core/version-manager.js init",
+    "check": "node core/version-manager.js check",
+    "update": "node core/version-manager.js update",
+    "increment": "node core/version-manager.js increment",
+    "history": "node core/version-manager.js history",
+    "help": "node core/version-manager.js help",
+    "version-record": "node version-record-simple.js scan",
+    "version-record-auto": "node version-record-simple.js auto",
+    "version-record-export": "node version-record-simple.js export"
+  },
+  "bin": {
+    "version-manager": "./core/version-manager.js",
+    "version-record": "./version-record-simple.js"
+  },
+  "keywords": [
+    "version",
+    "semver",
+    "versioning",
+    "management",
+    "semantic-versioning",
+    "version-control",
+    "conventional-commits"
+  ],
+  "author": "CYP (nasDSSCYP@outlook.com)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=12.0.0"
+  }
+}

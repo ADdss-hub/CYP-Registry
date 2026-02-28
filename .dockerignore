@@ -1,0 +1,88 @@
+# ============================================
+# Docker 构建上下文忽略文件
+# 排除不需要的文件以加快构建速度
+# ============================================
+
+# Git 相关
+.git
+.gitignore
+.gitattributes
+
+# 文档和规范文件
+docs/
+规范文件/
+项目设计文档/
+*.md
+!README.md
+
+# 前端代码
+# 注意：Dockerfile.single 需要在构建阶段打包前端，因此不能在构建上下文中排除 web/ 与其源码/依赖清单文件
+# 如需缩小上下文，仅排除前端构建产物与依赖缓存目录即可
+web/node_modules/
+web/dist/
+web/.vite/
+web/cypress/videos/
+web/cypress/screenshots/
+
+# 测试文件
+*_test.go
+test/
+tests/
+*.test
+
+# 开发工具和配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 构建产物
+*.exe
+*.dll
+*.so
+*.dylib
+registry-server
+dist/
+build/
+bin/
+
+# 日志和临时文件
+*.log
+*.tmp
+*.temp
+logs/
+tmp/
+temp/
+
+# Docker 相关（避免递归）
+docker-compose*.yml
+docker-manage.bat
+Dockerfile
+.dockerignore
+
+# 部署配置（运行时通过 volume 挂载）
+deploy/
+
+# 脚本（部分需要，但排除开发脚本）
+# 注意：以下脚本是必需的，不会被排除：
+# - scripts/detect-container-env.sh (运行时需要)
+# - scripts/pre-start-check.sh (运行时需要)
+scripts/load-test.*
+scripts/pre-commit-check.sh
+scripts/detect-docker-env.*
+scripts/*.ps1
+scripts/README.md
+
+# Cypress 测试
+cypress/
+cypress.config.ts
+
+# 其他
+.env
+.env.local
+.env.*.local
+*.bak
+*.backup
+PHASE*.md
