@@ -53,14 +53,14 @@ func (m *MemoryLimiter) getLimiter(key string, limit rate.Limit, burst int) *rat
 func (m *MemoryLimiter) Limit(ctx context.Context, key string, limit, burst uint64) (remaining uint64, ok bool) {
 	l := m.getLimiter(key, rate.Limit(limit), int(burst))
 	ok = l.Allow()
-	
+
 	// 计算剩余 token 数（简化处理）
 	if ok {
 		remaining = burst
 	} else {
 		remaining = 0
 	}
-	
+
 	return remaining, ok
 }
 
@@ -96,7 +96,7 @@ func NewRedisLimiter(client *redis.Client) *RedisLimiter {
 // Limit 检查是否超过限流
 func (r *RedisLimiter) Limit(ctx context.Context, key string, limit, burst uint64) (remaining uint64, ok bool) {
 	window := time.Second
-	
+
 	result, err := r.luaScript.Run(ctx, r.client, []string{key}, limit, int64(window.Milliseconds()), time.Now().UnixNano()).Slice()
 	if err != nil {
 		return 0, false
@@ -110,16 +110,16 @@ func (r *RedisLimiter) Limit(ctx context.Context, key string, limit, burst uint6
 
 // RateLimitMiddleware 限流中间件
 type RateLimitMiddleware struct {
-	config   *config.RateLimitConfig
-	limiter  Limiter
+	config       *config.RateLimitConfig
+	limiter      Limiter
 	redisLimiter *RedisLimiter
 }
 
 // NewRateLimitMiddleware 创建限流中间件
 func NewRateLimitMiddleware(cfg *config.RateLimitConfig, redisLimiter *RedisLimiter) *RateLimitMiddleware {
 	return &RateLimitMiddleware{
-		config:      cfg,
-		limiter:     NewMemoryLimiter(),
+		config:       cfg,
+		limiter:      NewMemoryLimiter(),
 		redisLimiter: redisLimiter,
 	}
 }

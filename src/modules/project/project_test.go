@@ -57,4 +57,3 @@ func TestProjectMemberStructure(t *testing.T) {
 	assert.Equal(t, "user-id", member.UserID)
 	assert.Equal(t, "developer", member.RoleID)
 }
-

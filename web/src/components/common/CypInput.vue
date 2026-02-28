@@ -1,40 +1,41 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
 interface Props {
-  modelValue: string | number
-  type?: 'text' | 'password' | 'email' | 'number'
-  placeholder?: string
-  disabled?: boolean
-  error?: string
-  size?: 'small' | 'medium' | 'large'
-  autocomplete?: string
+  modelValue: string | number;
+  type?: "text" | "password" | "email" | "number";
+  placeholder?: string;
+  disabled?: boolean;
+  error?: string;
+  size?: "small" | "medium" | "large";
+  autocomplete?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  type: 'text',
-  placeholder: '',
+  type: "text",
+  placeholder: "",
   disabled: false,
-  size: 'medium',
+  error: "",
+  size: "medium",
   autocomplete: undefined,
-})
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number]
-}>()
+  "update:modelValue": [value: string | number];
+}>();
 
 const inputClass = computed(() => [
-  'cyp-input',
+  "cyp-input",
   `cyp-input--${props.size}`,
   {
-    'cyp-input--error': props.error,
-    'cyp-input--disabled': props.disabled,
+    "cyp-input--error": props.error,
+    "cyp-input--disabled": props.disabled,
   },
-])
+]);
 
 function handleInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.value)
+  const target = event.target as HTMLInputElement;
+  emit("update:modelValue", target.value);
 }
 </script>
 
@@ -48,13 +49,16 @@ function handleInput(event: Event) {
       :disabled="disabled"
       :autocomplete="autocomplete"
       @input="handleInput"
-    />
-    <span v-if="error" class="cyp-input__error">{{ error }}</span>
+    >
+    <span
+      v-if="error"
+      class="cyp-input__error"
+    >{{ error }}</span>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables.scss' as *;
+@use "@/assets/styles/variables.scss" as *;
 
 .cyp-input-wrapper {
   display: flex;
@@ -114,4 +118,3 @@ function handleInput(event: Event) {
   }
 }
 </style>
-

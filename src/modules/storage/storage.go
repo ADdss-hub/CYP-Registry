@@ -70,8 +70,8 @@ type Storage interface {
 
 // BlobInfo Blob信息
 type BlobInfo struct {
-	Digest    string `json:"digest"`    // SHA256摘要
-	Size      int64  `json:"size"`      // 大小
+	Digest    string `json:"digest"`     // SHA256摘要
+	Size      int64  `json:"size"`       // 大小
 	CreatedAt string `json:"created_at"` // 创建时间
 }
 
@@ -83,4 +83,3 @@ type ManifestInfo struct {
 	Size          int64    `json:"size"`           // 大小
 	Referrers     []string `json:"referrers"`      // 引用此manifest的列表
 }
-

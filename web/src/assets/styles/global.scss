@@ -109,15 +109,31 @@ textarea {
 }
 
 // 间距
-.mt-1 { margin-top: $spacing-sm; }
-.mt-2 { margin-top: $spacing; }
-.mt-3 { margin-top: $spacing-md; }
-.mt-4 { margin-top: $spacing-lg; }
+.mt-1 {
+  margin-top: $spacing-sm;
+}
+.mt-2 {
+  margin-top: $spacing;
+}
+.mt-3 {
+  margin-top: $spacing-md;
+}
+.mt-4 {
+  margin-top: $spacing-lg;
+}
 
-.mb-1 { margin-bottom: $spacing-sm; }
-.mb-2 { margin-bottom: $spacing; }
-.mb-3 { margin-bottom: $spacing-md; }
-.mb-4 { margin-bottom: $spacing-lg; }
+.mb-1 {
+  margin-bottom: $spacing-sm;
+}
+.mb-2 {
+  margin-bottom: $spacing;
+}
+.mb-3 {
+  margin-bottom: $spacing-md;
+}
+.mb-4 {
+  margin-bottom: $spacing-lg;
+}
 
 .mx-auto {
   margin-left: auto;
@@ -347,4 +363,3 @@ textarea {
     background: $dark-bg;
   }
 }
-

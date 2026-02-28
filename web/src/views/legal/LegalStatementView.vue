@@ -1,38 +1,46 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import CypButton from '@/components/common/CypButton.vue'
-import { LEGAL_STATEMENT_STORAGE_KEY, LEGAL_STATEMENT_VERSION } from '@/constants/legal'
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import CypButton from "@/components/common/CypButton.vue";
+import {
+  LEGAL_STATEMENT_STORAGE_KEY,
+  LEGAL_STATEMENT_VERSION,
+} from "@/constants/legal";
 
-const router = useRouter()
+const router = useRouter();
 
-const isAcknowledged = ref(false)
+const isAcknowledged = ref(false);
 
 function checkAcknowledged() {
-  isAcknowledged.value = localStorage.getItem(LEGAL_STATEMENT_STORAGE_KEY) === '1'
+  isAcknowledged.value =
+    localStorage.getItem(LEGAL_STATEMENT_STORAGE_KEY) === "1";
 }
 
 function handleAgree() {
-  localStorage.setItem(LEGAL_STATEMENT_STORAGE_KEY, '1')
-  isAcknowledged.value = true
-  router.push('/')
+  localStorage.setItem(LEGAL_STATEMENT_STORAGE_KEY, "1");
+  isAcknowledged.value = true;
+  router.push("/");
 }
 
 onMounted(() => {
-  checkAcknowledged()
+  checkAcknowledged();
   if (isAcknowledged.value) {
-    router.replace('/')
+    router.replace("/");
   }
-})
+});
 </script>
 
 <template>
   <div class="legal-page">
     <div class="legal-container">
       <header class="page-header">
-        <h1 class="page-title">个人声明与数据处理规范</h1>
+        <h1 class="page-title">
+          个人声明与数据处理规范
+        </h1>
         <p class="page-subtitle">
-          请在继续使用 CYP-Registry 前，仔细阅读并确认以下声明内容（当前版本：{{ LEGAL_STATEMENT_VERSION }}）。
+          请在继续使用 CYP-Registry 前，仔细阅读并确认以下声明内容（当前版本：{{
+            LEGAL_STATEMENT_VERSION
+          }}）。
         </p>
       </header>
 
@@ -40,7 +48,8 @@ onMounted(() => {
         <div class="statement-card">
           <h2>一、用户行为规范（节选）</h2>
           <p>
-            用户在使用 CYP-Registry（以下简称“本产品”）时，必须遵守《中华人民共和国网络安全法》《网络信息内容生态治理规定》等法律法规及本规范，不得利用本产品从事任何违法违规行为。
+            用户在使用
+            CYP-Registry（以下简称“本产品”）时，必须遵守《中华人民共和国网络安全法》《网络信息内容生态治理规定》等法律法规及本规范，不得利用本产品从事任何违法违规行为。
           </p>
           <p>
             包括但不限于：发布、传播违法、暴力、色情、低俗、谣言、诽谤、侵权类信息；窃取、篡改、破坏他人数据或本产品功能；实施网络攻击、诈骗、洗钱等活动；规避安全机制、破解或篡改产品代码等。
@@ -84,7 +93,11 @@ onMounted(() => {
         </div>
 
         <div class="statement-actions">
-          <CypButton type="primary" size="large" @click="handleAgree">
+          <CypButton
+            type="primary"
+            size="large"
+            @click="handleAgree"
+          >
             我已阅读并同意，进入控制台
           </CypButton>
         </div>
@@ -169,4 +182,3 @@ onMounted(() => {
   }
 }
 </style>
-

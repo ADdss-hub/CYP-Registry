@@ -1,114 +1,114 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed } from "vue";
 
 interface Props {
-  action?: 'upload' | 'download'
-  accept?: string
-  multiple?: boolean
-  disabled?: boolean
-  maxSize?: number // 单位: MB
-  maxCount?: number
+  action?: "upload" | "download";
+  accept?: string;
+  multiple?: boolean;
+  disabled?: boolean;
+  maxSize?: number; // 单位: MB
+  maxCount?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  action: 'upload',
-  accept: '*',
+  action: "upload",
+  accept: "*",
   multiple: false,
   disabled: false,
   maxSize: 10,
   maxCount: 10,
-})
+});
 
 const emit = defineEmits<{
-  select: [files: File[]]
-  progress: [progress: number]
-  success: [response: any]
-  error: [error: Error]
-}>()
+  select: [files: File[]];
+  progress: [progress: number];
+  success: [response: any];
+  error: [error: Error];
+}>();
 
-const isDragging = ref(false)
-const fileInput = ref<HTMLInputElement>()
-const uploading = ref(false)
-const progress = ref(0)
+const isDragging = ref(false);
+const fileInput = ref<HTMLInputElement>();
+const uploading = ref(false);
+const progress = ref(0);
 
 const uploadAreaClass = computed(() => [
-  'cyp-upload',
+  "cyp-upload",
   {
-    'cyp-upload--dragging': isDragging,
-    'cyp-upload--disabled': props.disabled,
+    "cyp-upload--dragging": isDragging,
+    "cyp-upload--disabled": props.disabled,
   },
-])
+]);
 
 function handleDragOver(e: DragEvent) {
-  e.preventDefault()
+  e.preventDefault();
   if (!props.disabled) {
-    isDragging.value = true
+    isDragging.value = true;
   }
 }
 
 function handleDragLeave(e: DragEvent) {
-  e.preventDefault()
-  isDragging.value = false
+  e.preventDefault();
+  isDragging.value = false;
 }
 
 function handleDrop(e: DragEvent) {
-  e.preventDefault()
-  isDragging.value = false
+  e.preventDefault();
+  isDragging.value = false;
 
-  if (props.disabled) return
+  if (props.disabled) return;
 
-  const files = Array.from(e.dataTransfer?.files || [])
-  handleFiles(files)
+  const files = Array.from(e.dataTransfer?.files || []);
+  handleFiles(files);
 }
 
 function handleFileSelect(e: Event) {
-  const target = e.target as HTMLInputElement
-  const files = Array.from(target.files || [])
-  handleFiles(files)
-  target.value = ''
+  const target = e.target as HTMLInputElement;
+  const files = Array.from(target.files || []);
+  handleFiles(files);
+  target.value = "";
 }
 
 function handleFiles(files: File[]) {
   // 验证文件
   const validFiles = files.filter((file) => {
     if (props.maxSize && file.size > props.maxSize * 1024 * 1024) {
-      console.warn(`文件 ${file.name} 大小超过限制`)
-      return false
+      console.warn(`文件 ${file.name} 大小超过限制`);
+      return false;
     }
-    return true
-  })
+    return true;
+  });
 
   if (validFiles.length > 0) {
-    emit('select', validFiles)
+    emit("select", validFiles);
   }
 }
 
 function triggerSelect() {
   if (!props.disabled) {
-    fileInput.value?.click()
+    fileInput.value?.click();
   }
 }
 
 function simulateUpload() {
   // 模拟上传过程
-  uploading.value = true
-  progress.value = 0
+  uploading.value = true;
+  progress.value = 0;
 
   const interval = setInterval(() => {
-    progress.value += 10
-    emit('progress', progress.value)
+    progress.value += 10;
+    emit("progress", progress.value);
 
     if (progress.value >= 100) {
-      clearInterval(interval)
-      uploading.value = false
+      clearInterval(interval);
+      uploading.value = false;
     }
-  }, 200)
+  }, 200);
 }
 
 defineExpose({
   triggerSelect,
   simulateUpload,
-})
+});
 </script>
 
 <template>
@@ -121,7 +121,7 @@ defineExpose({
       :multiple="multiple"
       :disabled="disabled"
       @change="handleFileSelect"
-    />
+    >
 
     <div
       class="cyp-upload__area"
@@ -130,22 +130,40 @@ defineExpose({
       @dragleave="handleDragLeave"
       @drop="handleDrop"
     >
-      <div v-if="uploading" class="cyp-upload__uploading">
+      <div
+        v-if="uploading"
+        class="cyp-upload__uploading"
+      >
         <div class="cyp-upload__spinner" />
         <span class="cyp-upload__progress-text">上传中 {{ progress }}%</span>
         <div class="cyp-upload__progress-bar">
-          <div class="cyp-upload__progress-fill" :style="{ width: `${progress}%` }" />
+          <div
+            class="cyp-upload__progress-fill"
+            :style="{ width: `${progress}%` }"
+          />
         </div>
       </div>
 
       <template v-else>
-        <svg v-if="action === 'upload'" class="cyp-upload__icon" viewBox="0 0 24 24" width="48" height="48">
+        <svg
+          v-if="action === 'upload'"
+          class="cyp-upload__icon"
+          viewBox="0 0 24 24"
+          width="48"
+          height="48"
+        >
           <path
             fill="currentColor"
             d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"
           />
         </svg>
-        <svg v-else class="cyp-upload__icon" viewBox="0 0 24 24" width="48" height="48">
+        <svg
+          v-else
+          class="cyp-upload__icon"
+          viewBox="0 0 24 24"
+          width="48"
+          height="48"
+        >
           <path
             fill="currentColor"
             d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"
@@ -155,7 +173,10 @@ defineExpose({
           <span class="cyp-upload__link">点击或拖拽文件</span>
           到此区域
         </p>
-        <p v-if="maxSize" class="cyp-upload__hint">
+        <p
+          v-if="maxSize"
+          class="cyp-upload__hint"
+        >
           单文件最大 {{ maxSize }}MB
         </p>
       </template>
@@ -258,4 +279,3 @@ defineExpose({
   }
 }
 </style>
-

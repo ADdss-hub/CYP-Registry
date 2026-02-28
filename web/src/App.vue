@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useUserStore } from '@/stores/user'
+import { onMounted } from "vue";
+import { useUserStore } from "@/stores/user";
 
-const userStore = useUserStore()
+const userStore = useUserStore();
 
 // 初始化时检查登录状态
 onMounted(() => {
   if (userStore.token && !userStore.user) {
-    userStore.fetchCurrentUser()
+    userStore.fetchCurrentUser();
   }
-})
+});
 </script>
 
 <template>
@@ -21,4 +21,3 @@ onMounted(() => {
   min-height: 100vh;
 }
 </style>
-

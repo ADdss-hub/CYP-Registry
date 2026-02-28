@@ -1,51 +1,51 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import CypButton from '@/components/common/CypButton.vue'
-import CypInput from '@/components/common/CypInput.vue'
-import CypFooter from '@/components/common/CypFooter.vue'
-import CypDialog from '@/components/common/CypDialog.vue'
-import logoCypRegistry from '@/assets/logo-cyp-registry.svg'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import CypButton from "@/components/common/CypButton.vue";
+import CypInput from "@/components/common/CypInput.vue";
+import CypFooter from "@/components/common/CypFooter.vue";
+import CypDialog from "@/components/common/CypDialog.vue";
+import logoCypRegistry from "@/assets/logo-cyp-registry.svg";
 
-const router = useRouter()
+const router = useRouter();
 // 说明：公开注册功能已关闭，此视图仅作为占位以避免构建错误；
 // 实际路由已在 router 中重定向到 Login，不再调用 userStore.register。
-const userStore = useUserStore()
+const userStore = useUserStore();
 
 const form = ref({
-  username: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-})
+  username: "",
+  email: "",
+  password: "",
+  confirmPassword: "",
+});
 
-const errors = ref<Record<string, string>>({})
+const errors = ref<Record<string, string>>({});
 
 // 注册成功提示框（替代浏览器 alert，遵循界面规范3.3/3.4节）
-const showSuccessDialog = ref(false)
+const showSuccessDialog = ref(false);
 // 注册失败提示框
-const showErrorDialog = ref(false)
-const errorMessage = ref('')
+const showErrorDialog = ref(false);
+const errorMessage = ref("");
 
 function handleSuccessDialogClose() {
-  showSuccessDialog.value = false
-  router.push('/login')
+  showSuccessDialog.value = false;
+  router.push("/login");
 }
 
 function handleErrorDialogClose() {
-  showErrorDialog.value = false
-  errorMessage.value = ''
+  showErrorDialog.value = false;
+  errorMessage.value = "";
 }
 
 async function handleRegister() {
   // 公开注册已关闭：表单点击只弹出提示，不再校验/提交
-  errorMessage.value = '当前系统已关闭公开注册，请联系管理员获取访问账号。'
-  showErrorDialog.value = true
+  errorMessage.value = "当前系统已关闭公开注册，请联系管理员获取访问账号。";
+  showErrorDialog.value = true;
 }
 
 function navigateToLogin() {
-  router.push('/login')
+  router.push("/login");
 }
 </script>
 
@@ -55,13 +55,25 @@ function navigateToLogin() {
       <div class="register-card">
         <div class="register-header">
           <div class="register-logo">
-            <img :src="logoCypRegistry" alt="CYP-Registry Logo" width="48" height="48" />
+            <img
+              :src="logoCypRegistry"
+              alt="CYP-Registry Logo"
+              width="48"
+              height="48"
+            >
           </div>
-          <h1 class="register-title">创建账户</h1>
-          <p class="register-subtitle">注册 CYP-Registry 镜像仓库管理平台</p>
+          <h1 class="register-title">
+            创建账户
+          </h1>
+          <p class="register-subtitle">
+            注册 CYP-Registry 镜像仓库管理平台
+          </p>
         </div>
 
-        <form class="register-form" @submit.prevent="handleRegister">
+        <form
+          class="register-form"
+          @submit.prevent="handleRegister"
+        >
           <div class="form-group">
             <label class="form-label">用户名</label>
             <CypInput
@@ -117,7 +129,10 @@ function navigateToLogin() {
 
         <div class="register-footer">
           <span>已有账号？</span>
-          <a href="javascript:void(0)" @click="navigateToLogin">立即登录</a>
+          <a
+            href="javascript:void(0)"
+            @click="navigateToLogin"
+          >立即登录</a>
         </div>
       </div>
 
@@ -127,14 +142,28 @@ function navigateToLogin() {
           <p>创建账户，开始使用企业级容器镜像管理解决方案。</p>
           <ul class="feature-list">
             <li>
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  fill="currentColor"
+                  d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                />
               </svg>
               无限项目创建
             </li>
             <li>
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  fill="currentColor"
+                  d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                />
               </svg>
               访问令牌与项目权限控制
             </li>
@@ -152,8 +181,15 @@ function navigateToLogin() {
       >
         <p>注册成功，请使用新账号登录。</p>
         <template #footer>
-          <CypButton @click="handleSuccessDialogClose">稍后再说</CypButton>
-          <CypButton type="primary" @click="handleSuccessDialogClose">去登录</CypButton>
+          <CypButton @click="handleSuccessDialogClose">
+            稍后再说
+          </CypButton>
+          <CypButton
+            type="primary"
+            @click="handleSuccessDialogClose"
+          >
+            去登录
+          </CypButton>
         </template>
       </CypDialog>
 
@@ -166,7 +202,12 @@ function navigateToLogin() {
       >
         <p>{{ errorMessage }}</p>
         <template #footer>
-          <CypButton type="primary" @click="handleErrorDialogClose">知道了</CypButton>
+          <CypButton
+            type="primary"
+            @click="handleErrorDialogClose"
+          >
+            知道了
+          </CypButton>
         </template>
       </CypDialog>
     </div>
@@ -324,4 +365,3 @@ function navigateToLogin() {
   }
 }
 </style>
-

@@ -1,295 +1,318 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { useRouter } from 'vue-router'
-import { useProjectStore } from '@/stores/project'
-import { useNotificationStore } from '@/stores/notification'
-import CypButton from '@/components/common/CypButton.vue'
-import CypInput from '@/components/common/CypInput.vue'
-import CypTable from '@/components/common/CypTable.vue'
-import CypDialog from '@/components/common/CypDialog.vue'
-import type { Project } from '@/types'
-import { copyToClipboard } from '@/utils/clipboard'
+import { ref, computed, onMounted, h } from "vue";
+import { useRouter } from "vue-router";
+import { useProjectStore } from "@/stores/project";
+import { useNotificationStore } from "@/stores/notification";
+import CypButton from "@/components/common/CypButton.vue";
+import CypInput from "@/components/common/CypInput.vue";
+import CypTable from "@/components/common/CypTable.vue";
+import CypDialog from "@/components/common/CypDialog.vue";
+import type { Project } from "@/types";
+import { copyToClipboard } from "@/utils/clipboard";
 
-const router = useRouter()
-const projectStore = useProjectStore()
-const notificationStore = useNotificationStore()
+const router = useRouter();
+const projectStore = useProjectStore();
+const notificationStore = useNotificationStore();
 
-const searchKeyword = ref('')
-const showCreateModal = ref(false)
-const isCreating = ref(false) // 防止重复提交
+const searchKeyword = ref("");
+const showCreateModal = ref(false);
+const isCreating = ref(false); // 防止重复提交
 const newProject = ref({
-  name: '',
-  description: '',
+  name: "",
+  description: "",
   isPublic: false,
   storageQuota: 10 * 1024 * 1024 * 1024, // 默认10GB
-})
+});
 
 // 删除项目确认对话框（替代浏览器 confirm，遵循界面规范3.3/3.4节）
-const showDeleteConfirmDialog = ref(false)
-const projectToDelete = ref<Project | null>(null)
+const showDeleteConfirmDialog = ref(false);
+const projectToDelete = ref<Project | null>(null);
 
 // 项目分享对话框
-const showShareDialog = ref(false)
-const projectToShare = ref<Project | null>(null)
+const showShareDialog = ref(false);
+const projectToShare = ref<Project | null>(null);
 
 // 通用提示框（创建项目校验/错误信息）
-const showMessageDialog = ref(false)
-const messageDialogTitle = ref('')
-const messageDialogContent = ref('')
+const showMessageDialog = ref(false);
+const messageDialogTitle = ref("");
+const messageDialogContent = ref("");
 
 function openMessageDialog(title: string, content: string) {
-  messageDialogTitle.value = title
-  messageDialogContent.value = content
-  showMessageDialog.value = true
+  messageDialogTitle.value = title;
+  messageDialogContent.value = content;
+  showMessageDialog.value = true;
 }
 
 // 构造项目分享内容（包含本系统 Web 访问地址 + Docker 命令）
 const shareContent = computed(() => {
-  if (!projectToShare.value) return ''
-  const host = window.location.host || 'localhost:8080'
+  if (!projectToShare.value) return "";
+  const host = window.location.host || "localhost:8080";
   // 项目名称即仓库命名空间，遵循后端约定（仅字母和数字）
-  const repo = projectToShare.value.name || projectToShare.value.id
+  const repo = projectToShare.value.name || projectToShare.value.id;
   const lines: string[] = [
-    '# 一、项目访问信息（本系统）',
+    "# 一、项目访问信息（本系统）",
     `项目名称：${projectToShare.value.name}`,
     `项目 ID：${projectToShare.value.id}`,
-    '',
-    '# 1. Web 控制台项目列表',
+    "",
+    "# 1. Web 控制台项目列表",
     `http://${host}/projects`,
-    '',
-    '# 2. 推荐项目访问链接（如文档中使用，可二选一）',
+    "",
+    "# 2. 推荐项目访问链接（如文档中使用，可二选一）",
     `http://${host}/projects/${projectToShare.value.id}`,
-    `http://${host}/projects?keyword=${encodeURIComponent(projectToShare.value.name || '')}`,
-    '',
-    '========================================',
-    '',
-    '# 二、Docker 仓库与命令示例',
-    '',
-    '# 1. Docker 登录（如已登录可跳过）',
+    `http://${host}/projects?keyword=${encodeURIComponent(projectToShare.value.name || "")}`,
+    "",
+    "========================================",
+    "",
+    "# 二、Docker 仓库与命令示例",
+    "",
+    "# 1. Docker 登录（如已登录可跳过）",
     `docker login ${host}`,
-    '',
-    '# 2. 推送镜像到该项目',
+    "",
+    "# 2. 推送镜像到该项目",
     `docker tag your-image:tag ${host}/${repo}:your-tag`,
     `docker push ${host}/${repo}:your-tag`,
-    '',
-    '# 3. 从该项目拉取镜像',
+    "",
+    "# 3. 从该项目拉取镜像",
     `docker pull ${host}/${repo}:your-tag`,
-  ]
-  return lines.join('\n')
-})
+  ];
+  return lines.join("\n");
+});
 
 const columns = [
-  { key: 'name', title: '项目名称' },
-  { key: 'description', title: '描述' },
+  { key: "name", title: "项目名称" },
+  { key: "description", title: "描述" },
   {
-    key: 'isPublic',
-    title: '可见性',
-    customRender: (value: boolean) => value ? '公开' : '私有',
+    key: "isPublic",
+    title: "可见性",
+    customRender: (value: boolean) => (value ? "公开" : "私有"),
   },
   {
-    key: 'storageUsed',
-    title: '已用存储',
+    key: "storageUsed",
+    title: "已用存储",
     customRender: (value: number | undefined | null) => {
       if (value === undefined || value === null || isNaN(value)) {
-        return '0 B'
+        return "0 B";
       }
-      return formatBytes(value)
+      return formatBytes(value);
     },
   },
   {
-    key: 'imageCount',
-    title: '镜像数量',
+    key: "imageCount",
+    title: "镜像数量",
     customRender: (value: number | undefined | null) => {
       if (value === undefined || value === null || isNaN(value)) {
-        return '0'
+        return "0";
       }
-      return String(value)
+      return String(value);
     },
   },
   {
-    key: 'createdAt',
-    title: '创建时间',
+    key: "createdAt",
+    title: "创建时间",
     customRender: (value: string | undefined | null) => {
       if (!value) {
-        return '-'
+        return "-";
       }
-      return formatDate(value)
+      return formatDate(value);
     },
   },
   {
-    key: 'actions',
-    title: '操作',
-    align: 'right' as const,
+    key: "actions",
+    title: "操作",
+    align: "right" as const,
     customRender: (_: any, record: Project) => {
-      return h('div', { class: 'action-buttons' }, [
+      return h("div", { class: "action-buttons" }, [
         // 注意：表格行本身绑定了 rowClick，会触发跳转；这里必须 stopPropagation，否则“查看/删除”会被行点击吞掉
         h(
           CypButton,
           {
-            size: 'small',
+            size: "small",
             onClick: (e: MouseEvent) => {
-              e.stopPropagation()
-              navigateToProject(record)
+              e.stopPropagation();
+              navigateToProject(record);
             },
           },
-          { default: () => '查看' }
+          { default: () => "查看" },
         ),
         h(
           CypButton,
           {
-            size: 'small',
-            type: 'default',
-            style: { marginLeft: '8px' },
+            size: "small",
+            type: "default",
+            style: { marginLeft: "8px" },
             onClick: (e: MouseEvent) => {
-              e.stopPropagation()
-              openShare(record)
+              e.stopPropagation();
+              openShare(record);
             },
           },
-          { default: () => '分享' }
+          { default: () => "分享" },
         ),
         h(
           CypButton,
           {
-            size: 'small',
-            type: 'danger',
-            style: { marginLeft: '8px' },
+            size: "small",
+            type: "danger",
+            style: { marginLeft: "8px" },
             onClick: (e: MouseEvent) => {
-              e.stopPropagation()
-              handleDelete(record)
+              e.stopPropagation();
+              handleDelete(record);
             },
           },
-          { default: () => '删除' }
+          { default: () => "删除" },
         ),
-      ])
+      ]);
     },
   },
-]
+];
 
-const isLoading = computed(() => projectStore.isLoading)
-const projects = computed(() => projectStore.projects)
-const pagination = computed(() => projectStore.pagination)
+const isLoading = computed(() => projectStore.isLoading);
+const projects = computed(() => projectStore.projects);
+const pagination = computed(() => projectStore.pagination);
 
 const totalImages = computed(() =>
   projects.value.reduce((sum, p) => sum + (p.imageCount || 0), 0),
-)
+);
 
 const totalStorage = computed(() =>
   projects.value.reduce((sum, p) => sum + (p.storageUsed || 0), 0),
-)
+);
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('zh-CN')
+  return new Date(dateStr).toLocaleString("zh-CN");
 }
 
 function navigateToProject(project: Project) {
-  router.push(`/projects/${project.id}`)
+  router.push(`/projects/${project.id}`);
 }
 
 async function handleDelete(project: Project) {
-  projectToDelete.value = project
-  showDeleteConfirmDialog.value = true
+  projectToDelete.value = project;
+  showDeleteConfirmDialog.value = true;
 }
 
 function openShare(project: Project) {
-  projectToShare.value = project
-  showShareDialog.value = true
+  projectToShare.value = project;
+  showShareDialog.value = true;
 }
 
 async function handleCopyShare() {
-  if (!shareContent.value) return
+  if (!shareContent.value) return;
   try {
-    await copyToClipboard(shareContent.value)
-    openMessageDialog('复制成功', '项目分享信息已复制到剪贴板，可直接粘贴发送给其他人。')
+    await copyToClipboard(shareContent.value);
+    openMessageDialog(
+      "复制成功",
+      "项目分享信息已复制到剪贴板，可直接粘贴发送给其他人。",
+    );
     if (projectToShare.value) {
       notificationStore.addNotification({
-        source: 'project',
-        title: '项目分享信息已生成',
+        source: "project",
+        title: "项目分享信息已生成",
         message: `已为项目「${projectToShare.value.name}」生成并复制 Docker 登录/推送/拉取命令。`,
-        status: 'success',
-      })
+        status: "success",
+      });
     }
   } catch (err: any) {
-    openMessageDialog('复制失败', err?.message || '无法访问剪贴板，请手动复制。')
+    openMessageDialog(
+      "复制失败",
+      err?.message || "无法访问剪贴板，请手动复制。",
+    );
   }
 }
 
 async function handleSearch() {
-  await projectStore.fetchProjects({ keyword: searchKeyword.value })
+  await projectStore.fetchProjects({ keyword: searchKeyword.value });
 }
 
 async function handlePageChange(page: number, pageSize: number) {
-  await projectStore.fetchProjects({ page, pageSize, keyword: searchKeyword.value })
+  await projectStore.fetchProjects({
+    page,
+    pageSize,
+    keyword: searchKeyword.value,
+  });
 }
 
 async function handleCreateProject() {
   // 防止重复提交
   if (isCreating.value) {
-    return
+    return;
   }
 
   const payload = {
     ...newProject.value,
     name: newProject.value.name.trim(),
     description: newProject.value.description.trim(),
-  }
+  };
 
   if (!payload.name) {
-    openMessageDialog('校验失败', '请输入项目名称')
-    return
+    openMessageDialog("校验失败", "请输入项目名称");
+    return;
   }
   // 与后端约定保持一致：项目名称即 Registry 仓库名，可包含命名空间
   // 允许的字符：字母、数字、减号(-)、下划线(_)、斜杠(/)、点(.)
   // 说明：例如 "test-project/test-small"、"team1/app.backend" 等均合法
   if (!/^[A-Za-z0-9._/-]{3,128}$/.test(payload.name)) {
-  openMessageDialog('校验失败', '项目名称仅支持 3-128 位字母、数字、-、_、/ 或 .')
-    return
+    openMessageDialog(
+      "校验失败",
+      "项目名称仅支持 3-128 位字母、数字、-、_、/ 或 .",
+    );
+    return;
   }
-  
-  isCreating.value = true
+
+  isCreating.value = true;
   try {
-    const project = await projectStore.createProject(payload)
-    showCreateModal.value = false
+    const project = await projectStore.createProject(payload);
+    showCreateModal.value = false;
     newProject.value = {
-      name: '',
-      description: '',
+      name: "",
+      description: "",
       isPublic: false,
       storageQuota: 10 * 1024 * 1024 * 1024,
-    }
+    };
     // 创建成功后刷新项目列表，确保列表与后端状态一致
-    await projectStore.fetchProjects()
+    await projectStore.fetchProjects();
     notificationStore.addNotification({
-      source: 'project',
-      title: '项目已创建',
+      source: "project",
+      title: "项目已创建",
       message: `项目「${project?.name || payload.name}」已创建`,
-      status: 'success',
-    })
+      status: "success",
+    });
   } catch (err: any) {
     // 检查是否是项目已存在的错误（code 20002 或消息包含"已存在"）
-    const errorCode = err?.code || err?.response?.data?.code
-    const errorMessage = err?.message || err?.response?.data?.message || '创建项目失败，请稍后重试'
-    
+    const errorCode = err?.code || err?.response?.data?.code;
+    const errorMessage =
+      err?.message ||
+      err?.response?.data?.message ||
+      "创建项目失败，请稍后重试";
+
     // 如果是项目已存在的错误，显示更友好的提示
-    if (errorCode === 20002 || errorMessage.includes('已存在') || errorMessage.includes('already exists')) {
-      openMessageDialog('项目已存在', errorMessage || `项目 "${payload.name}" 已存在，请使用其他名称`)
+    if (
+      errorCode === 20002 ||
+      errorMessage.includes("已存在") ||
+      errorMessage.includes("already exists")
+    ) {
+      openMessageDialog(
+        "项目已存在",
+        errorMessage || `项目 "${payload.name}" 已存在，请使用其他名称`,
+      );
     } else {
-      openMessageDialog('创建失败', errorMessage)
+      openMessageDialog("创建失败", errorMessage);
     }
   } finally {
-    isCreating.value = false
+    isCreating.value = false;
   }
 }
 
 onMounted(() => {
-  projectStore.fetchProjects()
-})
+  projectStore.fetchProjects();
+});
 </script>
 
 <template>
@@ -297,10 +320,17 @@ onMounted(() => {
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <h2 class="page-title">项目管理</h2>
-        <p class="page-subtitle">管理您的容器镜像项目</p>
+        <h2 class="page-title">
+          项目管理
+        </h2>
+        <p class="page-subtitle">
+          管理您的容器镜像项目
+        </p>
       </div>
-      <CypButton type="primary" @click="showCreateModal = true">
+      <CypButton
+        type="primary"
+        @click="showCreateModal = true"
+      >
         创建项目
       </CypButton>
     </div>
@@ -328,10 +358,17 @@ onMounted(() => {
         placeholder="搜索项目名称..."
         @keyup.enter="handleSearch"
       />
-      <CypButton type="primary" @click="handleSearch">
+      <CypButton
+        type="primary"
+        @click="handleSearch"
+      >
         搜索
       </CypButton>
-      <CypButton type="default" :loading="isLoading" @click="() => projectStore.fetchProjects()">
+      <CypButton
+        type="default"
+        :loading="isLoading"
+        @click="() => projectStore.fetchProjects()"
+      >
         刷新列表
       </CypButton>
     </div>
@@ -347,16 +384,26 @@ onMounted(() => {
         total: pagination.total,
         onChange: handlePageChange,
       }"
-      @rowClick="navigateToProject"
+      @row-click="navigateToProject"
     >
       <template #empty>
         <div class="empty-state">
-          <svg viewBox="0 0 24 24" width="64" height="64">
-            <path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+          <svg
+            viewBox="0 0 24 24"
+            width="64"
+            height="64"
+          >
+            <path
+              fill="currentColor"
+              d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"
+            />
           </svg>
           <h3>暂无项目</h3>
           <p>创建您的第一个项目开始使用镜像仓库</p>
-          <CypButton type="primary" @click="showCreateModal = true">
+          <CypButton
+            type="primary"
+            @click="showCreateModal = true"
+          >
             创建项目
           </CypButton>
         </div>
@@ -369,32 +416,54 @@ onMounted(() => {
       :title="projectToShare ? `分享项目：${projectToShare.name}` : '分享项目'"
     >
       <p class="share-description">
-        将下方信息复制给使用者：包含本系统的 Web 控制台项目访问地址，以及对应项目的 Docker 登录 / 推送 /
+        将下方信息复制给使用者：包含本系统的 Web
+        控制台项目访问地址，以及对应项目的 Docker 登录 / 推送 /
         拉取命令示例，便于统一粘贴到文档或 IM 中使用。
       </p>
       <textarea
         class="share-textarea"
         :value="shareContent"
         readonly
-      ></textarea>
+      />
       <template #footer>
-        <CypButton type="default" @click="showShareDialog = false">
+        <CypButton
+          type="default"
+          @click="showShareDialog = false"
+        >
           关闭
         </CypButton>
-        <CypButton type="primary" style="margin-left: 8px" @click="handleCopyShare">
+        <CypButton
+          type="primary"
+          style="margin-left: 8px"
+          @click="handleCopyShare"
+        >
           复制分享信息
         </CypButton>
       </template>
     </CypDialog>
 
     <!-- 创建项目弹窗（历史实现，整体样式已基本符合系统框规范） -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+    <div
+      v-if="showCreateModal"
+      class="modal-overlay"
+      @click.self="showCreateModal = false"
+    >
       <div class="modal-content">
         <div class="modal-header">
           <h2>创建项目</h2>
-          <button class="close-btn" @click="showCreateModal = false">
-            <svg viewBox="0 0 24 24" width="24" height="24">
-              <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          <button
+            class="close-btn"
+            @click="showCreateModal = false"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+            >
+              <path
+                fill="currentColor"
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
             </svg>
           </button>
         </div>
@@ -420,14 +489,26 @@ onMounted(() => {
               <input
                 v-model="newProject.isPublic"
                 type="checkbox"
-              />
-              公开项目（允许匿名拉取；公开/私有项目均支持 Docker CLI 与自动化工具，差别仅在是否允许匿名拉取）
+              >
+              公开项目（允许匿名拉取；公开/私有项目均支持 Docker CLI
+              与自动化工具，差别仅在是否允许匿名拉取）
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <CypButton @click="showCreateModal = false" :disabled="isCreating">取消</CypButton>
-          <CypButton type="primary" @click="handleCreateProject" :loading="isCreating">创建</CypButton>
+          <CypButton
+            :disabled="isCreating"
+            @click="showCreateModal = false"
+          >
+            取消
+          </CypButton>
+          <CypButton
+            type="primary"
+            :loading="isCreating"
+            @click="handleCreateProject"
+          >
+            创建
+          </CypButton>
         </div>
       </div>
     </div>
@@ -439,26 +520,35 @@ onMounted(() => {
       width="420px"
       @close="showDeleteConfirmDialog = false"
     >
-      <div v-if="projectToDelete" class="confirm-content">
-        <p>确定要删除项目 "<strong>{{ projectToDelete.name }}</strong>" 吗？</p>
-        <p class="warning">此操作无法撤销，项目下的所有镜像和配置将被永久移除。</p>
+      <div
+        v-if="projectToDelete"
+        class="confirm-content"
+      >
+        <p>
+          确定要删除项目 "<strong>{{ projectToDelete.name }}</strong>" 吗？
+        </p>
+        <p class="warning">
+          此操作无法撤销，项目下的所有镜像和配置将被永久移除。
+        </p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteConfirmDialog = false">取消</CypButton>
+        <CypButton @click="showDeleteConfirmDialog = false">
+          取消
+        </CypButton>
         <CypButton
           type="danger"
           @click="
             async () => {
-              if (!projectToDelete) return
-              await projectStore.deleteProject(projectToDelete.id)
-              showDeleteConfirmDialog = false
-              projectToDelete = null
+              if (!projectToDelete) return;
+              await projectStore.deleteProject(projectToDelete.id);
+              showDeleteConfirmDialog = false;
+              projectToDelete = null;
               notificationStore.addNotification({
                 source: 'project',
                 title: '项目已删除',
                 message: '选中的项目及其镜像已被删除',
                 status: 'success',
-              })
+              });
             }
           "
         >
@@ -476,7 +566,12 @@ onMounted(() => {
     >
       <p>{{ messageDialogContent }}</p>
       <template #footer>
-        <CypButton type="primary" @click="showMessageDialog = false">知道了</CypButton>
+        <CypButton
+          type="primary"
+          @click="showMessageDialog = false"
+        >
+          知道了
+        </CypButton>
       </template>
     </CypDialog>
   </div>
@@ -703,7 +798,9 @@ onMounted(() => {
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   background: #0f172a0d;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   font-size: 12px;
   line-height: 1.5;
   color: #0f172a;
@@ -716,4 +813,3 @@ onMounted(() => {
   }
 }
 </style>
-

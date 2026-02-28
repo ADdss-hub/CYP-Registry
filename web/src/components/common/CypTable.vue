@@ -1,44 +1,45 @@
 <script setup lang="ts">
-
 interface Column {
-  key: string
-  title: string
-  width?: string
-  align?: 'left' | 'center' | 'right'
-  customRender?: (value: any, record: any) => any
+  key: string;
+  title: string;
+  width?: string;
+  align?: "left" | "center" | "right";
+  customRender?: (value: any, record: any) => any;
 }
 
 interface Props {
-  columns: Column[]
-  data: any[]
-  loading?: boolean
-  rowKey?: string
+  columns: Column[];
+  data: any[];
+  loading?: boolean;
+  rowKey?: string;
   pagination?: {
-    page: number
-    pageSize: number
-    total: number
-    onChange: (page: number, pageSize: number) => void
-  }
+    page: number;
+    pageSize: number;
+    total: number;
+    onChange: (page: number, pageSize: number) => void;
+  };
 }
 
 withDefaults(defineProps<Props>(), {
   loading: false,
-  rowKey: 'id',
-})
+  rowKey: "id",
+  // 默认不启用分页，由上层显式传入配置
+  pagination: undefined,
+});
 
 const emit = defineEmits<{
-  rowClick: [record: any]
-}>()
+  rowClick: [record: any];
+}>();
 
 function getCellStyle(column: Column) {
   return {
-    textAlign: column.align || 'left',
-    width: column.width || 'auto',
-  }
+    textAlign: column.align || "left",
+    width: column.width || "auto",
+  };
 }
 
 function handleRowClick(record: any) {
-  emit('rowClick', record)
+  emit("rowClick", record);
 }
 </script>
 
@@ -69,22 +70,41 @@ function handleRowClick(record: any) {
               :style="getCellStyle(column)"
             >
               <template v-if="column.customRender">
-                <template v-if="typeof column.customRender(record[column.key], record) === 'string'">
+                <template
+                  v-if="
+                    typeof column.customRender(record[column.key], record) ===
+                      'string'
+                  "
+                >
                   {{ column.customRender(record[column.key], record) }}
                 </template>
-                <component v-else :is="column.customRender(record[column.key], record)" />
+                <component
+                  :is="column.customRender(record[column.key], record)"
+                  v-else
+                />
               </template>
               <template v-else>
-                {{ record[column.key] ?? '-' }}
+                {{ record[column.key] ?? "-" }}
               </template>
             </td>
           </tr>
           <tr v-if="!loading && data.length === 0">
-            <td :colspan="columns.length" class="cyp-table__empty">
+            <td
+              :colspan="columns.length"
+              class="cyp-table__empty"
+            >
               <slot name="empty">
                 <div class="cyp-table__empty-content">
-                  <svg class="empty-icon" viewBox="0 0 24 24" width="48" height="48">
-                    <path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+                  <svg
+                    class="empty-icon"
+                    viewBox="0 0 24 24"
+                    width="48"
+                    height="48"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"
+                    />
                   </svg>
                   <p>暂无数据</p>
                 </div>
@@ -96,12 +116,18 @@ function handleRowClick(record: any) {
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="cyp-table__loading">
+    <div
+      v-if="loading"
+      class="cyp-table__loading"
+    >
       <div class="cyp-table__loading-spinner" />
     </div>
 
     <!-- 分页 -->
-    <div v-if="pagination" class="cyp-table__pagination">
+    <div
+      v-if="pagination"
+      class="cyp-table__pagination"
+    >
       <span class="cyp-table__pagination-info">
         共 {{ pagination.total }} 条
       </span>
@@ -267,4 +293,3 @@ function handleRowClick(record: any) {
   }
 }
 </style>
-

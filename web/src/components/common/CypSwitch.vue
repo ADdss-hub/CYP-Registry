@@ -1,40 +1,40 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
 interface Props {
-  modelValue: boolean
-  disabled?: boolean
-  size?: 'small' | 'medium' | 'large'
-  activeText?: string
-  inactiveText?: string
+  modelValue: boolean;
+  disabled?: boolean;
+  size?: "small" | "medium" | "large";
+  activeText?: string;
+  inactiveText?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   disabled: false,
-  size: 'medium',
-  activeText: '开启',
-  inactiveText: '关闭',
-})
+  size: "medium",
+  activeText: "开启",
+  inactiveText: "关闭",
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  change: [value: boolean]
-}>()
+  "update:modelValue": [value: boolean];
+  change: [value: boolean];
+}>();
 
 const switchClass = computed(() => [
-  'cyp-switch',
+  "cyp-switch",
   `cyp-switch--${props.size}`,
   {
-    'cyp-switch--checked': props.modelValue,
-    'cyp-switch--disabled': props.disabled,
+    "cyp-switch--checked": props.modelValue,
+    "cyp-switch--disabled": props.disabled,
   },
-])
+]);
 
 function handleClick() {
-  if (props.disabled) return
-  const newValue = !props.modelValue
-  emit('update:modelValue', newValue)
-  emit('change', newValue)
+  if (props.disabled) return;
+  const newValue = !props.modelValue;
+  emit("update:modelValue", newValue);
+  emit("change", newValue);
 }
 </script>
 
@@ -50,7 +50,10 @@ function handleClick() {
     <span class="cyp-switch__core">
       <span class="cyp-switch__knob" />
     </span>
-    <span v-if="activeText || inactiveText" class="cyp-switch__text">
+    <span
+      v-if="activeText || inactiveText"
+      class="cyp-switch__text"
+    >
       {{ modelValue ? activeText : inactiveText }}
     </span>
   </button>
@@ -150,4 +153,3 @@ function handleClick() {
   }
 }
 </style>
-

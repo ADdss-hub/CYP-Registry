@@ -58,4 +58,3 @@ func NewStorageWithType(storageType StorageType, cfg *config.Config) (storage.St
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedStorage, storageType)
 	}
 }
-

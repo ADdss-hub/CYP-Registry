@@ -1,59 +1,64 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from "vue";
 
 interface Props {
-  modelValue: boolean
-  title?: string
-  width?: string
-  fullscreen?: boolean
-  closable?: boolean
-  maskClosable?: boolean
+  modelValue: boolean;
+  title?: string;
+  width?: string;
+  fullscreen?: boolean;
+  closable?: boolean;
+  maskClosable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  width: '600px',
+  title: "",
+  width: "600px",
   fullscreen: false,
   closable: true,
   maskClosable: true,
-})
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  close: []
-}>()
+  "update:modelValue": [value: boolean];
+  close: [];
+}>();
 
-const isVisible = computed(() => props.modelValue)
+const isVisible = computed(() => props.modelValue);
 
 function handleClose() {
-  emit('update:modelValue', false)
-  emit('close')
+  emit("update:modelValue", false);
+  emit("close");
 }
 
 function handleMaskClick() {
   if (props.maskClosable) {
-    handleClose()
+    handleClose();
   }
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && props.closable) {
-    handleClose()
+  if (e.key === "Escape" && props.closable) {
+    handleClose();
   }
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-})
+  document.addEventListener("keydown", handleKeydown);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
-})
+  document.removeEventListener("keydown", handleKeydown);
+});
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="isVisible" class="cyp-modal__mask" @click="handleMaskClick">
+      <div
+        v-if="isVisible"
+        class="cyp-modal__mask"
+        @click="handleMaskClick"
+      >
         <div
           class="cyp-modal"
           :class="{ 'cyp-modal--fullscreen': fullscreen }"
@@ -61,14 +66,23 @@ onUnmounted(() => {
           @click.stop
         >
           <div class="cyp-modal__header">
-            <h3 v-if="title" class="cyp-modal__title">{{ title }}</h3>
+            <h3
+              v-if="title"
+              class="cyp-modal__title"
+            >
+              {{ title }}
+            </h3>
             <div class="cyp-modal__header-right">
               <button
                 v-if="fullscreen"
                 class="cyp-modal__fullscreen-btn"
                 @click="$emit('update:modelValue', false)"
               >
-                <svg viewBox="0 0 24 24" width="18" height="18">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                >
                   <path
                     fill="currentColor"
                     d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
@@ -80,7 +94,11 @@ onUnmounted(() => {
                 class="cyp-modal__close"
                 @click="handleClose"
               >
-                <svg viewBox="0 0 24 24" width="20" height="20">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                >
                   <path
                     fill="currentColor"
                     d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
@@ -94,7 +112,10 @@ onUnmounted(() => {
             <slot />
           </div>
 
-          <div v-if="$slots.footer" class="cyp-modal__footer">
+          <div
+            v-if="$slots.footer"
+            class="cyp-modal__footer"
+          >
             <slot name="footer" />
           </div>
         </div>
@@ -206,4 +227,3 @@ onUnmounted(() => {
   }
 }
 </style>
-

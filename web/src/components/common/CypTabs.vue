@@ -1,35 +1,37 @@
 <script setup lang="ts">
-
 interface Tab {
-  key: string
-  title: string
-  disabled?: boolean
+  key: string;
+  title: string;
+  disabled?: boolean;
 }
 
 interface Props {
-  modelValue: string
-  tabs: Tab[]
-  type?: 'line' | 'card'
+  modelValue: string;
+  tabs: Tab[];
+  type?: "line" | "card";
 }
 
 withDefaults(defineProps<Props>(), {
-  type: 'line',
-})
+  type: "line",
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  change: [value: string]
-}>()
+  "update:modelValue": [value: string];
+  change: [value: string];
+}>();
 
 function handleTabClick(tab: Tab) {
-  if (tab.disabled) return
-  emit('update:modelValue', tab.key)
-  emit('change', tab.key)
+  if (tab.disabled) return;
+  emit("update:modelValue", tab.key);
+  emit("change", tab.key);
 }
 </script>
 
 <template>
-  <div class="cyp-tabs" :class="[`cyp-tabs--${type}`]">
+  <div
+    class="cyp-tabs"
+    :class="[`cyp-tabs--${type}`]"
+  >
     <div class="cyp-tabs__nav">
       <div
         v-for="tab in tabs"
@@ -43,7 +45,12 @@ function handleTabClick(tab: Tab) {
       >
         {{ tab.title }}
       </div>
-      <div class="cyp-tabs__ink" :style="{ left: `${tabs.findIndex(t => t.key === modelValue) * 100}px` }" />
+      <div
+        class="cyp-tabs__ink"
+        :style="{
+          left: `${tabs.findIndex((t) => t.key === modelValue) * 100}px`,
+        }"
+      />
     </div>
     <div class="cyp-tabs__content">
       <slot />
@@ -121,4 +128,3 @@ function handleTabClick(tab: Tab) {
   }
 }
 </style>
-

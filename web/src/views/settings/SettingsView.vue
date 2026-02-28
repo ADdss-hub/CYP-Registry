@@ -1,177 +1,177 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useUserStore } from '@/stores/user'
-import { useThemeStore } from '@/stores/theme'
-import { useNotificationStore } from '@/stores/notification'
-import CypButton from '@/components/common/CypButton.vue'
-import CypInput from '@/components/common/CypInput.vue'
-import CypSelect from '@/components/common/CypSelect.vue'
-import CypSwitch from '@/components/common/CypSwitch.vue'
-import CypDialog from '@/components/common/CypDialog.vue'
-import type { AccessToken, NotificationSettings } from '@/types'
-import { copyToClipboard } from '@/utils/clipboard'
+import { ref, watch } from "vue";
+import { useUserStore } from "@/stores/user";
+import { useThemeStore } from "@/stores/theme";
+import { useNotificationStore } from "@/stores/notification";
+import CypButton from "@/components/common/CypButton.vue";
+import CypInput from "@/components/common/CypInput.vue";
+import CypSelect from "@/components/common/CypSelect.vue";
+import CypSwitch from "@/components/common/CypSwitch.vue";
+import CypDialog from "@/components/common/CypDialog.vue";
+import type { AccessToken, NotificationSettings } from "@/types";
+import { copyToClipboard } from "@/utils/clipboard";
 
-const userStore = useUserStore()
-const themeStore = useThemeStore()
-const notificationStore = useNotificationStore()
+const userStore = useUserStore();
+const themeStore = useThemeStore();
+const notificationStore = useNotificationStore();
 
-const activeSection = ref('profile')
+const activeSection = ref("profile");
 
 // 个人资料表单
 const profileForm = ref({
-  username: userStore.user?.username || '',
-  email: userStore.user?.email || '',
-  bio: userStore.user?.bio || '',
-  avatar: userStore.user?.avatar || '',
-})
+  username: userStore.user?.username || "",
+  email: userStore.user?.email || "",
+  bio: userStore.user?.bio || "",
+  avatar: userStore.user?.avatar || "",
+});
 
 // 监听 userStore.user 的变化，同步更新 profileForm
 watch(
   () => userStore.user,
   (newUser) => {
     if (newUser) {
-      profileForm.value.username = newUser.username || ''
-      profileForm.value.email = newUser.email || ''
-      profileForm.value.bio = newUser.bio || ''
+      profileForm.value.username = newUser.username || "";
+      profileForm.value.email = newUser.email || "";
+      profileForm.value.bio = newUser.bio || "";
       // 只有当新头像URL与当前不同时才更新，避免覆盖用户正在编辑的内容
       if (newUser.avatar && newUser.avatar !== profileForm.value.avatar) {
-        profileForm.value.avatar = newUser.avatar
+        profileForm.value.avatar = newUser.avatar;
       }
     }
   },
-  { deep: true, immediate: true }
-)
+  { deep: true, immediate: true },
+);
 
 // 安全设置表单
 const securityForm = ref({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: '',
-})
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+});
 
 // 通知设置（默认开启 Webhook 通知，频率为实时）
 const notificationSettings = ref<{
-  emailEnabled: boolean
-  scanCompleted: boolean
-  securityAlerts: boolean
-  webhookNotifications: boolean
-  digest: NotificationSettings['digest']
-  notificationEmail: string
+  emailEnabled: boolean;
+  scanCompleted: boolean;
+  securityAlerts: boolean;
+  webhookNotifications: boolean;
+  digest: NotificationSettings["digest"];
+  notificationEmail: string;
 }>({
   emailEnabled: true,
   scanCompleted: true,
   securityAlerts: true,
   webhookNotifications: true,
-  digest: 'realtime',
-  notificationEmail: '',
-})
+  digest: "realtime",
+  notificationEmail: "",
+});
 
 // 偏好设置
-const language = ref('zh-CN')
-const timezone = ref('Asia/Shanghai')
+const language = ref("zh-CN");
+const timezone = ref("Asia/Shanghai");
 
 // 访问令牌
-const tokens = ref<AccessToken[]>([])
-const tokensLoaded = ref(false)
+const tokens = ref<AccessToken[]>([]);
+const tokensLoaded = ref(false);
 
 // 对话框状态
-const showCreateTokenDialog = ref(false)
-const showDeleteConfirmDialog = ref(false)
-const selectedToken = ref<AccessToken | null>(null)
-const showTokenDialog = ref(false)
-const createdToken = ref('')
-const createdTokenType = ref('')
+const showCreateTokenDialog = ref(false);
+const showDeleteConfirmDialog = ref(false);
+const selectedToken = ref<AccessToken | null>(null);
+const showTokenDialog = ref(false);
+const createdToken = ref("");
+const createdTokenType = ref("");
 
 // 头像编辑系统框（文件上传方式，遵循《全平台通用界面开发设计规范》3.4节）
-const showAvatarDialog = ref(false)
-const avatarFile = ref<File | null>(null)
-const avatarLoadFailed = ref(false)
+const showAvatarDialog = ref(false);
+const avatarFile = ref<File | null>(null);
+const avatarLoadFailed = ref(false);
 
 // 通用提示框（信息/错误），临时代替全局 Toast，遵循3.3节“提示框组件”文案规范
-const showMessageDialog = ref(false)
-const messageDialogTitle = ref('')
-const messageDialogContent = ref('')
+const showMessageDialog = ref(false);
+const messageDialogTitle = ref("");
+const messageDialogContent = ref("");
 
 function openMessageDialog(title: string, content: string) {
-  messageDialogTitle.value = title
-  messageDialogContent.value = content
-  showMessageDialog.value = true
+  messageDialogTitle.value = title;
+  messageDialogContent.value = content;
+  showMessageDialog.value = true;
 }
 
 const newTokenForm = ref<{
-  name: string
-  expiresAt: string
-  scopes: string[]
+  name: string;
+  expiresAt: string;
+  scopes: string[];
 }>({
-  name: '',
-  expiresAt: '',
+  name: "",
+  expiresAt: "",
   scopes: [] as string[],
-})
+});
 
 const scopeOptions = [
-  { value: 'read', label: '读取' },
-  { value: 'write', label: '写入' },
-  { value: 'delete', label: '删除' },
-  { value: 'admin', label: '管理' },
-]
+  { value: "read", label: "读取" },
+  { value: "write", label: "写入" },
+  { value: "delete", label: "删除" },
+  { value: "admin", label: "管理" },
+];
 
 const scopeLabelMap: Record<string, string> = scopeOptions.reduce(
   (acc, item) => {
-    acc[item.value] = item.label
-    return acc
+    acc[item.value] = item.label;
+    return acc;
   },
   {} as Record<string, string>,
-)
+);
 
 const expiryOptions = [
-  { value: '', label: '永不过期' },
-  { value: '7', label: '7天' },
-  { value: '30', label: '30天' },
-  { value: '90', label: '90天' },
-  { value: '365', label: '1年' },
-]
+  { value: "", label: "永不过期" },
+  { value: "7", label: "7天" },
+  { value: "30", label: "30天" },
+  { value: "90", label: "90天" },
+  { value: "365", label: "1年" },
+];
 
 // 访问令牌列表按需加载：仅在首次进入“访问令牌”页签时从后端拉取
 async function loadTokensIfNeeded() {
-  if (tokensLoaded.value) return
+  if (tokensLoaded.value) return;
   try {
-    const list = await userStore.listPAT()
-    tokens.value = list
-    tokensLoaded.value = true
+    const list = await userStore.listPAT();
+    tokens.value = list;
+    tokensLoaded.value = true;
   } catch (err: any) {
-    openMessageDialog('加载失败', err?.message || '加载访问令牌列表失败')
+    openMessageDialog("加载失败", err?.message || "加载访问令牌列表失败");
   }
 }
 
 // 加载通知设置（进入“通知设置”页签时从后端拉取）
 async function loadNotificationSettings() {
   try {
-    const settings = await userStore.getNotificationSettings()
+    const settings = await userStore.getNotificationSettings();
     notificationSettings.value = {
       emailEnabled: settings.email_enabled,
       scanCompleted: settings.scan_completed,
       securityAlerts: settings.security_alerts,
       webhookNotifications: settings.webhook_notifications,
       digest: settings.digest,
-      notificationEmail: settings.notification_email || '',
-    }
+      notificationEmail: settings.notification_email || "",
+    };
   } catch (err: any) {
-    openMessageDialog('加载失败', err?.message || '加载通知设置失败')
+    openMessageDialog("加载失败", err?.message || "加载通知设置失败");
   }
 }
 
 watch(
   () => activeSection.value,
   (section) => {
-    if (section === 'tokens') {
-      loadTokensIfNeeded()
+    if (section === "tokens") {
+      loadTokensIfNeeded();
     }
-    if (section === 'notifications') {
-      loadNotificationSettings()
+    if (section === "notifications") {
+      loadNotificationSettings();
     }
   },
-  { immediate: true }
-)
+  { immediate: true },
+);
 
 // 保存个人资料
 async function saveProfile() {
@@ -180,83 +180,83 @@ async function saveProfile() {
       nickname: profileForm.value.username,
       avatar: profileForm.value.avatar,
       bio: profileForm.value.bio,
-    })
-    await userStore.fetchCurrentUser()
-    openMessageDialog('保存成功', '个人资料已保存')
+    });
+    await userStore.fetchCurrentUser();
+    openMessageDialog("保存成功", "个人资料已保存");
     notificationStore.addNotification({
-      source: 'system',
-      title: '个人资料已更新',
-      message: '您的用户名、头像或个人简介等资料已成功保存',
-      status: 'success',
-    })
+      source: "system",
+      title: "个人资料已更新",
+      message: "您的用户名、头像或个人简介等资料已成功保存",
+      status: "success",
+    });
   } catch (err: any) {
-    openMessageDialog('保存失败', err?.message || '个人资料保存失败')
+    openMessageDialog("保存失败", err?.message || "个人资料保存失败");
   }
 }
 
 // 更换头像（使用系统框代替浏览器 prompt）
 function changeAvatar() {
-  avatarFile.value = null
-  showAvatarDialog.value = true
+  avatarFile.value = null;
+  showAvatarDialog.value = true;
 }
 
 function onAvatarFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0] || null
-  avatarFile.value = file
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0] || null;
+  avatarFile.value = file;
 }
 
 // 保存头像（在头像弹窗中直接上传文件并更新，避免用户额外再点"保存更改"）
 async function saveAvatarFromDialog() {
   if (!avatarFile.value) {
-    openMessageDialog('校验失败', '请选择要上传的头像图片文件')
-    return
+    openMessageDialog("校验失败", "请选择要上传的头像图片文件");
+    return;
   }
   try {
-    avatarLoadFailed.value = false
-    const updated = await userStore.uploadAvatar(avatarFile.value)
+    avatarLoadFailed.value = false;
+    const updated = await userStore.uploadAvatar(avatarFile.value);
     // 更新 profileForm 中的头像URL
     if (updated && updated.avatar) {
-      profileForm.value.avatar = updated.avatar
+      profileForm.value.avatar = updated.avatar;
     }
     // 强制刷新用户信息，确保头像URL是最新的
-    await userStore.fetchCurrentUser()
+    await userStore.fetchCurrentUser();
     // 再次更新 profileForm，确保使用最新的用户信息
     if (userStore.user?.avatar) {
-      profileForm.value.avatar = userStore.user.avatar
+      profileForm.value.avatar = userStore.user.avatar;
     }
-    openMessageDialog('保存成功', '头像已更新')
-    showAvatarDialog.value = false
+    openMessageDialog("保存成功", "头像已更新");
+    showAvatarDialog.value = false;
     // 清空文件选择
-    avatarFile.value = null
+    avatarFile.value = null;
   } catch (err: any) {
-    openMessageDialog('保存失败', err?.message || '头像更新失败')
+    openMessageDialog("保存失败", err?.message || "头像更新失败");
   }
 }
 
 // 修改密码
 function changePassword() {
   if (securityForm.value.newPassword !== securityForm.value.confirmPassword) {
-    openMessageDialog('校验失败', '两次输入的密码不一致')
-    return
+    openMessageDialog("校验失败", "两次输入的密码不一致");
+    return;
   }
   if (securityForm.value.newPassword.length < 8) {
-    openMessageDialog('校验失败', '密码长度至少为8个字符')
-    return
+    openMessageDialog("校验失败", "密码长度至少为8个字符");
+    return;
   }
-  console.log('修改密码:', securityForm.value)
-  openMessageDialog('修改成功', '密码已修改')
+  console.log("修改密码:", securityForm.value);
+  openMessageDialog("修改成功", "密码已修改");
   notificationStore.addNotification({
-    source: 'system',
-    title: '密码已修改',
-    message: '您的登录密码已更新，如非本人操作请尽快联系管理员',
-    status: 'success',
-  })
+    source: "system",
+    title: "密码已修改",
+    message: "您的登录密码已更新，如非本人操作请尽快联系管理员",
+    status: "success",
+  });
   securityForm.value = {
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  }
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  };
 }
 
 // 保存通知设置（调用后端接口）
@@ -264,10 +264,10 @@ async function saveNotificationSettings() {
   try {
     // 简单邮箱格式校验（仅在配置了独立通知邮箱时校验）
     if (notificationSettings.value.notificationEmail) {
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailPattern.test(notificationSettings.value.notificationEmail)) {
-        openMessageDialog('校验失败', '通知邮箱格式不正确，请检查后再保存')
-        return
+        openMessageDialog("校验失败", "通知邮箱格式不正确，请检查后再保存");
+        return;
       }
     }
 
@@ -278,159 +278,164 @@ async function saveNotificationSettings() {
       webhook_notifications: notificationSettings.value.webhookNotifications,
       digest: notificationSettings.value.digest,
       notification_email: notificationSettings.value.notificationEmail,
-    }
-    await userStore.updateNotificationSettings(payload)
-    openMessageDialog('保存成功', '通知设置已保存')
+    };
+    await userStore.updateNotificationSettings(payload);
+    openMessageDialog("保存成功", "通知设置已保存");
     notificationStore.addNotification({
-      source: 'system',
-      title: '通知设置已更新',
-      message: '您的通知偏好与邮箱设置已保存',
-      status: 'success',
-    })
+      source: "system",
+      title: "通知设置已更新",
+      message: "您的通知偏好与邮箱设置已保存",
+      status: "success",
+    });
   } catch (err: any) {
-    openMessageDialog('保存失败', err?.message || '通知设置保存失败')
+    openMessageDialog("保存失败", err?.message || "通知设置保存失败");
   }
 }
 
 // 创建令牌
 function openCreateTokenDialog() {
   newTokenForm.value = {
-    name: '',
-    expiresAt: '',
-    scopes: ['read'],
-  }
-  showCreateTokenDialog.value = true
+    name: "",
+    expiresAt: "",
+    scopes: ["read"],
+  };
+  showCreateTokenDialog.value = true;
 }
 
 async function handleCreateToken() {
   if (!newTokenForm.value.name) {
-    openMessageDialog('校验失败', '请输入令牌名称')
-    return
+    openMessageDialog("校验失败", "请输入令牌名称");
+    return;
   }
 
   const expireDays = newTokenForm.value.expiresAt
     ? Number(newTokenForm.value.expiresAt)
-    : undefined
+    : undefined;
 
   try {
     const result = await userStore.createPAT({
       name: newTokenForm.value.name,
       scopes: newTokenForm.value.scopes,
       expireInDays: expireDays,
-    })
+    });
 
-    tokens.value.unshift(result.accessToken)
-    showCreateTokenDialog.value = false
+    tokens.value.unshift(result.accessToken);
+    showCreateTokenDialog.value = false;
 
     // 显示新令牌（只显示一次）
-    createdToken.value = result.token
-    createdTokenType.value = result.tokenType
-    showTokenDialog.value = true
+    createdToken.value = result.token;
+    createdTokenType.value = result.tokenType;
+    showTokenDialog.value = true;
 
     const translatedScopes =
       newTokenForm.value.scopes.length > 0
-        ? newTokenForm.value.scopes
-            .map((s) => scopeLabelMap[s] || s)
-            .join('，')
-        : '默认读取'
+        ? newTokenForm.value.scopes.map((s) => scopeLabelMap[s] || s).join("，")
+        : "默认读取";
 
     notificationStore.addNotification({
-      source: 'system',
-      title: '访问令牌已创建',
+      source: "system",
+      title: "访问令牌已创建",
       message: `已创建访问令牌「${newTokenForm.value.name}」，权限范围：${translatedScopes}`,
-      status: 'success',
-    })
+      status: "success",
+    });
   } catch (err: any) {
-    openMessageDialog('创建失败', err?.message || '创建令牌失败')
+    openMessageDialog("创建失败", err?.message || "创建令牌失败");
   }
 }
 
 function openDeleteConfirmDialog(token: AccessToken) {
-  selectedToken.value = token
-  showDeleteConfirmDialog.value = true
+  selectedToken.value = token;
+  showDeleteConfirmDialog.value = true;
 }
 
 async function handleDeleteToken() {
-  if (!selectedToken.value) return
+  if (!selectedToken.value) return;
 
   try {
-    await userStore.revokePAT(selectedToken.value.id)
-    tokens.value = tokens.value.filter((t: AccessToken) => t.id !== selectedToken.value!.id)
-    showDeleteConfirmDialog.value = false
-    openMessageDialog('删除成功', '访问令牌已删除')
+    await userStore.revokePAT(selectedToken.value.id);
+    tokens.value = tokens.value.filter(
+      (t: AccessToken) => t.id !== selectedToken.value!.id,
+    );
+    showDeleteConfirmDialog.value = false;
+    openMessageDialog("删除成功", "访问令牌已删除");
     notificationStore.addNotification({
-      source: 'system',
-      title: '访问令牌已删除',
+      source: "system",
+      title: "访问令牌已删除",
       message: `访问令牌「${selectedToken.value.name}」已被删除`,
-      status: 'success',
-    })
+      status: "success",
+    });
   } catch (err: any) {
-    openMessageDialog('删除失败', err?.message || '删除访问令牌失败')
+    openMessageDialog("删除失败", err?.message || "删除访问令牌失败");
   } finally {
-    selectedToken.value = null
+    selectedToken.value = null;
   }
 }
 
 async function copyToken(token: string) {
   try {
     if (!token) {
-      openMessageDialog('复制失败', '当前没有可复制的令牌值')
-      return
+      openMessageDialog("复制失败", "当前没有可复制的令牌值");
+      return;
     }
 
-    await copyToClipboard(token)
+    await copyToClipboard(token);
 
-    openMessageDialog('复制成功', '令牌已复制到剪贴板')
+    openMessageDialog("复制成功", "令牌已复制到剪贴板");
     notificationStore.addNotification({
-      source: 'system',
-      title: '访问令牌已复制',
-      message: '访问令牌值已复制到剪贴板',
-      status: 'success',
-    })
+      source: "system",
+      title: "访问令牌已复制",
+      message: "访问令牌值已复制到剪贴板",
+      status: "success",
+    });
   } catch (err: any) {
-    console.error('复制令牌到剪贴板失败', err)
-    openMessageDialog('复制失败', err?.message || '复制令牌到剪贴板失败，请尝试手动选择并复制')
+    console.error("复制令牌到剪贴板失败", err);
+    openMessageDialog(
+      "复制失败",
+      err?.message || "复制令牌到剪贴板失败，请尝试手动选择并复制",
+    );
   }
 }
 
 // 将令牌的权限范围转换为中文展示文案
 function formatTokenScopes(scopes?: string[]): string {
   if (!scopes || scopes.length === 0) {
-    return '默认读取'
+    return "默认读取";
   }
-  return scopes
-    .map((s) => scopeLabelMap[s] || s)
-    .join('，')
+  return scopes.map((s) => scopeLabelMap[s] || s).join("，");
 }
 
 // 获取完整的头像URL（添加时间戳防止缓存）
 function getAvatarUrl(avatar: string): string {
-  if (!avatar) return ''
+  if (!avatar) return "";
   // 如果已经是完整URL（包含 http:// 或 https://），添加时间戳
-  if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
-    const separator = avatar.includes('?') ? '&' : '?'
-    return avatar + separator + 't=' + Date.now()
+  if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
+    const separator = avatar.includes("?") ? "&" : "?";
+    return avatar + separator + "t=" + Date.now();
   }
   // 如果是相对路径，添加时间戳防止缓存
-  if (avatar.startsWith('/')) {
-    return avatar + '?t=' + Date.now()
+  if (avatar.startsWith("/")) {
+    return avatar + "?t=" + Date.now();
   }
   // 其他情况直接返回，但添加时间戳
-  return avatar + (avatar.includes('?') ? '&' : '?') + 't=' + Date.now()
+  return avatar + (avatar.includes("?") ? "&" : "?") + "t=" + Date.now();
 }
 
 // 处理头像加载错误
 function handleAvatarError() {
   // 只标记失败，避免直接操作 DOM 样式导致后续成功加载也一直不显示
-  avatarLoadFailed.value = true
+  avatarLoadFailed.value = true;
 }
 </script>
 
 <template>
   <div class="settings-page">
     <div class="page-header">
-      <h2 class="page-title">系统设置</h2>
-      <p class="page-subtitle">管理您的账户和系统配置</p>
+      <h2 class="page-title">
+        系统设置
+      </h2>
+      <p class="page-subtitle">
+        管理您的账户和系统配置
+      </p>
     </div>
 
     <div class="settings-layout">
@@ -440,7 +445,11 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'profile' }"
           @click="activeSection = 'profile'"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+          >
             <path
               fill="currentColor"
               d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
@@ -453,7 +462,11 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'security' }"
           @click="activeSection = 'security'"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+          >
             <path
               fill="currentColor"
               d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"
@@ -466,7 +479,11 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'notifications' }"
           @click="activeSection = 'notifications'"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+          >
             <path
               fill="currentColor"
               d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
@@ -479,7 +496,11 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'tokens' }"
           @click="activeSection = 'tokens'"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+          >
             <path
               fill="currentColor"
               d="M21 10h-8.35C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H13l2 2 2-2 2 2 4-4.04L21 10zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"
@@ -492,7 +513,11 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'appearance' }"
           @click="activeSection = 'appearance'"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+          >
             <path
               fill="currentColor"
               d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
@@ -504,30 +529,56 @@ function handleAvatarError() {
 
       <div class="settings-content">
         <!-- 个人资料 -->
-        <section v-if="activeSection === 'profile'" class="settings-section">
+        <section
+          v-if="activeSection === 'profile'"
+          class="settings-section"
+        >
           <h2>个人资料</h2>
           <div class="profile-avatar">
             <div class="avatar-preview">
               <img
-                v-if="(profileForm.avatar || userStore.user?.avatar) && !avatarLoadFailed"
+                v-if="
+                  (profileForm.avatar || userStore.user?.avatar) &&
+                    !avatarLoadFailed
+                "
                 :key="profileForm.avatar || userStore.user?.avatar"
-                :src="getAvatarUrl(profileForm.avatar || userStore.user?.avatar || '')"
+                :src="
+                  getAvatarUrl(
+                    profileForm.avatar || userStore.user?.avatar || '',
+                  )
+                "
                 alt="avatar"
                 @error="handleAvatarError"
-              />
+              >
               <span v-else>
-                {{ (profileForm.username || userStore.user?.username || 'U').charAt(0).toUpperCase() }}
+                {{
+                  (profileForm.username || userStore.user?.username || "U")
+                    .charAt(0)
+                    .toUpperCase()
+                }}
               </span>
             </div>
-            <CypButton size="small" @click="changeAvatar">更换头像</CypButton>
+            <CypButton
+              size="small"
+              @click="changeAvatar"
+            >
+              更换头像
+            </CypButton>
           </div>
           <div class="form-group">
             <label>用户名</label>
-            <CypInput v-model="profileForm.username" placeholder="用户名" />
+            <CypInput
+              v-model="profileForm.username"
+              placeholder="用户名"
+            />
           </div>
           <div class="form-group">
             <label>邮箱</label>
-            <CypInput v-model="profileForm.email" type="email" placeholder="邮箱地址" />
+            <CypInput
+              v-model="profileForm.email"
+              type="email"
+              placeholder="邮箱地址"
+            />
           </div>
           <div class="form-group">
             <label>个人简介</label>
@@ -538,11 +589,19 @@ function handleAvatarError() {
               rows="3"
             />
           </div>
-          <CypButton type="primary" @click="saveProfile">保存更改</CypButton>
+          <CypButton
+            type="primary"
+            @click="saveProfile"
+          >
+            保存更改
+          </CypButton>
         </section>
 
         <!-- 安全设置 -->
-        <section v-if="activeSection === 'security'" class="settings-section">
+        <section
+          v-if="activeSection === 'security'"
+          class="settings-section"
+        >
           <h2>安全设置</h2>
           <div class="form-group">
             <label>当前密码</label>
@@ -571,17 +630,27 @@ function handleAvatarError() {
               autocomplete="new-password"
             />
           </div>
-          <CypButton type="primary" @click="changePassword">修改密码</CypButton>
+          <CypButton
+            type="primary"
+            @click="changePassword"
+          >
+            修改密码
+          </CypButton>
 
           <div class="danger-zone">
             <h3>危险操作</h3>
             <p>删除账户将永久移除您的所有数据和访问权限。此操作无法撤销。</p>
-            <CypButton type="danger">删除账户</CypButton>
+            <CypButton type="danger">
+              删除账户
+            </CypButton>
           </div>
         </section>
 
         <!-- 通知设置 -->
-        <section v-if="activeSection === 'notifications'" class="settings-section">
+        <section
+          v-if="activeSection === 'notifications'"
+          class="settings-section"
+        >
           <h2>通知设置</h2>
           <div class="toggle-group">
             <div class="toggle-item">
@@ -591,7 +660,10 @@ function handleAvatarError() {
               </div>
               <CypSwitch v-model="notificationSettings.emailEnabled" />
             </div>
-            <div class="form-group" style="margin-top: 8px;">
+            <div
+              class="form-group"
+              style="margin-top: 8px"
+            >
               <label>通知邮箱（可选）</label>
               <CypInput
                 v-model="notificationSettings.notificationEmail"
@@ -622,7 +694,10 @@ function handleAvatarError() {
             </div>
           </div>
 
-          <div class="form-group" style="margin-top: 24px;">
+          <div
+            class="form-group"
+            style="margin-top: 24px"
+          >
             <label>通知频率</label>
             <CypSelect
               v-model="notificationSettings.digest"
@@ -634,22 +709,48 @@ function handleAvatarError() {
             />
           </div>
 
-          <CypButton type="primary" @click="saveNotificationSettings">保存设置</CypButton>
+          <CypButton
+            type="primary"
+            @click="saveNotificationSettings"
+          >
+            保存设置
+          </CypButton>
         </section>
 
         <!-- 访问令牌 -->
-        <section v-if="activeSection === 'tokens'" class="settings-section">
+        <section
+          v-if="activeSection === 'tokens'"
+          class="settings-section"
+        >
           <h2>访问令牌</h2>
-          <p class="section-desc">创建和管理用于API访问的令牌。令牌具有与您的账户相同的权限。</p>
-          <CypButton type="primary" data-testid="create-token-button" @click="openCreateTokenDialog">
-            <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 6px;">
-              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          <p class="section-desc">
+            创建和管理用于API访问的令牌。令牌具有与您的账户相同的权限。
+          </p>
+          <CypButton
+            type="primary"
+            data-testid="create-token-button"
+            @click="openCreateTokenDialog"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              style="margin-right: 6px"
+            >
+              <path
+                fill="currentColor"
+                d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"
+              />
             </svg>
             创建新令牌
           </CypButton>
 
           <div class="token-list">
-            <div v-for="token in tokens" :key="token.id" class="token-item">
+            <div
+              v-for="token in tokens"
+              :key="token.id"
+              class="token-item"
+            >
               <div class="token-info">
                 <span class="token-name">{{ token.name }}</span>
                 <span class="token-value">{{ token.token.substring(0, 12) }}...</span>
@@ -658,14 +759,23 @@ function handleAvatarError() {
                   <span v-if="token.lastUsedAt">，最后使用于 {{ token.lastUsedAt }}</span>
                   <span v-if="token.expiresAt">，有效期至 {{ token.expiresAt }}</span>
                   <span v-else>，有效期：不过期</span>
-            <div class="token-scopes">
-              权限范围：{{ formatTokenScopes(token.scopes) }}
-            </div>
+                  <div class="token-scopes">
+                    权限范围：{{ formatTokenScopes(token.scopes) }}
+                  </div>
                 </div>
               </div>
               <div class="token-actions">
-                <CypButton size="small" @click="copyToken(token.token)">复制</CypButton>
-                <CypButton size="small" type="danger" @click="openDeleteConfirmDialog(token)">
+                <CypButton
+                  size="small"
+                  @click="copyToken(token.token)"
+                >
+                  复制
+                </CypButton>
+                <CypButton
+                  size="small"
+                  type="danger"
+                  @click="openDeleteConfirmDialog(token)"
+                >
                   删除
                 </CypButton>
               </div>
@@ -674,24 +784,54 @@ function handleAvatarError() {
         </section>
 
         <!-- 外观设置 -->
-        <section v-if="activeSection === 'appearance'" class="settings-section">
+        <section
+          v-if="activeSection === 'appearance'"
+          class="settings-section"
+        >
           <h2>外观设置</h2>
           <div class="theme-selector">
             <h3>主题</h3>
             <div class="theme-options">
-              <label class="theme-option light" :class="{ selected: themeStore.theme === 'light' }">
-                <input type="radio" name="theme" value="light" :checked="themeStore.theme === 'light'" @change="themeStore.setTheme('light')" />
-                <span class="theme-preview light"></span>
+              <label
+                class="theme-option light"
+                :class="{ selected: themeStore.theme === 'light' }"
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value="light"
+                  :checked="themeStore.theme === 'light'"
+                  @change="themeStore.setTheme('light')"
+                >
+                <span class="theme-preview light" />
                 <span class="theme-label">浅色</span>
               </label>
-              <label class="theme-option dark" :class="{ selected: themeStore.theme === 'dark' }">
-                <input type="radio" name="theme" value="dark" :checked="themeStore.theme === 'dark'" @change="themeStore.setTheme('dark')" />
-                <span class="theme-preview dark"></span>
+              <label
+                class="theme-option dark"
+                :class="{ selected: themeStore.theme === 'dark' }"
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value="dark"
+                  :checked="themeStore.theme === 'dark'"
+                  @change="themeStore.setTheme('dark')"
+                >
+                <span class="theme-preview dark" />
                 <span class="theme-label">深色</span>
               </label>
-              <label class="theme-option auto" :class="{ selected: themeStore.theme === 'auto' }">
-                <input type="radio" name="theme" value="auto" :checked="themeStore.theme === 'auto'" @change="themeStore.setTheme('auto')" />
-                <span class="theme-preview auto"></span>
+              <label
+                class="theme-option auto"
+                :class="{ selected: themeStore.theme === 'auto' }"
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value="auto"
+                  :checked="themeStore.theme === 'auto'"
+                  @change="themeStore.setTheme('auto')"
+                >
+                <span class="theme-preview auto" />
                 <span class="theme-label">跟随系统</span>
               </label>
             </div>
@@ -761,23 +901,31 @@ function handleAvatarError() {
                 :data-testid="`scope-${scope.value}`"
                 @change="
                   (e) => {
-                    const checked = (e.target as HTMLInputElement).checked
+                    const checked = (e.target as HTMLInputElement).checked;
                     if (checked) {
-                      newTokenForm.scopes.push(scope.value)
+                      newTokenForm.scopes.push(scope.value);
                     } else {
-                      newTokenForm.scopes = newTokenForm.scopes.filter((s) => s !== scope.value)
+                      newTokenForm.scopes = newTokenForm.scopes.filter(
+                        (s) => s !== scope.value,
+                      );
                     }
                   }
                 "
-              />
+              >
               {{ scope.label }}
             </label>
           </div>
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showCreateTokenDialog = false">取消</CypButton>
-        <CypButton type="primary" data-testid="create-button" @click="handleCreateToken">
+        <CypButton @click="showCreateTokenDialog = false">
+          取消
+        </CypButton>
+        <CypButton
+          type="primary"
+          data-testid="create-button"
+          @click="handleCreateToken"
+        >
           创建
         </CypButton>
       </template>
@@ -791,12 +939,23 @@ function handleAvatarError() {
       @close="showDeleteConfirmDialog = false"
     >
       <div class="delete-confirm">
-        <p>确定要删除令牌 "<strong>{{ selectedToken?.name }}</strong>" 吗？</p>
-        <p class="warning">此操作无法撤销，使用此令牌的应用将立即失去访问权限。</p>
+        <p>
+          确定要删除令牌 "<strong>{{ selectedToken?.name }}</strong>" 吗？
+        </p>
+        <p class="warning">
+          此操作无法撤销，使用此令牌的应用将立即失去访问权限。
+        </p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteConfirmDialog = false">取消</CypButton>
-        <CypButton type="danger" @click="handleDeleteToken">确认删除</CypButton>
+        <CypButton @click="showDeleteConfirmDialog = false">
+          取消
+        </CypButton>
+        <CypButton
+          type="danger"
+          @click="handleDeleteToken"
+        >
+          确认删除
+        </CypButton>
       </template>
     </CypDialog>
 
@@ -812,16 +971,27 @@ function handleAvatarError() {
           只会在此处显示一次完整令牌值，请立即复制并妥善保管。
         </p>
         <div class="token-block">
-          <div class="token-label">令牌值</div>
-          <div class="token-value">{{ createdToken }}</div>
+          <div class="token-label">
+            令牌值
+          </div>
+          <div class="token-value">
+            {{ createdToken }}
+          </div>
         </div>
         <div class="token-meta">
           <span>类型：{{ createdTokenType }}</span>
         </div>
       </div>
       <template #footer>
-        <CypButton @click="copyToken(createdToken)">复制令牌值</CypButton>
-        <CypButton type="primary" @click="showTokenDialog = false">关闭</CypButton>
+        <CypButton @click="copyToken(createdToken)">
+          复制令牌值
+        </CypButton>
+        <CypButton
+          type="primary"
+          @click="showTokenDialog = false"
+        >
+          关闭
+        </CypButton>
       </template>
     </CypDialog>
 
@@ -839,12 +1009,17 @@ function handleAvatarError() {
             type="file"
             accept="image/*"
             @change="onAvatarFileChange"
-          />
+          >
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showAvatarDialog = false">取消</CypButton>
-        <CypButton type="primary" @click="saveAvatarFromDialog">
+        <CypButton @click="showAvatarDialog = false">
+          取消
+        </CypButton>
+        <CypButton
+          type="primary"
+          @click="saveAvatarFromDialog"
+        >
           保存
         </CypButton>
       </template>
@@ -859,7 +1034,12 @@ function handleAvatarError() {
     >
       <p>{{ messageDialogContent }}</p>
       <template #footer>
-        <CypButton type="primary" @click="showMessageDialog = false">知道了</CypButton>
+        <CypButton
+          type="primary"
+          @click="showMessageDialog = false"
+        >
+          知道了
+        </CypButton>
       </template>
     </CypDialog>
   </div>
@@ -1212,7 +1392,9 @@ function handleAvatarError() {
 .dialog-form {
   .form-group {
     margin-bottom: 20px;
-    &:last-child { margin-bottom: 0; }
+    &:last-child {
+      margin-bottom: 0;
+    }
     label {
       display: block;
       font-size: 14px;
@@ -1256,8 +1438,9 @@ function handleAvatarError() {
     }
 
     .token-value {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-        "Courier New", monospace;
+      font-family:
+        ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
       font-size: 13px;
       color: #e5e7eb;
       word-break: break-all;

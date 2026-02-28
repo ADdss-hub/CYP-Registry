@@ -88,4 +88,3 @@ var SwaggerInfo = &swag.Spec{
 func init() {
 	swag.Register(swag.Name, SwaggerInfo)
 }
-

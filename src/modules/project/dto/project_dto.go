@@ -72,18 +72,18 @@ type MemberListResponse struct {
 
 // QuotaUpdateResponse 配额更新响应
 type QuotaUpdateResponse struct {
-	ProjectID    string `json:"project_id"`
-	OldQuota     int64  `json:"old_quota"`
-	NewQuota     int64  `json:"new_quota"`
-	StorageUsed  int64  `json:"storage_used"`
-	StorageLeft  int64  `json:"storage_left"`
+	ProjectID   string `json:"project_id"`
+	OldQuota    int64  `json:"old_quota"`
+	NewQuota    int64  `json:"new_quota"`
+	StorageUsed int64  `json:"storage_used"`
+	StorageLeft int64  `json:"storage_left"`
 }
 
 // StorageUsageResponse 存储使用量响应
 type StorageUsageResponse struct {
-	ProjectID   string `json:"project_id"`
-	ProjectName string `json:"project_name"`
-	StorageUsed int64  `json:"storage_used"`
-	StorageQuota int64 `json:"storage_quota"`
+	ProjectID    string  `json:"project_id"`
+	ProjectName  string  `json:"project_name"`
+	StorageUsed  int64   `json:"storage_used"`
+	StorageQuota int64   `json:"storage_quota"`
 	UsagePercent float64 `json:"usage_percent"`
 }

@@ -1,48 +1,51 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
-type TagType = 'default' | 'primary' | 'success' | 'warning' | 'danger'
+type TagType = "default" | "primary" | "success" | "warning" | "danger";
 
 interface Props {
-  type?: TagType
-  size?: 'small' | 'medium'
-  closable?: boolean
-  round?: boolean
+  type?: TagType;
+  size?: "small" | "medium";
+  closable?: boolean;
+  round?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  type: 'default',
-  size: 'medium',
+  type: "default",
+  size: "medium",
   closable: false,
   round: true,
-})
+});
 
 const emit = defineEmits<{
-  close: []
-  click: []
-}>()
+  close: [];
+  click: [];
+}>();
 
 const tagClass = computed(() => [
-  'cyp-tag',
+  "cyp-tag",
   `cyp-tag--${props.type}`,
   `cyp-tag--${props.size}`,
   {
-    'cyp-tag--round': props.round,
+    "cyp-tag--round": props.round,
   },
-])
+]);
 
 function handleClose(e: Event) {
-  e.stopPropagation()
-  emit('close')
+  e.stopPropagation();
+  emit("close");
 }
 
 function handleClick() {
-  emit('click')
+  emit("click");
 }
 </script>
 
 <template>
-  <span :class="tagClass" @click="handleClick">
+  <span
+    :class="tagClass"
+    @click="handleClick"
+  >
     <slot />
     <button
       v-if="closable"
@@ -50,7 +53,11 @@ function handleClick() {
       type="button"
       @click="handleClose"
     >
-      <svg viewBox="0 0 24 24" width="12" height="12">
+      <svg
+        viewBox="0 0 24 24"
+        width="12"
+        height="12"
+      >
         <path
           fill="currentColor"
           d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
@@ -128,4 +135,3 @@ function handleClick() {
   }
 }
 </style>
-

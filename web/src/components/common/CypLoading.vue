@@ -1,29 +1,41 @@
 <script setup lang="ts">
 interface Props {
-  fullscreen?: boolean
-  text?: string
+  fullscreen?: boolean;
+  text?: string;
 }
 
 withDefaults(defineProps<Props>(), {
   fullscreen: false,
-  text: '加载中...',
-})
+  text: "加载中...",
+});
 </script>
 
 <template>
   <div :class="['cyp-loading', { 'cyp-loading--fullscreen': fullscreen }]">
     <div class="cyp-loading__spinner">
       <svg viewBox="0 0 50 50">
-        <circle class="cyp-loading__track" cx="25" cy="25" r="20" />
-        <circle class="cyp-loading__progress" cx="25" cy="25" r="20" />
+        <circle
+          class="cyp-loading__track"
+          cx="25"
+          cy="25"
+          r="20"
+        />
+        <circle
+          class="cyp-loading__progress"
+          cx="25"
+          cy="25"
+          r="20"
+        />
       </svg>
     </div>
-    <p class="cyp-loading__text">{{ text }}</p>
+    <p class="cyp-loading__text">
+      {{ text }}
+    </p>
   </div>
 </template>
 
 <style scoped lang="scss">
-@use '@/assets/styles/variables.scss' as *;
+@use "@/assets/styles/variables.scss" as *;
 
 .cyp-loading {
   display: inline-flex;
@@ -83,4 +95,3 @@ withDefaults(defineProps<Props>(), {
   }
 }
 </style>
-

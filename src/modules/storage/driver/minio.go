@@ -79,10 +79,10 @@ func NewMinIOStorage(cfg *config.Config) (*MinIOStorage, error) {
 	}
 
 	return &MinIOStorage{
-		client:   client,
-		bucket:   bucket,
-		location: location,
-		partSize: partSize,
+		client:     client,
+		bucket:     bucket,
+		location:   location,
+		partSize:   partSize,
 		sha256Hash: nil, // 延迟初始化
 	}, nil
 }
@@ -355,4 +355,3 @@ func (h *sha256Hash) BlockSize() int {
 
 // 确保MinIO依赖已添加（运行时需要）
 var _ = strconv.IntSize
-

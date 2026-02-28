@@ -1,65 +1,87 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useProjectStore } from '@/stores/project'
-import CypButton from '@/components/common/CypButton.vue'
+import { computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useProjectStore } from "@/stores/project";
+import CypButton from "@/components/common/CypButton.vue";
 
-const router = useRouter()
-const projectStore = useProjectStore()
+const router = useRouter();
+const projectStore = useProjectStore();
 
 const statsCards = computed(() => {
   // 项目总数应使用分页 total，避免只统计当前页导致仪表盘与项目列表不一致
   const projectCount =
     (projectStore.pagination && projectStore.pagination.total) ||
     projectStore.projects?.length ||
-    0
+    0;
   const imageCount = (projectStore.projects || []).reduce(
     (sum, p: any) => sum + (p.imageCount || 0),
     0,
-  )
+  );
   return [
-    { title: '项目总数', value: projectCount, icon: 'project', color: '#6366f1' },
-    { title: '镜像总数', value: imageCount, icon: 'image', color: '#22c55e' },
-  ]
-})
+    {
+      title: "项目总数",
+      value: projectCount,
+      icon: "project",
+      color: "#6366f1",
+    },
+    { title: "镜像总数", value: imageCount, icon: "image", color: "#22c55e" },
+  ];
+});
 
 async function loadDashboardData() {
-  await projectStore.fetchProjects({ pageSize: 5 })
+  await projectStore.fetchProjects({ pageSize: 5 });
 }
 
 onMounted(() => {
-  loadDashboardData()
-})
+  loadDashboardData();
+});
 
 function formatBytes(bytes: number | undefined | null): string {
-  if (!bytes || bytes === 0 || isNaN(bytes)) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  if (!bytes || bytes === 0 || isNaN(bytes)) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 function navigateToProjects() {
-  router.push('/projects')
+  router.push("/projects");
 }
-
 </script>
 
 <template>
   <div class="dashboard-page">
     <!-- 统计卡片 -->
     <div class="stats-grid">
-      <div class="stat-card" v-for="stat in statsCards" :key="stat.title">
-        <div class="stat-icon" :style="{ background: stat.color }">
-          <svg viewBox="0 0 24 24" width="24" height="24">
-            <rect fill="white" width="24" height="24" rx="4"/>
+      <div
+        v-for="stat in statsCards"
+        :key="stat.title"
+        class="stat-card"
+      >
+        <div
+          class="stat-icon"
+          :style="{ background: stat.color }"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+          >
+            <rect
+              fill="white"
+              width="24"
+              height="24"
+              rx="4"
+            />
           </svg>
         </div>
         <div class="stat-content">
           <div class="stat-value">
             {{ stat.value }}
           </div>
-          <div class="stat-title">{{ stat.title }}</div>
+          <div class="stat-title">
+            {{ stat.title }}
+          </div>
         </div>
       </div>
     </div>
@@ -70,7 +92,12 @@ function navigateToProjects() {
       <div class="dashboard-card">
         <div class="card-header">
           <h2>最近项目</h2>
-          <CypButton size="small" @click="navigateToProjects">查看全部</CypButton>
+          <CypButton
+            size="small"
+            @click="navigateToProjects"
+          >
+            查看全部
+          </CypButton>
         </div>
         <div class="project-list">
           <div
@@ -80,64 +107,120 @@ function navigateToProjects() {
             @click="router.push(`/projects/${project.id}`)"
           >
             <div class="project-info">
-              <div class="project-name">{{ project.name }}</div>
+              <div class="project-name">
+                {{ project.name }}
+              </div>
               <div class="project-meta">
                 <span>{{ project.imageCount }} 个镜像</span>
                 <span class="separator">•</span>
-                <span>{{ project.isPublic ? '公开' : '私有' }}</span>
+                <span>{{ project.isPublic ? "公开" : "私有" }}</span>
               </div>
             </div>
             <div class="project-storage">
               {{ formatBytes(project.storageUsed ?? 0) }}
             </div>
           </div>
-          <div v-if="projectStore.projects.length === 0" class="empty-state">
-            <svg viewBox="0 0 24 24" width="48" height="48">
+          <div
+            v-if="projectStore.projects.length === 0"
+            class="empty-state"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="48"
+              height="48"
+            >
               <path
                 fill="currentColor"
                 d="M20 6h-8l-2-2H4C2.9 4 2 4.9 2 6v10c0 1.1.9 2 2 2h5v-2H4V8h16v8h-3v2h3c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"
               />
             </svg>
             <p>暂无项目</p>
-            <CypButton type="primary" size="small" @click="navigateToProjects">创建项目</CypButton>
+            <CypButton
+              type="primary"
+              size="small"
+              @click="navigateToProjects"
+            >
+              创建项目
+            </CypButton>
           </div>
         </div>
       </div>
-
     </div>
 
     <!-- 快捷操作 -->
     <div class="quick-actions">
       <h2>快捷操作</h2>
       <div class="actions-grid">
-        <div class="action-card" @click="navigateToProjects">
+        <div
+          class="action-card"
+          @click="navigateToProjects"
+        >
           <div class="action-icon">
-            <svg viewBox="0 0 24 24" width="32" height="32">
-              <path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+            <svg
+              viewBox="0 0 24 24"
+              width="32"
+              height="32"
+            >
+              <path
+                fill="currentColor"
+                d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"
+              />
             </svg>
           </div>
-          <div class="action-title">管理项目</div>
-          <div class="action-desc">创建和管理镜像项目</div>
+          <div class="action-title">
+            管理项目
+          </div>
+          <div class="action-desc">
+            创建和管理镜像项目
+          </div>
         </div>
 
         <div class="action-card">
-          <div class="action-icon" style="background: #22c55e">
-            <svg viewBox="0 0 24 24" width="32" height="32">
-              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          <div
+            class="action-icon"
+            style="background: #22c55e"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="32"
+              height="32"
+            >
+              <path
+                fill="currentColor"
+                d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"
+              />
             </svg>
           </div>
-          <div class="action-title">推送镜像</div>
-          <div class="action-desc">使用Docker CLI推送</div>
+          <div class="action-title">
+            推送镜像
+          </div>
+          <div class="action-desc">
+            使用Docker CLI推送
+          </div>
         </div>
 
         <div class="action-card">
-          <div class="action-icon" style="background: #3b82f6">
-            <svg viewBox="0 0 24 24" width="32" height="32">
-              <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+          <div
+            class="action-icon"
+            style="background: #3b82f6"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="32"
+              height="32"
+            >
+              <path
+                fill="currentColor"
+                d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"
+              />
             </svg>
           </div>
-          <div class="action-title">拉取镜像</div>
-          <div class="action-desc">从仓库拉取镜像</div>
+          <div class="action-title">
+            拉取镜像
+          </div>
+          <div class="action-desc">
+            从仓库拉取镜像
+          </div>
         </div>
       </div>
     </div>
@@ -387,4 +470,3 @@ function navigateToProjects() {
   color: #64748b;
 }
 </style>
-

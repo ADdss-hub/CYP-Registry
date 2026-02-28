@@ -1,37 +1,39 @@
 <script setup lang="ts">
-
 interface Option {
-  value: string | number
-  label: string
-  disabled?: boolean
+  value: string | number;
+  label: string;
+  disabled?: boolean;
 }
 
 interface Props {
-  modelValue: string | number
-  options: Option[]
-  disabled?: boolean
-  size?: 'small' | 'medium' | 'large'
+  modelValue: string | number;
+  options: Option[];
+  disabled?: boolean;
+  size?: "small" | "medium" | "large";
 }
 
 withDefaults(defineProps<Props>(), {
   disabled: false,
-  size: 'medium',
-})
+  size: "medium",
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number]
-  change: [value: string | number]
-}>()
+  "update:modelValue": [value: string | number];
+  change: [value: string | number];
+}>();
 
 function handleChange(value: string | number, option: Option) {
-  if (option.disabled) return
-  emit('update:modelValue', value)
-  emit('change', value)
+  if (option.disabled) return;
+  emit("update:modelValue", value);
+  emit("change", value);
 }
 </script>
 
 <template>
-  <div class="cyp-radio-group" :class="[`cyp-radio-group--${size}`]">
+  <div
+    class="cyp-radio-group"
+    :class="[`cyp-radio-group--${size}`]"
+  >
     <label
       v-for="option in options"
       :key="option.value"
@@ -48,7 +50,7 @@ function handleChange(value: string | number, option: Option) {
         :disabled="disabled || option.disabled"
         class="cyp-radio__input"
         @change="handleChange(option.value, option)"
-      />
+      >
       <span class="cyp-radio__dot" />
       <span class="cyp-radio__label">{{ option.label }}</span>
     </label>
@@ -137,7 +139,7 @@ function handleChange(value: string | number, option: Option) {
     transition: all 0.2s ease;
 
     &::after {
-      content: '';
+      content: "";
       position: absolute;
       top: 50%;
       left: 50%;
@@ -157,4 +159,3 @@ function handleChange(value: string | number, option: Option) {
   }
 }
 </style>
-

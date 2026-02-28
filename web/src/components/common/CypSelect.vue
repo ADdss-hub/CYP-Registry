@@ -1,72 +1,87 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from "vue";
 
 interface Option {
-  value: string | number
-  label: string
-  disabled?: boolean
+  value: string | number;
+  label: string;
+  disabled?: boolean;
 }
 
 interface Props {
-  modelValue: string | number
-  options: Option[]
-  placeholder?: string
-  disabled?: boolean
-  size?: 'small' | 'medium' | 'large'
+  modelValue: string | number;
+  options: Option[];
+  placeholder?: string;
+  disabled?: boolean;
+  size?: "small" | "medium" | "large";
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '请选择',
+  placeholder: "请选择",
   disabled: false,
-  size: 'medium',
-})
+  size: "medium",
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number]
-  change: [value: string | number]
-}>()
+  "update:modelValue": [value: string | number];
+  change: [value: string | number];
+}>();
 
-const isOpen = ref(false)
-const selectRef = ref<HTMLElement>()
+const isOpen = ref(false);
+const selectRef = ref<HTMLElement>();
 
 const selectedLabel = computed(() => {
-  const option = props.options.find((opt) => opt.value === props.modelValue)
-  return option?.label || props.placeholder
-})
+  const option = props.options.find((opt) => opt.value === props.modelValue);
+  return option?.label || props.placeholder;
+});
 
 function handleSelect(option: Option) {
-  if (option.disabled) return
-  emit('update:modelValue', option.value)
-  emit('change', option.value)
-  isOpen.value = false
+  if (option.disabled) return;
+  emit("update:modelValue", option.value);
+  emit("change", option.value);
+  isOpen.value = false;
 }
 
 function handleClickOutside(e: Event) {
   if (selectRef.value && !selectRef.value.contains(e.target as Node)) {
-    isOpen.value = false
+    isOpen.value = false;
   }
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
+  document.addEventListener("click", handleClickOutside);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+  document.removeEventListener("click", handleClickOutside);
+});
 </script>
 
 <template>
-  <div ref="selectRef" class="cyp-select" :class="[`cyp-select--${size}`]">
+  <div
+    ref="selectRef"
+    class="cyp-select"
+    :class="[`cyp-select--${size}`]"
+  >
     <div
       class="cyp-select__trigger"
-      :class="{ 'cyp-select__trigger--open': isOpen, 'cyp-select__trigger--disabled': disabled }"
+      :class="{
+        'cyp-select__trigger--open': isOpen,
+        'cyp-select__trigger--disabled': disabled,
+      }"
       @click="!disabled && (isOpen = !isOpen)"
     >
-      <span class="cyp-select__value" :class="{ 'cyp-select__value--placeholder': !modelValue }">
+      <span
+        class="cyp-select__value"
+        :class="{ 'cyp-select__value--placeholder': !modelValue }"
+      >
         {{ selectedLabel }}
       </span>
-      <svg class="cyp-select__arrow" viewBox="0 0 24 24" width="16" height="16">
+      <svg
+        class="cyp-select__arrow"
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+      >
         <path
           fill="currentColor"
           d="M7 10l5 5 5-5z"
@@ -75,7 +90,10 @@ onUnmounted(() => {
     </div>
 
     <Transition name="select-drop">
-      <div v-if="isOpen" class="cyp-select__dropdown">
+      <div
+        v-if="isOpen"
+        class="cyp-select__dropdown"
+      >
         <div
           v-for="option in options"
           :key="option.value"
@@ -209,4 +227,3 @@ onUnmounted(() => {
   transform: translateY(-8px);
 }
 </style>
-

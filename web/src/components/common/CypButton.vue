@@ -1,39 +1,39 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
 interface Props {
-  type?: 'default' | 'primary' | 'success' | 'warning' | 'danger'
-  size?: 'small' | 'medium' | 'large'
-  disabled?: boolean
-  loading?: boolean
-  block?: boolean
+  type?: "default" | "primary" | "success" | "warning" | "danger";
+  size?: "small" | "medium" | "large";
+  disabled?: boolean;
+  loading?: boolean;
+  block?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  type: 'default',
-  size: 'medium',
+  type: "default",
+  size: "medium",
   disabled: false,
   loading: false,
   block: false,
-})
+});
 
 const emit = defineEmits<{
-  click: [event: MouseEvent]
-}>()
+  click: [event: MouseEvent];
+}>();
 
 const buttonClass = computed(() => [
-  'cyp-button',
+  "cyp-button",
   `cyp-button--${props.type}`,
   `cyp-button--${props.size}`,
   {
-    'cyp-button--disabled': props.disabled || props.loading,
-    'cyp-button--block': props.block,
+    "cyp-button--disabled": props.disabled || props.loading,
+    "cyp-button--block": props.block,
   },
-])
+]);
 
 function handleClick(event: MouseEvent) {
   if (!props.disabled && !props.loading) {
-    emit('click', event)
+    emit("click", event);
   }
 }
 </script>
@@ -44,8 +44,14 @@ function handleClick(event: MouseEvent) {
     :disabled="disabled || loading"
     @click="handleClick"
   >
-    <span v-if="loading" class="cyp-button__loading">
-      <svg class="spinner" viewBox="0 0 24 24">
+    <span
+      v-if="loading"
+      class="cyp-button__loading"
+    >
+      <svg
+        class="spinner"
+        viewBox="0 0 24 24"
+      >
         <circle
           class="path"
           cx="12"
@@ -61,7 +67,7 @@ function handleClick(event: MouseEvent) {
 </template>
 
 <style lang="scss" scoped>
-@use '@/assets/styles/variables.scss' as *;
+@use "@/assets/styles/variables.scss" as *;
 
 .cyp-button {
   display: inline-flex;
@@ -192,4 +198,3 @@ function handleClick(event: MouseEvent) {
   }
 }
 </style>
-

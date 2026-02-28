@@ -18,21 +18,21 @@ import (
 
 // 事件类型常量
 const (
-	EventTypePush      = "push"       // 镜像推送
-	EventTypePull      = "pull"       // 镜像拉取
-	EventTypeDelete    = "delete"     // 镜像删除
-	EventTypeScan      = "scan"       // 漏洞扫描完成
-	EventTypeScanFail  = "scan_fail"  // 漏洞扫描失败
-	EventTypePolicy    = "policy"     // 策略变更
-	EventTypeMember    = "member"     // 成员变更
+	EventTypePush     = "push"      // 镜像推送
+	EventTypePull     = "pull"      // 镜像拉取
+	EventTypeDelete   = "delete"    // 镜像删除
+	EventTypeScan     = "scan"      // 漏洞扫描完成
+	EventTypeScanFail = "scan_fail" // 漏洞扫描失败
+	EventTypePolicy   = "policy"    // 策略变更
+	EventTypeMember   = "member"    // 成员变更
 )
 
 // 事件状态常量
 const (
-	EventStatusPending   = "pending"    // 待处理
-	EventStatusSent      = "sent"       // 已发送
-	EventStatusFailed    = "failed"     // 发送失败
-	EventStatusRetrying  = "retrying"   // 重试中
+	EventStatusPending  = "pending"  // 待处理
+	EventStatusSent     = "sent"     // 已发送
+	EventStatusFailed   = "failed"   // 发送失败
+	EventStatusRetrying = "retrying" // 重试中
 )
 
 // Webhook Webhook配置
@@ -42,34 +42,34 @@ type Webhook struct {
 	Name            string            `json:"name"`
 	Description     string            `json:"description"`
 	URL             string            `json:"url"`
-	Secret          string            `json:"secret"`          // 签名密钥
-	Events          []string          `json:"events"`          // 订阅的事件类型
-	IsActive        bool              `json:"isActive"`        // 是否启用
-	Headers         map[string]string `json:"headers"`         // 自定义请求头
-	RetryPolicy     *RetryPolicy      `json:"retryPolicy"`     // 重试策略
+	Secret          string            `json:"secret"`      // 签名密钥
+	Events          []string          `json:"events"`      // 订阅的事件类型
+	IsActive        bool              `json:"isActive"`    // 是否启用
+	Headers         map[string]string `json:"headers"`     // 自定义请求头
+	RetryPolicy     *RetryPolicy      `json:"retryPolicy"` // 重试策略
 	CreatedAt       time.Time         `json:"createdAt"`
 	UpdatedAt       time.Time         `json:"updatedAt"`
 	CreatedBy       string            `json:"createdBy"`
 	LastTriggeredAt *time.Time        `json:"lastTriggeredAt,omitempty"`
 	// 统计字段：根据 webhook_deliveries 实时汇总，不直接持久化到 webhooks 表
-	SuccessCount    int64             `json:"successCount,omitempty"`
-	FailedCount     int64             `json:"failedCount,omitempty"`
+	SuccessCount int64 `json:"successCount,omitempty"`
+	FailedCount  int64 `json:"failedCount,omitempty"`
 }
 
 // RetryPolicy 重试策略
 type RetryPolicy struct {
-	MaxRetries    int           `json:"maxRetries"`    // 最大重试次数
-	RetryDelay    time.Duration `json:"retryDelay"`    // 重试间隔
-	BackoffMultiplier float64   `json:"backoffMultiplier"` // 退避乘数
-	MaxDelay      time.Duration `json:"maxDelay"`      // 最大延迟
+	MaxRetries        int           `json:"maxRetries"`        // 最大重试次数
+	RetryDelay        time.Duration `json:"retryDelay"`        // 重试间隔
+	BackoffMultiplier float64       `json:"backoffMultiplier"` // 退避乘数
+	MaxDelay          time.Duration `json:"maxDelay"`          // 最大延迟
 }
 
 // DefaultRetryPolicy 默认重试策略
 var DefaultRetryPolicy = &RetryPolicy{
-	MaxRetries:         3,
-	RetryDelay:         5 * time.Second,
-	BackoffMultiplier:  2.0,
-	MaxDelay:           1 * time.Minute,
+	MaxRetries:        3,
+	RetryDelay:        5 * time.Second,
+	BackoffMultiplier: 2.0,
+	MaxDelay:          1 * time.Minute,
 }
 
 // WebhookEvent Webhook事件
@@ -94,36 +94,36 @@ type WebhookEvent struct {
 
 // WebhookDelivery Webhook投递记录
 type WebhookDelivery struct {
-	DeliveryID    string          `json:"deliveryId"`
-	EventID       string          `json:"eventId"`
-	WebhookID     string          `json:"webhookId"`
-	RequestURL    string          `json:"requestUrl"`
-	RequestMethod string          `json:"requestMethod"`
-	RequestHeaders map[string]string `json:"requestHeaders"`
-	RequestBody   json.RawMessage `json:"requestBody"`
-	ResponseStatus int            `json:"responseStatus"`
+	DeliveryID      string            `json:"deliveryId"`
+	EventID         string            `json:"eventId"`
+	WebhookID       string            `json:"webhookId"`
+	RequestURL      string            `json:"requestUrl"`
+	RequestMethod   string            `json:"requestMethod"`
+	RequestHeaders  map[string]string `json:"requestHeaders"`
+	RequestBody     json.RawMessage   `json:"requestBody"`
+	ResponseStatus  int               `json:"responseStatus"`
 	ResponseHeaders map[string]string `json:"responseHeaders"`
-	ResponseBody  string          `json:"responseBody"`
-	Duration      int64           `json:"duration"` // 耗时(毫秒)
-	DeliveredAt   time.Time       `json:"deliveredAt"`
-	Error         string          `json:"error,omitempty"`
+	ResponseBody    string            `json:"responseBody"`
+	Duration        int64             `json:"duration"` // 耗时(毫秒)
+	DeliveredAt     time.Time         `json:"deliveredAt"`
+	Error           string            `json:"error,omitempty"`
 }
 
 // WebhookStatistics Webhook统计
 type WebhookStatistics struct {
-	TotalWebhooks     int64 `json:"totalWebhooks"`
-	ActiveWebhooks    int64 `json:"activeWebhooks"`
-	TotalEvents       int64 `json:"totalEvents"`
-	DeliveredEvents   int64 `json:"deliveredEvents"`
-	FailedEvents      int64 `json:"failedEvents"`
-	SuccessRate       float64 `json:"successRate"`
+	TotalWebhooks   int64   `json:"totalWebhooks"`
+	ActiveWebhooks  int64   `json:"activeWebhooks"`
+	TotalEvents     int64   `json:"totalEvents"`
+	DeliveredEvents int64   `json:"deliveredEvents"`
+	FailedEvents    int64   `json:"failedEvents"`
+	SuccessRate     float64 `json:"successRate"`
 }
 
 // EventPayload 事件载荷基类
 type EventPayload struct {
-	Action       string    `json:"action"`
-	Timestamp    time.Time `json:"timestamp"`
-	Actor        *Actor    `json:"actor"`
+	Action    string    `json:"action"`
+	Timestamp time.Time `json:"timestamp"`
+	Actor     *Actor    `json:"actor"`
 }
 
 // Actor 事件执行者
@@ -135,30 +135,30 @@ type Actor struct {
 // PushEventPayload 推送事件载荷
 type PushEventPayload struct {
 	EventPayload
-	Repository   string `json:"repository"`
-	Tag          string `json:"tag"`
-	Digest       string `json:"digest"`
-	ImageSize    int64  `json:"imageSize"`
+	Repository string `json:"repository"`
+	Tag        string `json:"tag"`
+	Digest     string `json:"digest"`
+	ImageSize  int64  `json:"imageSize"`
 }
 
 // DeleteEventPayload 删除事件载荷
 type DeleteEventPayload struct {
 	EventPayload
-	Repository   string `json:"repository"`
-	Tag          string `json:"tag"`
-	Digest       string `json:"digest"`
+	Repository string `json:"repository"`
+	Tag        string `json:"tag"`
+	Digest     string `json:"digest"`
 }
 
 // ScanEventPayload 扫描事件载荷
 type ScanEventPayload struct {
 	EventPayload
-	Repository      string  `json:"repository"`
-	Tag             string  `json:"tag"`
-	Digest          string  `json:"digest"`
-	ScanStatus      string  `json:"scanStatus"`
-	CriticalCount   int     `json:"criticalCount"`
-	HighCount       int     `json:"highCount"`
-	ReportURL       string  `json:"reportUrl"`
+	Repository    string `json:"repository"`
+	Tag           string `json:"tag"`
+	Digest        string `json:"digest"`
+	ScanStatus    string `json:"scanStatus"`
+	CriticalCount int    `json:"criticalCount"`
+	HighCount     int    `json:"highCount"`
+	ReportURL     string `json:"reportUrl"`
 }
 
 // CreateWebhookRequest 创建Webhook请求
@@ -284,15 +284,15 @@ func NewWebhook(req *CreateWebhookRequest, userID string) (*Webhook, error) {
 // CreateEvent 创建新的Webhook事件
 func CreateEvent(webhook *Webhook, eventType, projectID, repository string, payload json.RawMessage, actor *Actor) *WebhookEvent {
 	event := &WebhookEvent{
-		EventID:   uuid.New().String(),
-		WebhookID: webhook.WebhookID,
-		EventType: eventType,
-		ProjectID: projectID,
+		EventID:    uuid.New().String(),
+		WebhookID:  webhook.WebhookID,
+		EventType:  eventType,
+		ProjectID:  projectID,
 		Repository: repository,
-		Payload:   payload,
-		Timestamp: time.Now(),
-		Status:    EventStatusPending,
-		Attempts:  0,
+		Payload:    payload,
+		Timestamp:  time.Now(),
+		Status:     EventStatusPending,
+		Attempts:   0,
 	}
 
 	if actor != nil {
@@ -424,4 +424,3 @@ func SendDelivery(req *http.Request, delivery *WebhookDelivery) error {
 	delivery.Error = fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(body))
 	return fmt.Errorf("webhook delivery failed: %d", resp.StatusCode)
 }
-

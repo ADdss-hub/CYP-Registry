@@ -1,79 +1,80 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useUserStore } from '@/stores/user'
-import { userApi } from '@/services/user'
-import CypButton from '@/components/common/CypButton.vue'
-import CypInput from '@/components/common/CypInput.vue'
-import CypFooter from '@/components/common/CypFooter.vue'
-import CypDialog from '@/components/common/CypDialog.vue'
-import logoCypRegistry from '@/assets/logo-cyp-registry.svg'
-import { copyToClipboard } from '@/utils/clipboard'
+import { ref, computed, onMounted } from "vue";
+import { useUserStore } from "@/stores/user";
+import { userApi } from "@/services/user";
+import CypButton from "@/components/common/CypButton.vue";
+import CypInput from "@/components/common/CypInput.vue";
+import CypFooter from "@/components/common/CypFooter.vue";
+import CypDialog from "@/components/common/CypDialog.vue";
+import logoCypRegistry from "@/assets/logo-cyp-registry.svg";
+import { copyToClipboard } from "@/utils/clipboard";
 
-const userStore = useUserStore()
+const userStore = useUserStore();
 
 const form = ref({
-  username: '',
-  password: '',
-})
+  username: "",
+  password: "",
+});
 
 // “记住用户名”配置
-const rememberUsername = ref(false)
-const REMEMBER_USERNAME_FLAG_KEY = 'cyp-remember-username'
-const REMEMBER_USERNAME_VALUE_KEY = 'cyp-remember-username-value'
+const rememberUsername = ref(false);
+const REMEMBER_USERNAME_FLAG_KEY = "cyp-remember-username";
+const REMEMBER_USERNAME_VALUE_KEY = "cyp-remember-username-value";
 
-const errors = ref<Record<string, string>>({})
-const loginError = ref<string>('')
+const errors = ref<Record<string, string>>({});
+const loginError = ref<string>("");
 
-const isLoading = computed(() => userStore.isLoading)
+const isLoading = computed(() => userStore.isLoading);
 
 // 默认管理员一次性提示
-const showDefaultAdminDialog = ref(false)
-const defaultAdminUsername = ref('')
-const defaultAdminPassword = ref('')
+const showDefaultAdminDialog = ref(false);
+const defaultAdminUsername = ref("");
+const defaultAdminPassword = ref("");
 
 function validate(): boolean {
-  errors.value = {}
-  loginError.value = ''
+  errors.value = {};
+  loginError.value = "";
 
   if (!form.value.username) {
-    errors.value.username = '请输入用户名'
+    errors.value.username = "请输入用户名";
   }
 
   if (!form.value.password) {
-    errors.value.password = '请输入密码'
+    errors.value.password = "请输入密码";
   } else if (form.value.password.length < 6) {
-    errors.value.password = '密码长度至少6位'
+    errors.value.password = "密码长度至少6位";
   }
 
-  return Object.keys(errors.value).length === 0
+  return Object.keys(errors.value).length === 0;
 }
 
 async function handleLogin() {
-  if (!validate()) return
+  if (!validate()) return;
 
-  loginError.value = ''
+  loginError.value = "";
   try {
     await userStore.login({
       username: form.value.username,
       password: form.value.password,
-    })
+    });
 
     // 登录成功后，根据“记住用户名”选项同步到本机浏览器
     try {
       if (rememberUsername.value && form.value.username) {
-        localStorage.setItem(REMEMBER_USERNAME_FLAG_KEY, '1')
-        localStorage.setItem(REMEMBER_USERNAME_VALUE_KEY, form.value.username)
+        localStorage.setItem(REMEMBER_USERNAME_FLAG_KEY, "1");
+        localStorage.setItem(REMEMBER_USERNAME_VALUE_KEY, form.value.username);
       } else {
-        localStorage.removeItem(REMEMBER_USERNAME_FLAG_KEY)
-        localStorage.removeItem(REMEMBER_USERNAME_VALUE_KEY)
+        localStorage.removeItem(REMEMBER_USERNAME_FLAG_KEY);
+        localStorage.removeItem(REMEMBER_USERNAME_VALUE_KEY);
       }
     } catch {
       // 在部分受限环境下可能无法访问 localStorage，忽略此错误不影响登录流程
     }
   } catch (err: any) {
     // 显示错误消息
-    loginError.value = err?.message || err?.payload?.message || '登录失败，请检查用户名和密码'
-    console.error('登录失败:', err)
+    loginError.value =
+      err?.message || err?.payload?.message || "登录失败，请检查用户名和密码";
+    console.error("登录失败:", err);
   }
 }
 
@@ -83,11 +84,11 @@ async function handleLogin() {
 onMounted(async () => {
   // 恢复“记住用户名”
   try {
-    const flag = localStorage.getItem(REMEMBER_USERNAME_FLAG_KEY)
-    const savedUsername = localStorage.getItem(REMEMBER_USERNAME_VALUE_KEY)
-    if (flag === '1' && savedUsername) {
-      rememberUsername.value = true
-      form.value.username = savedUsername
+    const flag = localStorage.getItem(REMEMBER_USERNAME_FLAG_KEY);
+    const savedUsername = localStorage.getItem(REMEMBER_USERNAME_VALUE_KEY);
+    if (flag === "1" && savedUsername) {
+      rememberUsername.value = true;
+      form.value.username = savedUsername;
     }
   } catch {
     // 忽略 localStorage 相关错误
@@ -95,30 +96,30 @@ onMounted(async () => {
 
   // 默认管理员一次性提示
   try {
-    const creds = await userApi.getDefaultAdminOnce()
+    const creds = await userApi.getDefaultAdminOnce();
     if (creds && creds.username && creds.password) {
-      defaultAdminUsername.value = creds.username
-      defaultAdminPassword.value = creds.password
+      defaultAdminUsername.value = creds.username;
+      defaultAdminPassword.value = creds.password;
       // 仅在当前用户名为空时才预填默认管理员用户名，避免覆盖已记住的用户名
       if (!form.value.username) {
-        form.value.username = creds.username
+        form.value.username = creds.username;
       }
-      showDefaultAdminDialog.value = true
+      showDefaultAdminDialog.value = true;
     }
   } catch {
     // 接口不存在或已被读取时静默忽略，不影响正常登录流程
   }
-})
+});
 
 async function handleCopyDefaultAdmin() {
-  if (!defaultAdminUsername.value && !defaultAdminPassword.value) return
-  const text = `默认管理员用户名：${defaultAdminUsername.value}\n默认管理员密码：${defaultAdminPassword.value}`
+  if (!defaultAdminUsername.value && !defaultAdminPassword.value) return;
+  const text = `默认管理员用户名：${defaultAdminUsername.value}\n默认管理员密码：${defaultAdminPassword.value}`;
   try {
-    await copyToClipboard(text)
-    loginError.value = '默认管理员账号信息已复制，请妥善保存并尽快修改密码。'
-    showDefaultAdminDialog.value = false
+    await copyToClipboard(text);
+    loginError.value = "默认管理员账号信息已复制，请妥善保存并尽快修改密码。";
+    showDefaultAdminDialog.value = false;
   } catch {
-    loginError.value = '无法访问剪贴板，请手动复制弹窗中的用户名和密码。'
+    loginError.value = "无法访问剪贴板，请手动复制弹窗中的用户名和密码。";
   }
 }
 </script>
@@ -129,10 +130,19 @@ async function handleCopyDefaultAdmin() {
       <div class="login-card">
         <div class="login-header">
           <div class="login-logo">
-            <img :src="logoCypRegistry" alt="CYP-Registry Logo" width="48" height="48" />
+            <img
+              :src="logoCypRegistry"
+              alt="CYP-Registry Logo"
+              width="48"
+              height="48"
+            >
           </div>
-          <h1 class="login-title">欢迎回来</h1>
-          <p class="login-subtitle">登录 CYP-Registry 镜像仓库管理平台</p>
+          <h1 class="login-title">
+            欢迎回来
+          </h1>
+          <p class="login-subtitle">
+            登录 CYP-Registry 镜像仓库管理平台
+          </p>
         </div>
 
         <!-- 默认管理员一次性提示弹窗 -->
@@ -141,7 +151,9 @@ async function handleCopyDefaultAdmin() {
           title="默认管理员账号已生成"
           width="480px"
         >
-          <p>系统检测到这是首次部署，已自动创建一个默认管理员账号，请立即复制并妥善保存：</p>
+          <p>
+            系统检测到这是首次部署，已自动创建一个默认管理员账号，请立即复制并妥善保存：
+          </p>
           <div class="default-admin-box">
             <div class="field">
               <span class="label">用户名（6-10 位英文+数字）：</span>
@@ -152,20 +164,33 @@ async function handleCopyDefaultAdmin() {
               <span class="value monospace">{{ defaultAdminPassword }}</span>
             </div>
             <p class="tip">
-              请使用上述账号登录后，立即前往「系统设置 → 账户安全」修改密码，并根据需要创建个人账号或访问令牌。
+              请使用上述账号登录后，立即前往「系统设置 →
+              账户安全」修改密码，并根据需要创建个人账号或访问令牌。
               同时，系统已为数据库业务账号自动生成独立密码并安全持久化（仅用于内部连接），相关信息会在容器首次启动的日志中提示一次（含密码持久化路径）。
             </p>
           </div>
           <template #footer>
-            <CypButton @click="showDefaultAdminDialog = false">稍后手动复制</CypButton>
-            <CypButton type="primary" style="margin-left: 8px" @click="handleCopyDefaultAdmin">
+            <CypButton @click="showDefaultAdminDialog = false">
+              稍后手动复制
+            </CypButton>
+            <CypButton
+              type="primary"
+              style="margin-left: 8px"
+              @click="handleCopyDefaultAdmin"
+            >
               一键复制用户名和密码
             </CypButton>
           </template>
         </CypDialog>
 
-        <form class="login-form" @submit.prevent="handleLogin">
-          <div v-if="loginError" class="login-error">
+        <form
+          class="login-form"
+          @submit.prevent="handleLogin"
+        >
+          <div
+            v-if="loginError"
+            class="login-error"
+          >
             {{ loginError }}
           </div>
 
@@ -194,7 +219,11 @@ async function handleCopyDefaultAdmin() {
 
           <div class="remember-row">
             <label class="remember-label">
-              <input v-model="rememberUsername" type="checkbox" class="remember-checkbox" />
+              <input
+                v-model="rememberUsername"
+                type="checkbox"
+                class="remember-checkbox"
+              >
               <span>记住用户名（仅保存在本机浏览器中）</span>
             </label>
           </div>
@@ -216,24 +245,47 @@ async function handleCopyDefaultAdmin() {
       <div class="login-bg">
         <div class="bg-content">
           <h2>安全可靠的容器镜像仓库</h2>
-          <p>企业级容器镜像管理解决方案，提供完整的镜像存储和自动化工作流支持。</p>
+          <p>
+            企业级容器镜像管理解决方案，提供完整的镜像存储和自动化工作流支持。
+          </p>
           <ul class="feature-list">
             <li>
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  fill="currentColor"
+                  d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                />
               </svg>
               Docker Registry API 完整兼容
             </li>
             <!-- 原“集成 Trivy 漏洞扫描”卖点已移除 -->
             <li>
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  fill="currentColor"
+                  d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                />
               </svg>
               Webhook 事件通知
             </li>
             <li>
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+              >
+                <path
+                  fill="currentColor"
+                  d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                />
               </svg>
               RBAC 权限控制
             </li>
@@ -435,4 +487,3 @@ async function handleCopyDefaultAdmin() {
   }
 }
 </style>
-

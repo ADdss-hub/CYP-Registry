@@ -64,4 +64,3 @@ func PublishRegistryEvent(event RegistryEvent) {
 		}
 	}
 }
-

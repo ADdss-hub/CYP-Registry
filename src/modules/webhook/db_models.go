@@ -13,21 +13,21 @@ import (
 
 // WebhookModel Webhook数据库模型
 type WebhookModel struct {
-	WebhookID      string         `gorm:"type:varchar(36);primaryKey" json:"webhookId"`
-	ProjectID      string         `gorm:"type:varchar(36);index;not null" json:"projectId"`
-	Name           string         `gorm:"type:varchar(255);not null" json:"name"`
-	Description    string         `gorm:"type:text" json:"description"`
-	URL            string         `gorm:"type:varchar(512);not null" json:"url"`
-	Secret         string         `gorm:"type:varchar(255)" json:"secret"`
-	Events         StringArray    `gorm:"type:text" json:"events"`
-	IsActive       bool           `gorm:"default:true;index" json:"isActive"`
-	Headers        StringMap      `gorm:"type:text" json:"headers"`
-	RetryPolicyJSON string       `gorm:"type:text" json:"-"` // 存储重试策略JSON
-	CreatedAt      time.Time      `gorm:"autoCreateTime" json:"createdAt"`
-	UpdatedAt      time.Time      `gorm:"autoUpdateTime" json:"updatedAt"`
-	CreatedBy      string         `gorm:"type:varchar(36);index" json:"createdBy"`
-	LastTriggeredAt *time.Time   `json:"lastTriggeredAt"`
-	DeletedAt      gorm.DeletedAt `gorm:"index" json:"deletedAt"`
+	WebhookID       string         `gorm:"type:varchar(36);primaryKey" json:"webhookId"`
+	ProjectID       string         `gorm:"type:varchar(36);index;not null" json:"projectId"`
+	Name            string         `gorm:"type:varchar(255);not null" json:"name"`
+	Description     string         `gorm:"type:text" json:"description"`
+	URL             string         `gorm:"type:varchar(512);not null" json:"url"`
+	Secret          string         `gorm:"type:varchar(255)" json:"secret"`
+	Events          StringArray    `gorm:"type:text" json:"events"`
+	IsActive        bool           `gorm:"default:true;index" json:"isActive"`
+	Headers         StringMap      `gorm:"type:text" json:"headers"`
+	RetryPolicyJSON string         `gorm:"type:text" json:"-"` // 存储重试策略JSON
+	CreatedAt       time.Time      `gorm:"autoCreateTime" json:"createdAt"`
+	UpdatedAt       time.Time      `gorm:"autoUpdateTime" json:"updatedAt"`
+	CreatedBy       string         `gorm:"type:varchar(36);index" json:"createdBy"`
+	LastTriggeredAt *time.Time     `json:"lastTriggeredAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deletedAt"`
 }
 
 // TableName 指定表名
@@ -148,21 +148,21 @@ func (m *StringMap) Scan(value interface{}) error {
 // ToWebhook 转换为业务模型
 func (m *WebhookModel) ToWebhook() (*Webhook, error) {
 	webhook := &Webhook{
-		WebhookID:      m.WebhookID,
-		ProjectID:      m.ProjectID,
-		Name:           m.Name,
-		Description:    m.Description,
-		URL:            m.URL,
-		Secret:         m.Secret,
-		Events:         []string(m.Events),
+		WebhookID:       m.WebhookID,
+		ProjectID:       m.ProjectID,
+		Name:            m.Name,
+		Description:     m.Description,
+		URL:             m.URL,
+		Secret:          m.Secret,
+		Events:          []string(m.Events),
 		IsActive:        m.IsActive,
-		Headers:        map[string]string(m.Headers),
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
-		CreatedBy:      m.CreatedBy,
+		Headers:         map[string]string(m.Headers),
+		CreatedAt:       m.CreatedAt,
+		UpdatedAt:       m.UpdatedAt,
+		CreatedBy:       m.CreatedBy,
 		LastTriggeredAt: m.LastTriggeredAt,
 	}
-	
+
 	// 解析重试策略
 	if m.RetryPolicyJSON != "" {
 		var retryPolicy RetryPolicy
@@ -174,7 +174,7 @@ func (m *WebhookModel) ToWebhook() (*Webhook, error) {
 	} else {
 		webhook.RetryPolicy = DefaultRetryPolicy
 	}
-	
+
 	return webhook, nil
 }
 
@@ -193,7 +193,7 @@ func (m *WebhookModel) FromWebhook(webhook *Webhook) error {
 	m.UpdatedAt = webhook.UpdatedAt
 	m.CreatedBy = webhook.CreatedBy
 	m.LastTriggeredAt = webhook.LastTriggeredAt
-	
+
 	// 序列化重试策略
 	if webhook.RetryPolicy != nil {
 		policyBytes, err := json.Marshal(webhook.RetryPolicy)
@@ -201,7 +201,7 @@ func (m *WebhookModel) FromWebhook(webhook *Webhook) error {
 			m.RetryPolicyJSON = string(policyBytes)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -250,19 +250,19 @@ func (m *WebhookEventModel) FromWebhookEvent(event *WebhookEvent) {
 // ToWebhookDelivery 转换为业务模型
 func (m *WebhookDeliveryModel) ToWebhookDelivery() *WebhookDelivery {
 	return &WebhookDelivery{
-		DeliveryID:     m.DeliveryID,
-		EventID:        m.EventID,
-		WebhookID:      m.WebhookID,
-		RequestURL:     m.RequestURL,
-		RequestMethod:  m.RequestMethod,
-		RequestHeaders: map[string]string(m.RequestHeaders),
-		RequestBody:    json.RawMessage(m.RequestBody),
-		ResponseStatus: m.ResponseStatus,
+		DeliveryID:      m.DeliveryID,
+		EventID:         m.EventID,
+		WebhookID:       m.WebhookID,
+		RequestURL:      m.RequestURL,
+		RequestMethod:   m.RequestMethod,
+		RequestHeaders:  map[string]string(m.RequestHeaders),
+		RequestBody:     json.RawMessage(m.RequestBody),
+		ResponseStatus:  m.ResponseStatus,
 		ResponseHeaders: map[string]string(m.ResponseHeaders),
-		ResponseBody:   m.ResponseBody,
-		Duration:       m.Duration,
-		DeliveredAt:    m.DeliveredAt,
-		Error:          m.Error,
+		ResponseBody:    m.ResponseBody,
+		Duration:        m.Duration,
+		DeliveredAt:     m.DeliveredAt,
+		Error:           m.Error,
 	}
 }
 

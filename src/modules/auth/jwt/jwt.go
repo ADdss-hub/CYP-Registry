@@ -14,18 +14,18 @@ import (
 )
 
 var (
-	ErrTokenExpired     = errors.New("token已过期")
-	ErrTokenInvalid     = errors.New("token无效")
-	ErrTokenMissing     = errors.New("token缺失")
-	ErrInvalidClaims    = errors.New("无效的token声明")
+	ErrTokenExpired  = errors.New("token已过期")
+	ErrTokenInvalid  = errors.New("token无效")
+	ErrTokenMissing  = errors.New("token缺失")
+	ErrInvalidClaims = errors.New("无效的token声明")
 )
 
 // Config JWT配置
 type Config struct {
 	AccessSecret  string
 	RefreshSecret string
-	AccessExpire  int64  // 秒
-	RefreshExpire int64  // 秒
+	AccessExpire  int64 // 秒
+	RefreshExpire int64 // 秒
 }
 
 // TokenClaims Token声明结构
@@ -192,4 +192,3 @@ func (s *Service) RefreshTokenPair(refreshToken string) (*TokenPair, error) {
 
 	return s.GenerateTokenPair(claims.UserID, claims.Username)
 }
-

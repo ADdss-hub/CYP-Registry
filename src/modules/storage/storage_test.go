@@ -301,4 +301,3 @@ func TestStorage_Interface(t *testing.T) {
 	// 此测试已移除，因为 storage.Storage 是包内接口
 	// LocalStorage 在 driver 包中定义
 }
-

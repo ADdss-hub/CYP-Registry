@@ -66,4 +66,3 @@ func GetInfo() Info {
 func GetVersion() string {
 	return GetInfo().Version
 }
-

@@ -1,22 +1,29 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import CypButton from '@/components/common/CypButton.vue'
+import { useRouter } from "vue-router";
+import CypButton from "@/components/common/CypButton.vue";
 
-const router = useRouter()
+const router = useRouter();
 
 function goHome() {
-  router.push('/')
+  router.push("/");
 }
 </script>
 
 <template>
   <div class="not-found-page">
     <div class="not-found-content">
-      <div class="error-code">404</div>
+      <div class="error-code">
+        404
+      </div>
       <h1>页面未找到</h1>
       <p>抱歉，您访问的页面不存在或已被移除。</p>
       <div class="actions">
-        <CypButton type="primary" @click="goHome">返回首页</CypButton>
+        <CypButton
+          type="primary"
+          @click="goHome"
+        >
+          返回首页
+        </CypButton>
       </div>
     </div>
   </div>
@@ -63,4 +70,3 @@ p {
   justify-content: center;
 }
 </style>
-
