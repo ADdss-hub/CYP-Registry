@@ -73,7 +73,7 @@ function handleRowClick(record: any) {
                 <template
                   v-if="
                     typeof column.customRender(record[column.key], record) ===
-                      'string'
+                    'string'
                   "
                 >
                   {{ column.customRender(record[column.key], record) }}
@@ -89,10 +89,7 @@ function handleRowClick(record: any) {
             </td>
           </tr>
           <tr v-if="!loading && data.length === 0">
-            <td
-              :colspan="columns.length"
-              class="cyp-table__empty"
-            >
+            <td :colspan="columns.length" class="cyp-table__empty">
               <slot name="empty">
                 <div class="cyp-table__empty-content">
                   <svg
@@ -116,18 +113,12 @@ function handleRowClick(record: any) {
     </div>
 
     <!-- 加载状态 -->
-    <div
-      v-if="loading"
-      class="cyp-table__loading"
-    >
+    <div v-if="loading" class="cyp-table__loading">
       <div class="cyp-table__loading-spinner" />
     </div>
 
     <!-- 分页 -->
-    <div
-      v-if="pagination"
-      class="cyp-table__pagination"
-    >
+    <div v-if="pagination" class="cyp-table__pagination">
       <span class="cyp-table__pagination-info">
         共 {{ pagination.total }} 条
       </span>

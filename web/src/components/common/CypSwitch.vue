@@ -50,10 +50,7 @@ function handleClick() {
     <span class="cyp-switch__core">
       <span class="cyp-switch__knob" />
     </span>
-    <span
-      v-if="activeText || inactiveText"
-      class="cyp-switch__text"
-    >
+    <span v-if="activeText || inactiveText" class="cyp-switch__text">
       {{ modelValue ? activeText : inactiveText }}
     </span>
   </button>

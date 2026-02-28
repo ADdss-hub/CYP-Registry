@@ -94,10 +94,8 @@ export const useNotificationStore = defineStore("notification", () => {
       });
 
       setNotifications(combined);
-    } catch (e) {
+    } catch {
       // 静默失败，避免影响主流程
-      // eslint-disable-next-line no-console
-      console.error("加载系统通知失败", e);
     }
   }
 

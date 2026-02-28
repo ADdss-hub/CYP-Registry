@@ -462,10 +462,7 @@ function openSwaggerUI() {
         <p>CYP-Registry RESTful API 接口文档</p>
       </div>
       <div class="header-actions">
-        <CypButton
-          type="primary"
-          @click="openSwaggerUI"
-        >
+        <CypButton type="primary" @click="openSwaggerUI">
           <svg
             viewBox="0 0 24 24"
             width="16"
@@ -492,7 +489,8 @@ function openSwaggerUI() {
             <h4>认证方式</h4>
             <p>所有API接口（除认证相关）都需要在请求头中携带Access Token：</p>
             <pre class="code-block">
-Authorization: Bearer &lt;your-access-token&gt;</pre>
+Authorization: Bearer &lt;your-access-token&gt;</pre
+            >
           </div>
           <div class="info-section">
             <h4>基础URL</h4>
@@ -505,7 +503,8 @@ Authorization: Bearer &lt;your-access-token&gt;</pre>
   "code": 20000,
   "message": "success",
   "data": {}
-}</pre>
+}</pre
+            >
           </div>
           <div class="info-section">
             <h4>错误码说明</h4>
@@ -556,15 +555,9 @@ Authorization: Bearer &lt;your-access-token&gt;</pre>
       </div>
 
       <div class="docs-endpoints">
-        <CypCard
-          v-for="section in apiSections"
-          :key="section.name"
-        >
+        <CypCard v-for="section in apiSections" :key="section.name">
           <template #header>
-            <div
-              class="section-header"
-              @click="toggleEndpoint(section.name)"
-            >
+            <div class="section-header" @click="toggleEndpoint(section.name)">
               <h3>{{ section.name }}</h3>
               <svg
                 viewBox="0 0 24 24"
@@ -575,18 +568,12 @@ Authorization: Bearer &lt;your-access-token&gt;</pre>
                     activeEndpoint === section.name ? 'rotate(180deg)' : '',
                 }"
               >
-                <path
-                  fill="currentColor"
-                  d="M7 10l5 5 5-5z"
-                />
+                <path fill="currentColor" d="M7 10l5 5 5-5z" />
               </svg>
             </div>
           </template>
 
-          <div
-            v-show="activeEndpoint === section.name"
-            class="endpoints-list"
-          >
+          <div v-show="activeEndpoint === section.name" class="endpoints-list">
             <div
               v-for="(endpoint, index) in section.endpoints"
               :key="index"
@@ -601,10 +588,7 @@ Authorization: Bearer &lt;your-access-token&gt;</pre>
                 </span>
                 <code class="path">{{ endpoint.path }}</code>
                 <span class="description">{{ endpoint.description }}</span>
-                <span
-                  v-if="endpoint.auth"
-                  class="auth-badge"
-                >需要认证</span>
+                <span v-if="endpoint.auth" class="auth-badge">需要认证</span>
               </div>
 
               <div class="endpoint-details">
@@ -623,10 +607,7 @@ Authorization: Bearer &lt;your-access-token&gt;</pre>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr
-                        v-for="param in endpoint.params"
-                        :key="param.name"
-                      >
+                      <tr v-for="param in endpoint.params" :key="param.name">
                         <td>
                           <code>{{ param.name }}</code>
                         </td>

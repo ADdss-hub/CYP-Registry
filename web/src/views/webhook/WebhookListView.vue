@@ -381,27 +381,19 @@ function getEventLabel(event: string): string {
   <div class="webhook-page">
     <div class="page-header">
       <div class="header-left">
-        <h2 class="page-title">
-          Webhook管理
-        </h2>
+        <h2 class="page-title">Webhook管理</h2>
         <p class="page-subtitle">
           配置外部系统的事件通知，实现与CI/CD、监控等系统的集成
         </p>
       </div>
-      <CypButton
-        type="primary"
-        @click="showCreateDialog = true"
-      >
+      <CypButton type="primary" @click="showCreateDialog = true">
         <svg
           viewBox="0 0 24 24"
           width="16"
           height="16"
           style="margin-right: 6px"
         >
-          <path
-            fill="currentColor"
-            d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"
-          />
+          <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
         </svg>
         创建Webhook
       </CypButton>
@@ -411,11 +403,7 @@ function getEventLabel(event: string): string {
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-icon total">
-          <svg
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-          >
+          <svg viewBox="0 0 24 24" width="24" height="24">
             <path
               fill="currentColor"
               d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"
@@ -426,18 +414,12 @@ function getEventLabel(event: string): string {
           <div class="stat-value">
             {{ statistics.total }}
           </div>
-          <div class="stat-label">
-            总Webhook
-          </div>
+          <div class="stat-label">总Webhook</div>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon active">
-          <svg
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-          >
+          <svg viewBox="0 0 24 24" width="24" height="24">
             <path
               fill="currentColor"
               d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
@@ -448,18 +430,12 @@ function getEventLabel(event: string): string {
           <div class="stat-value">
             {{ statistics.active }}
           </div>
-          <div class="stat-label">
-            已启用
-          </div>
+          <div class="stat-label">已启用</div>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon triggers">
-          <svg
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-          >
+          <svg viewBox="0 0 24 24" width="24" height="24">
             <path
               fill="currentColor"
               d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.92 6-4.72 7.28L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zM11 2.05C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5v-5l-2.28 2.28C6.92 18 5 15.21 5 12c0-4.08 3.05-7.44 7-7.93V2.05z"
@@ -470,9 +446,7 @@ function getEventLabel(event: string): string {
           <div class="stat-value">
             {{ statistics.totalTriggers }}
           </div>
-          <div class="stat-label">
-            总触发次数
-          </div>
+          <div class="stat-label">总触发次数</div>
         </div>
       </div>
     </div>
@@ -534,10 +508,7 @@ function getEventLabel(event: string): string {
               }}</span>
               <span class="mini-label">失败</span>
             </div>
-            <div
-              v-if="webhook.lastTriggeredAt"
-              class="mini-stat"
-            >
+            <div v-if="webhook.lastTriggeredAt" class="mini-stat">
               <span class="mini-value">{{
                 formatDate(webhook.lastTriggeredAt)
               }}</span>
@@ -548,22 +519,13 @@ function getEventLabel(event: string): string {
 
         <template #footer>
           <div class="webhook-actions">
-            <CypButton
-              size="small"
-              @click="openDetailDialog(webhook)"
-            >
+            <CypButton size="small" @click="openDetailDialog(webhook)">
               详情
             </CypButton>
-            <CypButton
-              size="small"
-              @click="openTestDialog(webhook)"
-            >
+            <CypButton size="small" @click="openTestDialog(webhook)">
               测试
             </CypButton>
-            <CypButton
-              size="small"
-              @click="openEditDialog(webhook)"
-            >
+            <CypButton size="small" @click="openEditDialog(webhook)">
               编辑
             </CypButton>
             <CypButton
@@ -577,15 +539,8 @@ function getEventLabel(event: string): string {
         </template>
       </CypCard>
 
-      <div
-        v-if="webhooks.length === 0"
-        class="empty-state"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="64"
-          height="64"
-        >
+      <div v-if="webhooks.length === 0" class="empty-state">
+        <svg viewBox="0 0 24 24" width="64" height="64">
           <path
             fill="currentColor"
             d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"
@@ -593,10 +548,7 @@ function getEventLabel(event: string): string {
         </svg>
         <h3>暂无Webhook</h3>
         <p>创建Webhook以接收镜像仓库事件通知</p>
-        <CypButton
-          type="primary"
-          @click="showCreateDialog = true"
-        >
+        <CypButton type="primary" @click="showCreateDialog = true">
           创建Webhook
         </CypButton>
       </div>
@@ -621,10 +573,7 @@ function getEventLabel(event: string): string {
 
         <div class="form-group">
           <label>名称 *</label>
-          <CypInput
-            v-model="newWebhook.name"
-            placeholder="Webhook名称"
-          />
+          <CypInput v-model="newWebhook.name" placeholder="Webhook名称" />
         </div>
 
         <div class="form-group">
@@ -667,7 +616,7 @@ function getEventLabel(event: string): string {
                 type="checkbox"
                 :checked="isEventSelected(event.value)"
                 @change="toggleEvent(event.value)"
-              >
+              />
               <span class="event-icon">{{ event.icon }}</span>
               <span class="event-label">{{ event.label }}</span>
               <span class="event-desc">{{ event.description }}</span>
@@ -676,13 +625,8 @@ function getEventLabel(event: string): string {
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showCreateDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="primary"
-          @click="handleCreateWebhook"
-        >
+        <CypButton @click="showCreateDialog = false"> 取消 </CypButton>
+        <CypButton type="primary" @click="handleCreateWebhook">
           创建
         </CypButton>
       </template>
@@ -695,16 +639,10 @@ function getEventLabel(event: string): string {
       width="600px"
       @close="showEditDialog = false"
     >
-      <div
-        v-if="selectedWebhook"
-        class="dialog-form"
-      >
+      <div v-if="selectedWebhook" class="dialog-form">
         <div class="form-group">
           <label>名称 *</label>
-          <CypInput
-            v-model="selectedWebhook.name"
-            placeholder="Webhook名称"
-          />
+          <CypInput v-model="selectedWebhook.name" placeholder="Webhook名称" />
         </div>
 
         <div class="form-group">
@@ -735,15 +673,8 @@ function getEventLabel(event: string): string {
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showEditDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="primary"
-          @click="handleSaveWebhook"
-        >
-          保存
-        </CypButton>
+        <CypButton @click="showEditDialog = false"> 取消 </CypButton>
+        <CypButton type="primary" @click="handleSaveWebhook"> 保存 </CypButton>
       </template>
     </CypDialog>
 
@@ -755,10 +686,7 @@ function getEventLabel(event: string): string {
       @close="showTestDialog = false"
     >
       <div class="dialog-form">
-        <div
-          v-if="selectedWebhook"
-          class="test-info"
-        >
+        <div v-if="selectedWebhook" class="test-info">
           <p><strong>Webhook:</strong> {{ selectedWebhook.name }}</p>
           <p><strong>URL:</strong> {{ selectedWebhook.url }}</p>
         </div>
@@ -792,14 +720,8 @@ function getEventLabel(event: string): string {
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showTestDialog = false">
-          关闭
-        </CypButton>
-        <CypButton
-          type="primary"
-          :loading="isTesting"
-          @click="submitTest"
-        >
+        <CypButton @click="showTestDialog = false"> 关闭 </CypButton>
+        <CypButton type="primary" :loading="isTesting" @click="submitTest">
           发送测试
         </CypButton>
       </template>
@@ -812,10 +734,7 @@ function getEventLabel(event: string): string {
       width="600px"
       @close="showDetailDialog = false"
     >
-      <div
-        v-if="selectedWebhook"
-        class="detail-content"
-      >
+      <div v-if="selectedWebhook" class="detail-content">
         <div class="detail-section">
           <h4>基本信息</h4>
           <div class="detail-grid">
@@ -865,10 +784,7 @@ function getEventLabel(event: string): string {
               }}</span>
               <span class="stats-label">失败</span>
             </div>
-            <div
-              v-if="selectedWebhook.lastTriggeredAt"
-              class="stats-card"
-            >
+            <div v-if="selectedWebhook.lastTriggeredAt" class="stats-card">
               <span class="stats-number">{{
                 formatDate(selectedWebhook.lastTriggeredAt)
               }}</span>
@@ -878,9 +794,7 @@ function getEventLabel(event: string): string {
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showDetailDialog = false">
-          关闭
-        </CypButton>
+        <CypButton @click="showDetailDialog = false"> 关闭 </CypButton>
       </template>
     </CypDialog>
 
@@ -891,25 +805,16 @@ function getEventLabel(event: string): string {
       width="480px"
       @close="showDeleteConfirmDialog = false"
     >
-      <div
-        v-if="webhookToDelete"
-        class="confirm-content"
-      >
+      <div v-if="webhookToDelete" class="confirm-content">
         <p>
-          确定要删除 Webhook "<strong>{{ webhookToDelete.name }}</strong>" 吗？
+          确定要删除 Webhook "<strong>{{ webhookToDelete.name }}</strong
+          >" 吗？
         </p>
-        <p class="warning">
-          此操作不可撤销，相关事件通知将立即停止。
-        </p>
+        <p class="warning">此操作不可撤销，相关事件通知将立即停止。</p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteConfirmDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="danger"
-          @click="confirmDeleteWebhook"
-        >
+        <CypButton @click="showDeleteConfirmDialog = false"> 取消 </CypButton>
+        <CypButton type="danger" @click="confirmDeleteWebhook">
           确认删除
         </CypButton>
       </template>
@@ -924,10 +829,7 @@ function getEventLabel(event: string): string {
     >
       <p>{{ messageDialogContent }}</p>
       <template #footer>
-        <CypButton
-          type="primary"
-          @click="showMessageDialog = false"
-        >
+        <CypButton type="primary" @click="showMessageDialog = false">
           知道了
         </CypButton>
       </template>

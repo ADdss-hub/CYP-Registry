@@ -44,14 +44,8 @@ function handleClick(event: MouseEvent) {
     :disabled="disabled || loading"
     @click="handleClick"
   >
-    <span
-      v-if="loading"
-      class="cyp-button__loading"
-    >
-      <svg
-        class="spinner"
-        viewBox="0 0 24 24"
-      >
+    <span v-if="loading" class="cyp-button__loading">
+      <svg class="spinner" viewBox="0 0 24 24">
         <circle
           class="path"
           cx="12"

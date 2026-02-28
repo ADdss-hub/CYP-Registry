@@ -8,14 +8,8 @@ defineProps<Props>();
 </script>
 
 <template>
-  <div
-    class="cyp-card"
-    :class="{ 'cyp-card--hoverable': hoverable }"
-  >
-    <div
-      v-if="title || $slots.header"
-      class="cyp-card__header"
-    >
+  <div class="cyp-card" :class="{ 'cyp-card--hoverable': hoverable }">
+    <div v-if="title || $slots.header" class="cyp-card__header">
       <slot name="header">
         <h3 class="cyp-card__title">
           {{ title }}
@@ -25,10 +19,7 @@ defineProps<Props>();
     <div class="cyp-card__body">
       <slot />
     </div>
-    <div
-      v-if="$slots.footer"
-      class="cyp-card__footer"
-    >
+    <div v-if="$slots.footer" class="cyp-card__footer">
       <slot name="footer" />
     </div>
   </div>

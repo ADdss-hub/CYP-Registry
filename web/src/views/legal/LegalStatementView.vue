@@ -34,9 +34,7 @@ onMounted(() => {
   <div class="legal-page">
     <div class="legal-container">
       <header class="page-header">
-        <h1 class="page-title">
-          个人声明与数据处理规范
-        </h1>
+        <h1 class="page-title">个人声明与数据处理规范</h1>
         <p class="page-subtitle">
           请在继续使用 CYP-Registry 前，仔细阅读并确认以下声明内容（当前版本：{{
             LEGAL_STATEMENT_VERSION
@@ -93,11 +91,7 @@ onMounted(() => {
         </div>
 
         <div class="statement-actions">
-          <CypButton
-            type="primary"
-            size="large"
-            @click="handleAgree"
-          >
+          <CypButton type="primary" size="large" @click="handleAgree">
             我已阅读并同意，进入控制台
           </CypButton>
         </div>

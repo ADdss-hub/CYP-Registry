@@ -28,10 +28,7 @@ function handleTabClick(tab: Tab) {
 </script>
 
 <template>
-  <div
-    class="cyp-tabs"
-    :class="[`cyp-tabs--${type}`]"
-  >
+  <div class="cyp-tabs" :class="[`cyp-tabs--${type}`]">
     <div class="cyp-tabs__nav">
       <div
         v-for="tab in tabs"

@@ -49,11 +49,8 @@ function handleInput(event: Event) {
       :disabled="disabled"
       :autocomplete="autocomplete"
       @input="handleInput"
-    >
-    <span
-      v-if="error"
-      class="cyp-input__error"
-    >{{ error }}</span>
+    />
+    <span v-if="error" class="cyp-input__error">{{ error }}</span>
   </div>
 </template>
 

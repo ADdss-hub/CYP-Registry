@@ -48,45 +48,26 @@ function handleChange() {
 </script>
 
 <template>
-  <label
-    class="cyp-checkbox"
-    :class="{ 'cyp-checkbox--disabled': disabled }"
-  >
+  <label class="cyp-checkbox" :class="{ 'cyp-checkbox--disabled': disabled }">
     <input
       type="checkbox"
       :checked="isChecked"
       :disabled="disabled"
       class="cyp-checkbox__input"
       @change="handleChange"
-    >
+    />
     <span class="cyp-checkbox__box">
-      <svg
-        v-if="indeterminate"
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-      >
-        <path
-          fill="currentColor"
-          d="M19 13H5v-2h14v2z"
-        />
+      <svg v-if="indeterminate" viewBox="0 0 24 24" width="14" height="14">
+        <path fill="currentColor" d="M19 13H5v-2h14v2z" />
       </svg>
-      <svg
-        v-else-if="isChecked"
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-      >
+      <svg v-else-if="isChecked" viewBox="0 0 24 24" width="14" height="14">
         <path
           fill="currentColor"
           d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
         />
       </svg>
     </span>
-    <span
-      v-if="$slots.default"
-      class="cyp-checkbox__label"
-    >
+    <span v-if="$slots.default" class="cyp-checkbox__label">
       <slot />
     </span>
   </label>

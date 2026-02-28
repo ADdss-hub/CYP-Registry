@@ -548,22 +548,12 @@ async function handleSaveSettings() {
 
 <template>
   <div class="project-detail-page">
-    <div
-      v-if="project"
-      class="project-content"
-    >
+    <div v-if="project" class="project-content">
       <!-- 项目头部 -->
       <div class="project-header">
         <div class="header-left">
-          <button
-            class="back-btn"
-            @click="$router.back()"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-            >
+          <button class="back-btn" @click="$router.back()">
+            <svg viewBox="0 0 24 24" width="20" height="20">
               <path
                 fill="currentColor"
                 d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
@@ -580,10 +570,7 @@ async function handleSaveSettings() {
           </div>
         </div>
         <div class="header-actions">
-          <span
-            class="visibility-badge"
-            :class="{ public: project.isPublic }"
-          >
+          <span class="visibility-badge" :class="{ public: project.isPublic }">
             {{ project.isPublic ? "公开" : "私有" }}
           </span>
         </div>
@@ -595,25 +582,19 @@ async function handleSaveSettings() {
           <div class="stat-value">
             {{ images.length }}
           </div>
-          <div class="stat-label">
-            镜像版本
-          </div>
+          <div class="stat-label">镜像版本</div>
         </div>
         <div class="stat-item">
           <div class="stat-value">
             {{ formatBytes(project.storageUsed || 0) }}
           </div>
-          <div class="stat-label">
-            已用存储
-          </div>
+          <div class="stat-label">已用存储</div>
         </div>
         <div class="stat-item">
           <div class="stat-value">
             {{ formatBytes(project.storageQuota || 0) }}
           </div>
-          <div class="stat-label">
-            配额
-          </div>
+          <div class="stat-label">配额</div>
         </div>
       </div>
 
@@ -636,18 +617,11 @@ async function handleSaveSettings() {
       </div>
 
       <!-- 镜像列表 -->
-      <div
-        v-if="activeTab === 'images'"
-        class="tab-content"
-      >
+      <div v-if="activeTab === 'images'" class="tab-content">
         <div class="images-header">
           <h2>镜像版本</h2>
           <div class="images-actions">
-            <CypButton
-              type="primary"
-              size="small"
-              @click="handlePushImageHelp"
-            >
+            <CypButton type="primary" size="small" @click="handlePushImageHelp">
               推送镜像
             </CypButton>
             <CypButton
@@ -667,20 +641,13 @@ async function handleSaveSettings() {
               刷新列表
             </CypButton>
             <label class="auto-refresh-toggle">
-              <input
-                v-model="autoRefreshEnabled"
-                type="checkbox"
-              >
+              <input v-model="autoRefreshEnabled" type="checkbox" />
               自动刷新(30s)
             </label>
           </div>
         </div>
         <div class="image-list">
-          <div
-            v-for="image in images"
-            :key="image.name"
-            class="image-item"
-          >
+          <div v-for="image in images" :key="image.name" class="image-item">
             <div class="image-info">
               <div class="image-name">
                 {{ image.name }}
@@ -705,10 +672,7 @@ async function handleSaveSettings() {
               <span>{{ image.pushedBy || "未知用户" }}</span>
             </div>
             <div class="image-actions">
-              <CypButton
-                size="small"
-                @click="handlePullImage(image)"
-              >
+              <CypButton size="small" @click="handlePullImage(image)">
                 拉取
               </CypButton>
               <CypButton
@@ -724,18 +688,12 @@ async function handleSaveSettings() {
       </div>
 
       <!-- 项目设置 -->
-      <div
-        v-if="activeTab === 'settings'"
-        class="tab-content"
-      >
+      <div v-if="activeTab === 'settings'" class="tab-content">
         <div class="settings-section">
           <h3>基本设置</h3>
           <div class="form-group">
             <label>项目名称</label>
-            <CypInput
-              v-model="editForm.name"
-              placeholder="输入项目名称"
-            />
+            <CypInput v-model="editForm.name" placeholder="输入项目名称" />
           </div>
           <div class="form-group">
             <label>描述</label>
@@ -766,24 +724,15 @@ async function handleSaveSettings() {
               ]"
             />
           </div>
-          <CypButton
-            type="primary"
-            @click="handleSaveSettings"
-          >
+          <CypButton type="primary" @click="handleSaveSettings">
             保存更改
           </CypButton>
         </div>
 
-        <div
-          v-if="isOwner"
-          class="settings-section danger-zone"
-        >
+        <div v-if="isOwner" class="settings-section danger-zone">
           <h3>危险操作</h3>
           <p>删除项目将永久移除所有镜像和配置，此操作无法撤销。</p>
-          <CypButton
-            type="danger"
-            @click="handleDeleteProject"
-          >
+          <CypButton type="danger" @click="handleDeleteProject">
             删除项目
           </CypButton>
         </div>
@@ -797,25 +746,16 @@ async function handleSaveSettings() {
       width="420px"
       @close="showDeleteImageDialog = false"
     >
-      <div
-        v-if="imageToDelete"
-        class="dialog-form"
-      >
+      <div v-if="imageToDelete" class="dialog-form">
         <p>
-          确定要删除镜像 "<strong>{{ imageToDelete.name }}</strong>" 吗？
+          确定要删除镜像 "<strong>{{ imageToDelete.name }}</strong
+          >" 吗？
         </p>
-        <p class="danger-text">
-          此操作不可撤销，相关版本将无法再被拉取。
-        </p>
+        <p class="danger-text">此操作不可撤销，相关版本将无法再被拉取。</p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteImageDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="danger"
-          @click="confirmDeleteImage"
-        >
+        <CypButton @click="showDeleteImageDialog = false"> 取消 </CypButton>
+        <CypButton type="danger" @click="confirmDeleteImage">
           确认删除
         </CypButton>
       </template>
@@ -828,21 +768,15 @@ async function handleSaveSettings() {
       width="480px"
       @close="showDeleteProjectDialog = false"
     >
-      <div
-        v-if="project"
-        class="dialog-form"
-      >
+      <div v-if="project" class="dialog-form">
         <p>
-          确定要删除项目 "<strong>{{ project.name }}</strong>" 吗？
+          确定要删除项目 "<strong>{{ project.name }}</strong
+          >" 吗？
         </p>
-        <p class="danger-text">
-          此操作将永久删除所有镜像和配置，且无法恢复。
-        </p>
+        <p class="danger-text">此操作将永久删除所有镜像和配置，且无法恢复。</p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteProjectDialog = false">
-          取消
-        </CypButton>
+        <CypButton @click="showDeleteProjectDialog = false"> 取消 </CypButton>
         <CypButton
           type="danger"
           @click="
@@ -874,26 +808,16 @@ async function handleSaveSettings() {
     >
       <div class="dialog-form">
         <p>请输入远程镜像地址或现有镜像名称，例如：</p>
-        <p class="hint-text">
-          registry.example.com/app/backend:1.0.0
-        </p>
-        <CypInput
-          v-model="importSource"
-          placeholder="输入镜像地址或名称"
-        />
+        <p class="hint-text">registry.example.com/app/backend:1.0.0</p>
+        <CypInput v-model="importSource" placeholder="输入镜像地址或名称" />
         <p class="hint-text">
           系统会生成一段参考命令（pull / tag / push），复制到剪贴板后可直接在
           Docker CLI 中执行。
         </p>
       </div>
       <template #footer>
-        <CypButton @click="showImportDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="primary"
-          @click="handleImportFromUrl"
-        >
+        <CypButton @click="showImportDialog = false"> 取消 </CypButton>
+        <CypButton type="primary" @click="handleImportFromUrl">
           复制命令
         </CypButton>
       </template>
@@ -908,19 +832,13 @@ async function handleSaveSettings() {
     >
       <p>{{ messageDialogContent }}</p>
       <template #footer>
-        <CypButton
-          type="primary"
-          @click="showMessageDialog = false"
-        >
+        <CypButton type="primary" @click="showMessageDialog = false">
           知道了
         </CypButton>
       </template>
     </CypDialog>
 
-    <div
-      v-if="!project"
-      class="loading"
-    >
+    <div v-if="!project" class="loading">
       <CypLoading text="加载中..." />
     </div>
   </div>

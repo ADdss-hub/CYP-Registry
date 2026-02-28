@@ -83,7 +83,7 @@ export const useUserStore = defineStore("user", () => {
       // 所以 response 就是 User 对象
       const response = await userApi.getCurrentUser();
       user.value = response;
-    } catch (err) {
+    } catch {
       // 如果获取失败，可能是令牌过期
       logout();
     } finally {

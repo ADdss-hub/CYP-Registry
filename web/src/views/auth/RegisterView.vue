@@ -60,20 +60,13 @@ function navigateToLogin() {
               alt="CYP-Registry Logo"
               width="48"
               height="48"
-            >
+            />
           </div>
-          <h1 class="register-title">
-            创建账户
-          </h1>
-          <p class="register-subtitle">
-            注册 CYP-Registry 镜像仓库管理平台
-          </p>
+          <h1 class="register-title">创建账户</h1>
+          <p class="register-subtitle">注册 CYP-Registry 镜像仓库管理平台</p>
         </div>
 
-        <form
-          class="register-form"
-          @submit.prevent="handleRegister"
-        >
+        <form class="register-form" @submit.prevent="handleRegister">
           <div class="form-group">
             <label class="form-label">用户名</label>
             <CypInput
@@ -129,10 +122,7 @@ function navigateToLogin() {
 
         <div class="register-footer">
           <span>已有账号？</span>
-          <a
-            href="javascript:void(0)"
-            @click="navigateToLogin"
-          >立即登录</a>
+          <a href="javascript:void(0)" @click="navigateToLogin">立即登录</a>
         </div>
       </div>
 
@@ -142,11 +132,7 @@ function navigateToLogin() {
           <p>创建账户，开始使用企业级容器镜像管理解决方案。</p>
           <ul class="feature-list">
             <li>
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
                   d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
@@ -155,11 +141,7 @@ function navigateToLogin() {
               无限项目创建
             </li>
             <li>
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
                   d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
@@ -181,13 +163,8 @@ function navigateToLogin() {
       >
         <p>注册成功，请使用新账号登录。</p>
         <template #footer>
-          <CypButton @click="handleSuccessDialogClose">
-            稍后再说
-          </CypButton>
-          <CypButton
-            type="primary"
-            @click="handleSuccessDialogClose"
-          >
+          <CypButton @click="handleSuccessDialogClose"> 稍后再说 </CypButton>
+          <CypButton type="primary" @click="handleSuccessDialogClose">
             去登录
           </CypButton>
         </template>
@@ -202,10 +179,7 @@ function navigateToLogin() {
       >
         <p>{{ errorMessage }}</p>
         <template #footer>
-          <CypButton
-            type="primary"
-            @click="handleErrorDialogClose"
-          >
+          <CypButton type="primary" @click="handleErrorDialogClose">
             知道了
           </CypButton>
         </template>

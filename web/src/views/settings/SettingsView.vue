@@ -430,12 +430,8 @@ function handleAvatarError() {
 <template>
   <div class="settings-page">
     <div class="page-header">
-      <h2 class="page-title">
-        系统设置
-      </h2>
-      <p class="page-subtitle">
-        管理您的账户和系统配置
-      </p>
+      <h2 class="page-title">系统设置</h2>
+      <p class="page-subtitle">管理您的账户和系统配置</p>
     </div>
 
     <div class="settings-layout">
@@ -445,11 +441,7 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'profile' }"
           @click="activeSection = 'profile'"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-          >
+          <svg viewBox="0 0 24 24" width="18" height="18">
             <path
               fill="currentColor"
               d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
@@ -462,11 +454,7 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'security' }"
           @click="activeSection = 'security'"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-          >
+          <svg viewBox="0 0 24 24" width="18" height="18">
             <path
               fill="currentColor"
               d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"
@@ -479,11 +467,7 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'notifications' }"
           @click="activeSection = 'notifications'"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-          >
+          <svg viewBox="0 0 24 24" width="18" height="18">
             <path
               fill="currentColor"
               d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
@@ -496,11 +480,7 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'tokens' }"
           @click="activeSection = 'tokens'"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-          >
+          <svg viewBox="0 0 24 24" width="18" height="18">
             <path
               fill="currentColor"
               d="M21 10h-8.35C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H13l2 2 2-2 2 2 4-4.04L21 10zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"
@@ -513,11 +493,7 @@ function handleAvatarError() {
           :class="{ active: activeSection === 'appearance' }"
           @click="activeSection = 'appearance'"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-          >
+          <svg viewBox="0 0 24 24" width="18" height="18">
             <path
               fill="currentColor"
               d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"
@@ -529,17 +505,14 @@ function handleAvatarError() {
 
       <div class="settings-content">
         <!-- 个人资料 -->
-        <section
-          v-if="activeSection === 'profile'"
-          class="settings-section"
-        >
+        <section v-if="activeSection === 'profile'" class="settings-section">
           <h2>个人资料</h2>
           <div class="profile-avatar">
             <div class="avatar-preview">
               <img
                 v-if="
                   (profileForm.avatar || userStore.user?.avatar) &&
-                    !avatarLoadFailed
+                  !avatarLoadFailed
                 "
                 :key="profileForm.avatar || userStore.user?.avatar"
                 :src="
@@ -549,7 +522,7 @@ function handleAvatarError() {
                 "
                 alt="avatar"
                 @error="handleAvatarError"
-              >
+              />
               <span v-else>
                 {{
                   (profileForm.username || userStore.user?.username || "U")
@@ -558,19 +531,11 @@ function handleAvatarError() {
                 }}
               </span>
             </div>
-            <CypButton
-              size="small"
-              @click="changeAvatar"
-            >
-              更换头像
-            </CypButton>
+            <CypButton size="small" @click="changeAvatar"> 更换头像 </CypButton>
           </div>
           <div class="form-group">
             <label>用户名</label>
-            <CypInput
-              v-model="profileForm.username"
-              placeholder="用户名"
-            />
+            <CypInput v-model="profileForm.username" placeholder="用户名" />
           </div>
           <div class="form-group">
             <label>邮箱</label>
@@ -589,19 +554,11 @@ function handleAvatarError() {
               rows="3"
             />
           </div>
-          <CypButton
-            type="primary"
-            @click="saveProfile"
-          >
-            保存更改
-          </CypButton>
+          <CypButton type="primary" @click="saveProfile"> 保存更改 </CypButton>
         </section>
 
         <!-- 安全设置 -->
-        <section
-          v-if="activeSection === 'security'"
-          class="settings-section"
-        >
+        <section v-if="activeSection === 'security'" class="settings-section">
           <h2>安全设置</h2>
           <div class="form-group">
             <label>当前密码</label>
@@ -630,19 +587,14 @@ function handleAvatarError() {
               autocomplete="new-password"
             />
           </div>
-          <CypButton
-            type="primary"
-            @click="changePassword"
-          >
+          <CypButton type="primary" @click="changePassword">
             修改密码
           </CypButton>
 
           <div class="danger-zone">
             <h3>危险操作</h3>
             <p>删除账户将永久移除您的所有数据和访问权限。此操作无法撤销。</p>
-            <CypButton type="danger">
-              删除账户
-            </CypButton>
+            <CypButton type="danger"> 删除账户 </CypButton>
           </div>
         </section>
 
@@ -656,14 +608,13 @@ function handleAvatarError() {
             <div class="toggle-item">
               <div class="toggle-info">
                 <span class="toggle-label">邮件通知</span>
-                <span class="toggle-desc">接收系统发送的邮件通知，可配置单独的通知邮箱</span>
+                <span class="toggle-desc"
+                  >接收系统发送的邮件通知，可配置单独的通知邮箱</span
+                >
               </div>
               <CypSwitch v-model="notificationSettings.emailEnabled" />
             </div>
-            <div
-              class="form-group"
-              style="margin-top: 8px"
-            >
+            <div class="form-group" style="margin-top: 8px">
               <label>通知邮箱（可选）</label>
               <CypInput
                 v-model="notificationSettings.notificationEmail"
@@ -694,10 +645,7 @@ function handleAvatarError() {
             </div>
           </div>
 
-          <div
-            class="form-group"
-            style="margin-top: 24px"
-          >
+          <div class="form-group" style="margin-top: 24px">
             <label>通知频率</label>
             <CypSelect
               v-model="notificationSettings.digest"
@@ -709,19 +657,13 @@ function handleAvatarError() {
             />
           </div>
 
-          <CypButton
-            type="primary"
-            @click="saveNotificationSettings"
-          >
+          <CypButton type="primary" @click="saveNotificationSettings">
             保存设置
           </CypButton>
         </section>
 
         <!-- 访问令牌 -->
-        <section
-          v-if="activeSection === 'tokens'"
-          class="settings-section"
-        >
+        <section v-if="activeSection === 'tokens'" class="settings-section">
           <h2>访问令牌</h2>
           <p class="section-desc">
             创建和管理用于API访问的令牌。令牌具有与您的账户相同的权限。
@@ -746,18 +688,20 @@ function handleAvatarError() {
           </CypButton>
 
           <div class="token-list">
-            <div
-              v-for="token in tokens"
-              :key="token.id"
-              class="token-item"
-            >
+            <div v-for="token in tokens" :key="token.id" class="token-item">
               <div class="token-info">
                 <span class="token-name">{{ token.name }}</span>
-                <span class="token-value">{{ token.token.substring(0, 12) }}...</span>
+                <span class="token-value"
+                  >{{ token.token.substring(0, 12) }}...</span
+                >
                 <div class="token-meta">
                   <span>创建于 {{ token.createdAt }}</span>
-                  <span v-if="token.lastUsedAt">，最后使用于 {{ token.lastUsedAt }}</span>
-                  <span v-if="token.expiresAt">，有效期至 {{ token.expiresAt }}</span>
+                  <span v-if="token.lastUsedAt"
+                    >，最后使用于 {{ token.lastUsedAt }}</span
+                  >
+                  <span v-if="token.expiresAt"
+                    >，有效期至 {{ token.expiresAt }}</span
+                  >
                   <span v-else>，有效期：不过期</span>
                   <div class="token-scopes">
                     权限范围：{{ formatTokenScopes(token.scopes) }}
@@ -765,10 +709,7 @@ function handleAvatarError() {
                 </div>
               </div>
               <div class="token-actions">
-                <CypButton
-                  size="small"
-                  @click="copyToken(token.token)"
-                >
+                <CypButton size="small" @click="copyToken(token.token)">
                   复制
                 </CypButton>
                 <CypButton
@@ -784,10 +725,7 @@ function handleAvatarError() {
         </section>
 
         <!-- 外观设置 -->
-        <section
-          v-if="activeSection === 'appearance'"
-          class="settings-section"
-        >
+        <section v-if="activeSection === 'appearance'" class="settings-section">
           <h2>外观设置</h2>
           <div class="theme-selector">
             <h3>主题</h3>
@@ -802,7 +740,7 @@ function handleAvatarError() {
                   value="light"
                   :checked="themeStore.theme === 'light'"
                   @change="themeStore.setTheme('light')"
-                >
+                />
                 <span class="theme-preview light" />
                 <span class="theme-label">浅色</span>
               </label>
@@ -816,7 +754,7 @@ function handleAvatarError() {
                   value="dark"
                   :checked="themeStore.theme === 'dark'"
                   @change="themeStore.setTheme('dark')"
-                >
+                />
                 <span class="theme-preview dark" />
                 <span class="theme-label">深色</span>
               </label>
@@ -830,7 +768,7 @@ function handleAvatarError() {
                   value="auto"
                   :checked="themeStore.theme === 'auto'"
                   @change="themeStore.setTheme('auto')"
-                >
+                />
                 <span class="theme-preview auto" />
                 <span class="theme-label">跟随系统</span>
               </label>
@@ -911,16 +849,14 @@ function handleAvatarError() {
                     }
                   }
                 "
-              >
+              />
               {{ scope.label }}
             </label>
           </div>
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showCreateTokenDialog = false">
-          取消
-        </CypButton>
+        <CypButton @click="showCreateTokenDialog = false"> 取消 </CypButton>
         <CypButton
           type="primary"
           data-testid="create-button"
@@ -940,20 +876,16 @@ function handleAvatarError() {
     >
       <div class="delete-confirm">
         <p>
-          确定要删除令牌 "<strong>{{ selectedToken?.name }}</strong>" 吗？
+          确定要删除令牌 "<strong>{{ selectedToken?.name }}</strong
+          >" 吗？
         </p>
         <p class="warning">
           此操作无法撤销，使用此令牌的应用将立即失去访问权限。
         </p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteConfirmDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="danger"
-          @click="handleDeleteToken"
-        >
+        <CypButton @click="showDeleteConfirmDialog = false"> 取消 </CypButton>
+        <CypButton type="danger" @click="handleDeleteToken">
           确认删除
         </CypButton>
       </template>
@@ -971,9 +903,7 @@ function handleAvatarError() {
           只会在此处显示一次完整令牌值，请立即复制并妥善保管。
         </p>
         <div class="token-block">
-          <div class="token-label">
-            令牌值
-          </div>
+          <div class="token-label">令牌值</div>
           <div class="token-value">
             {{ createdToken }}
           </div>
@@ -983,13 +913,8 @@ function handleAvatarError() {
         </div>
       </div>
       <template #footer>
-        <CypButton @click="copyToken(createdToken)">
-          复制令牌值
-        </CypButton>
-        <CypButton
-          type="primary"
-          @click="showTokenDialog = false"
-        >
+        <CypButton @click="copyToken(createdToken)"> 复制令牌值 </CypButton>
+        <CypButton type="primary" @click="showTokenDialog = false">
           关闭
         </CypButton>
       </template>
@@ -1005,21 +930,12 @@ function handleAvatarError() {
       <div class="dialog-form">
         <div class="form-group">
           <label>上传头像图片</label>
-          <input
-            type="file"
-            accept="image/*"
-            @change="onAvatarFileChange"
-          >
+          <input type="file" accept="image/*" @change="onAvatarFileChange" />
         </div>
       </div>
       <template #footer>
-        <CypButton @click="showAvatarDialog = false">
-          取消
-        </CypButton>
-        <CypButton
-          type="primary"
-          @click="saveAvatarFromDialog"
-        >
+        <CypButton @click="showAvatarDialog = false"> 取消 </CypButton>
+        <CypButton type="primary" @click="saveAvatarFromDialog">
           保存
         </CypButton>
       </template>
@@ -1034,10 +950,7 @@ function handleAvatarError() {
     >
       <p>{{ messageDialogContent }}</p>
       <template #footer>
-        <CypButton
-          type="primary"
-          @click="showMessageDialog = false"
-        >
+        <CypButton type="primary" @click="showMessageDialog = false">
           知道了
         </CypButton>
       </template>

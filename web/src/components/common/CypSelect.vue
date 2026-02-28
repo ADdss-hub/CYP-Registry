@@ -57,11 +57,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    ref="selectRef"
-    class="cyp-select"
-    :class="[`cyp-select--${size}`]"
-  >
+  <div ref="selectRef" class="cyp-select" :class="[`cyp-select--${size}`]">
     <div
       class="cyp-select__trigger"
       :class="{
@@ -76,24 +72,13 @@ onUnmounted(() => {
       >
         {{ selectedLabel }}
       </span>
-      <svg
-        class="cyp-select__arrow"
-        viewBox="0 0 24 24"
-        width="16"
-        height="16"
-      >
-        <path
-          fill="currentColor"
-          d="M7 10l5 5 5-5z"
-        />
+      <svg class="cyp-select__arrow" viewBox="0 0 24 24" width="16" height="16">
+        <path fill="currentColor" d="M7 10l5 5 5-5z" />
       </svg>
     </div>
 
     <Transition name="select-drop">
-      <div
-        v-if="isOpen"
-        class="cyp-select__dropdown"
-      >
+      <div v-if="isOpen" class="cyp-select__dropdown">
         <div
           v-for="option in options"
           :key="option.value"

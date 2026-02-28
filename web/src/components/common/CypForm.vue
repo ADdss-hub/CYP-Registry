@@ -11,7 +11,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   // 如果未传入校验规则，则使用空对象，避免访问 undefined
-  rules: () => ({} as FormRules),
+  rules: () => ({}) as FormRules,
   labelWidth: "100px",
   labelPosition: "top",
 });
@@ -64,10 +64,7 @@ defineExpose({
 </script>
 
 <template>
-  <form
-    class="cyp-form"
-    @submit.prevent="handleSubmit"
-  >
+  <form class="cyp-form" @submit.prevent="handleSubmit">
     <slot />
   </form>
 </template>

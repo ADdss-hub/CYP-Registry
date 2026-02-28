@@ -135,14 +135,10 @@ async function handleCopyDefaultAdmin() {
               alt="CYP-Registry Logo"
               width="48"
               height="48"
-            >
+            />
           </div>
-          <h1 class="login-title">
-            欢迎回来
-          </h1>
-          <p class="login-subtitle">
-            登录 CYP-Registry 镜像仓库管理平台
-          </p>
+          <h1 class="login-title">欢迎回来</h1>
+          <p class="login-subtitle">登录 CYP-Registry 镜像仓库管理平台</p>
         </div>
 
         <!-- 默认管理员一次性提示弹窗 -->
@@ -183,14 +179,8 @@ async function handleCopyDefaultAdmin() {
           </template>
         </CypDialog>
 
-        <form
-          class="login-form"
-          @submit.prevent="handleLogin"
-        >
-          <div
-            v-if="loginError"
-            class="login-error"
-          >
+        <form class="login-form" @submit.prevent="handleLogin">
+          <div v-if="loginError" class="login-error">
             {{ loginError }}
           </div>
 
@@ -223,7 +213,7 @@ async function handleCopyDefaultAdmin() {
                 v-model="rememberUsername"
                 type="checkbox"
                 class="remember-checkbox"
-              >
+              />
               <span>记住用户名（仅保存在本机浏览器中）</span>
             </label>
           </div>
@@ -250,11 +240,7 @@ async function handleCopyDefaultAdmin() {
           </p>
           <ul class="feature-list">
             <li>
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
                   d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
@@ -264,11 +250,7 @@ async function handleCopyDefaultAdmin() {
             </li>
             <!-- 原“集成 Trivy 漏洞扫描”卖点已移除 -->
             <li>
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
                   d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
@@ -277,11 +259,7 @@ async function handleCopyDefaultAdmin() {
               Webhook 事件通知
             </li>
             <li>
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
                   d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"

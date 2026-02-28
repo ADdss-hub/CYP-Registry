@@ -30,10 +30,7 @@ function handleChange(value: string | number, option: Option) {
 </script>
 
 <template>
-  <div
-    class="cyp-radio-group"
-    :class="[`cyp-radio-group--${size}`]"
-  >
+  <div class="cyp-radio-group" :class="[`cyp-radio-group--${size}`]">
     <label
       v-for="option in options"
       :key="option.value"
@@ -50,7 +47,7 @@ function handleChange(value: string | number, option: Option) {
         :disabled="disabled || option.disabled"
         class="cyp-radio__input"
         @change="handleChange(option.value, option)"
-      >
+      />
       <span class="cyp-radio__dot" />
       <span class="cyp-radio__label">{{ option.label }}</span>
     </label>

@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const formInstance = inject<FormInstance>("formInstance");
-const innerError = ref(props.error);
+const innerError = ref(props.error ?? "");
 
 const isRequired = computed(() => {
   if (props.required) return true;
@@ -70,19 +70,19 @@ async function validate(): Promise<boolean> {
     }
   }
 
-  innerError.value = undefined;
+  innerError.value = "";
   return true;
 }
 
 function resetField() {
   if (props.prop && formInstance?.model) {
     formInstance.model[props.prop] = undefined;
-    innerError.value = undefined;
+    innerError.value = "";
   }
 }
 
 function clearValidate() {
-  innerError.value = undefined;
+  innerError.value = "";
 }
 
 defineExpose<FormItemInstance>({
@@ -93,27 +93,14 @@ defineExpose<FormItemInstance>({
 </script>
 
 <template>
-  <div
-    class="cyp-form-item"
-    :class="{ 'cyp-form-item--error': innerError }"
-  >
-    <label
-      v-if="label"
-      class="cyp-form-item__label"
-      :style="labelStyle"
-    >
-      <span
-        v-if="isRequired"
-        class="cyp-form-item__required"
-      >*</span>
+  <div class="cyp-form-item" :class="{ 'cyp-form-item--error': innerError }">
+    <label v-if="label" class="cyp-form-item__label" :style="labelStyle">
+      <span v-if="isRequired" class="cyp-form-item__required">*</span>
       {{ label }}
     </label>
     <div class="cyp-form-item__content">
       <slot />
-      <span
-        v-if="innerError"
-        class="cyp-form-item__error-message"
-      >
+      <span v-if="innerError" class="cyp-form-item__error-message">
         {{ innerError }}
       </span>
     </div>

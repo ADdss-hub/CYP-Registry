@@ -121,7 +121,7 @@ defineExpose({
       :multiple="multiple"
       :disabled="disabled"
       @change="handleFileSelect"
-    >
+    />
 
     <div
       class="cyp-upload__area"
@@ -130,10 +130,7 @@ defineExpose({
       @dragleave="handleDragLeave"
       @drop="handleDrop"
     >
-      <div
-        v-if="uploading"
-        class="cyp-upload__uploading"
-      >
+      <div v-if="uploading" class="cyp-upload__uploading">
         <div class="cyp-upload__spinner" />
         <span class="cyp-upload__progress-text">上传中 {{ progress }}%</span>
         <div class="cyp-upload__progress-bar">
@@ -173,10 +170,7 @@ defineExpose({
           <span class="cyp-upload__link">点击或拖拽文件</span>
           到此区域
         </p>
-        <p
-          v-if="maxSize"
-          class="cyp-upload__hint"
-        >
+        <p v-if="maxSize" class="cyp-upload__hint">
           单文件最大 {{ maxSize }}MB
         </p>
       </template>

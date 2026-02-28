@@ -99,10 +99,7 @@ function getAvatarUrl(avatar: string): string {
 </script>
 
 <template>
-  <div
-    class="cyp-layout"
-    :class="{ 'sidebar-collapsed': isCollapsed }"
-  >
+  <div class="cyp-layout" :class="{ 'sidebar-collapsed': isCollapsed }">
     <!-- 侧边栏 -->
     <aside class="cyp-layout__sidebar">
       <div class="cyp-layout__logo">
@@ -112,12 +109,9 @@ function getAvatarUrl(avatar: string): string {
             alt="CYP-Registry Logo"
             width="32"
             height="32"
-          >
+          />
         </div>
-        <span
-          v-if="!isCollapsed"
-          class="logo-text"
-        >CYP-Registry</span>
+        <span v-if="!isCollapsed" class="logo-text">CYP-Registry</span>
       </div>
 
       <nav class="cyp-layout__nav">
@@ -130,11 +124,7 @@ function getAvatarUrl(avatar: string): string {
             @click="navigateTo(item.path)"
           >
             <span class="nav-icon">
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <template v-if="item.icon === 'dashboard'">
                   <path
                     fill="currentColor"
@@ -166,28 +156,17 @@ function getAvatarUrl(avatar: string): string {
                   />
                 </template>
                 <template v-else>
-                  <rect
-                    fill="currentColor"
-                    width="24"
-                    height="24"
-                    rx="4"
-                  />
+                  <rect fill="currentColor" width="24" height="24" rx="4" />
                 </template>
               </svg>
             </span>
-            <span
-              v-if="!isCollapsed"
-              class="nav-label"
-            >{{ item.label }}</span>
+            <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
           </li>
         </ul>
       </nav>
 
       <div class="cyp-layout__sidebar-footer">
-        <button
-          class="collapse-btn"
-          @click="toggleSidebar"
-        >
+        <button class="collapse-btn" @click="toggleSidebar">
           <svg
             viewBox="0 0 24 24"
             width="20"
@@ -227,28 +206,18 @@ function getAvatarUrl(avatar: string): string {
               title="系统通知"
               @click="toggleNotificationCenter"
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="20"
-                height="20"
-              >
+              <svg viewBox="0 0 24 24" width="20" height="20">
                 <path
                   fill="currentColor"
                   d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C8.63 5.36 7 7.92 7 11v5l-2 2v1h15v-1l-2-2z"
                 />
               </svg>
-              <span
-                v-if="unreadCount > 0"
-                class="notification-badge"
-              >
+              <span v-if="unreadCount > 0" class="notification-badge">
                 {{ unreadCount > 9 ? "9+" : unreadCount }}
               </span>
             </button>
 
-            <div
-              v-if="showNotificationPanel"
-              class="notification-panel"
-            >
+            <div v-if="showNotificationPanel" class="notification-panel">
               <div class="notification-panel__header">
                 <span class="title">系统通知</span>
                 <button
@@ -294,18 +263,13 @@ function getAvatarUrl(avatar: string): string {
                 v-if="userStore.user?.avatar"
                 :src="getAvatarUrl(userStore.user.avatar)"
                 alt="avatar"
-              >
+              />
               <span v-else>
                 {{ userStore.user?.username?.charAt(0)?.toUpperCase() || "U" }}
               </span>
             </div>
             <span class="user-name">{{ userStore.user?.username }}</span>
-            <button
-              class="logout-btn"
-              @click="handleLogout"
-            >
-              退出
-            </button>
+            <button class="logout-btn" @click="handleLogout">退出</button>
           </div>
         </div>
       </header>

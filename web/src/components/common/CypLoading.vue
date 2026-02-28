@@ -14,18 +14,8 @@ withDefaults(defineProps<Props>(), {
   <div :class="['cyp-loading', { 'cyp-loading--fullscreen': fullscreen }]">
     <div class="cyp-loading__spinner">
       <svg viewBox="0 0 50 50">
-        <circle
-          class="cyp-loading__track"
-          cx="25"
-          cy="25"
-          r="20"
-        />
-        <circle
-          class="cyp-loading__progress"
-          cx="25"
-          cy="25"
-          r="20"
-        />
+        <circle class="cyp-loading__track" cx="25" cy="25" r="20" />
+        <circle class="cyp-loading__progress" cx="25" cy="25" r="20" />
       </svg>
     </div>
     <p class="cyp-loading__text">

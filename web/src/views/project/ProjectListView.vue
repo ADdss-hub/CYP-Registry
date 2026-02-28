@@ -320,17 +320,10 @@ onMounted(() => {
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <h2 class="page-title">
-          项目管理
-        </h2>
-        <p class="page-subtitle">
-          管理您的容器镜像项目
-        </p>
+        <h2 class="page-title">项目管理</h2>
+        <p class="page-subtitle">管理您的容器镜像项目</p>
       </div>
-      <CypButton
-        type="primary"
-        @click="showCreateModal = true"
-      >
+      <CypButton type="primary" @click="showCreateModal = true">
         创建项目
       </CypButton>
     </div>
@@ -358,12 +351,7 @@ onMounted(() => {
         placeholder="搜索项目名称..."
         @keyup.enter="handleSearch"
       />
-      <CypButton
-        type="primary"
-        @click="handleSearch"
-      >
-        搜索
-      </CypButton>
+      <CypButton type="primary" @click="handleSearch"> 搜索 </CypButton>
       <CypButton
         type="default"
         :loading="isLoading"
@@ -388,11 +376,7 @@ onMounted(() => {
     >
       <template #empty>
         <div class="empty-state">
-          <svg
-            viewBox="0 0 24 24"
-            width="64"
-            height="64"
-          >
+          <svg viewBox="0 0 24 24" width="64" height="64">
             <path
               fill="currentColor"
               d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"
@@ -400,10 +384,7 @@ onMounted(() => {
           </svg>
           <h3>暂无项目</h3>
           <p>创建您的第一个项目开始使用镜像仓库</p>
-          <CypButton
-            type="primary"
-            @click="showCreateModal = true"
-          >
+          <CypButton type="primary" @click="showCreateModal = true">
             创建项目
           </CypButton>
         </div>
@@ -420,16 +401,9 @@ onMounted(() => {
         控制台项目访问地址，以及对应项目的 Docker 登录 / 推送 /
         拉取命令示例，便于统一粘贴到文档或 IM 中使用。
       </p>
-      <textarea
-        class="share-textarea"
-        :value="shareContent"
-        readonly
-      />
+      <textarea class="share-textarea" :value="shareContent" readonly />
       <template #footer>
-        <CypButton
-          type="default"
-          @click="showShareDialog = false"
-        >
+        <CypButton type="default" @click="showShareDialog = false">
           关闭
         </CypButton>
         <CypButton
@@ -451,15 +425,8 @@ onMounted(() => {
       <div class="modal-content">
         <div class="modal-header">
           <h2>创建项目</h2>
-          <button
-            class="close-btn"
-            @click="showCreateModal = false"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="24"
-              height="24"
-            >
+          <button class="close-btn" @click="showCreateModal = false">
+            <svg viewBox="0 0 24 24" width="24" height="24">
               <path
                 fill="currentColor"
                 d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
@@ -470,10 +437,7 @@ onMounted(() => {
         <div class="modal-body">
           <div class="form-group">
             <label class="form-label">项目名称 *</label>
-            <CypInput
-              v-model="newProject.name"
-              placeholder="请输入项目名称"
-            />
+            <CypInput v-model="newProject.name" placeholder="请输入项目名称" />
           </div>
           <div class="form-group">
             <label class="form-label">描述</label>
@@ -486,20 +450,14 @@ onMounted(() => {
           </div>
           <div class="form-group">
             <label class="form-label">
-              <input
-                v-model="newProject.isPublic"
-                type="checkbox"
-              >
+              <input v-model="newProject.isPublic" type="checkbox" />
               公开项目（允许匿名拉取；公开/私有项目均支持 Docker CLI
               与自动化工具，差别仅在是否允许匿名拉取）
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <CypButton
-            :disabled="isCreating"
-            @click="showCreateModal = false"
-          >
+          <CypButton :disabled="isCreating" @click="showCreateModal = false">
             取消
           </CypButton>
           <CypButton
@@ -520,21 +478,17 @@ onMounted(() => {
       width="420px"
       @close="showDeleteConfirmDialog = false"
     >
-      <div
-        v-if="projectToDelete"
-        class="confirm-content"
-      >
+      <div v-if="projectToDelete" class="confirm-content">
         <p>
-          确定要删除项目 "<strong>{{ projectToDelete.name }}</strong>" 吗？
+          确定要删除项目 "<strong>{{ projectToDelete.name }}</strong
+          >" 吗？
         </p>
         <p class="warning">
           此操作无法撤销，项目下的所有镜像和配置将被永久移除。
         </p>
       </div>
       <template #footer>
-        <CypButton @click="showDeleteConfirmDialog = false">
-          取消
-        </CypButton>
+        <CypButton @click="showDeleteConfirmDialog = false"> 取消 </CypButton>
         <CypButton
           type="danger"
           @click="
@@ -566,10 +520,7 @@ onMounted(() => {
     >
       <p>{{ messageDialogContent }}</p>
       <template #footer>
-        <CypButton
-          type="primary"
-          @click="showMessageDialog = false"
-        >
+        <CypButton type="primary" @click="showMessageDialog = false">
           知道了
         </CypButton>
       </template>
