@@ -341,17 +341,16 @@ jobs:
           echo "部署完成！旧环境将在10分钟后自动清理"
 
       - name: Create release
-        uses: actions/create-release@v1
         if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           body: |
             ## Changes
             - 自动发布的生产版本
             - SHA: ${{ github.sha }}
           draft: false
           prerelease: false
+          generate_release_notes: true
 

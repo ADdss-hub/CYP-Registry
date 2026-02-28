@@ -126,17 +126,16 @@ jobs:
       
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           body: |
             ## Changes
             ${{ steps.changelog.outputs.result }}
           draft: false
           prerelease: false
+          generate_release_notes: true
 
   # ========================================
   # 4. 部署到开发环境
