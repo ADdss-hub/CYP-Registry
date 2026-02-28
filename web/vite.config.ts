@@ -27,6 +27,18 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 4173,
+    host: true,
+    // CI 环境中严格端口，本地开发时允许端口冲突时自动选择其他端口
+    strictPort: process.env.CI === 'true',
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
   css: {
     preprocessorOptions: {
       scss: {
