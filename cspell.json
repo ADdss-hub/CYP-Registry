@@ -290,7 +290,9 @@
       "Errorf",
       "softprops",
       "staticcheck",
-      "honnef"
+      "honnef",
+      "cursorinfo",
+      "ehthumbs"
   ],
   "ignorePaths": [
     "node_modules/**",

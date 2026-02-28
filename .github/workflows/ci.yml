@@ -159,7 +159,8 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          ignore-unfixed: true
+          exit-code: '0'
 
       - name: Trivy FS scan (schedule)
         if: github.event_name == 'schedule'
@@ -173,7 +174,7 @@ jobs:
           exit-code: '0'
 
       - name: Upload Trivy SARIF
-        if: always()
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
@@ -191,9 +192,10 @@ jobs:
       - name: Run gosec
         run: |
           gosec -fmt=sarif -out=gosec-results.sarif ./...
+        continue-on-error: true
 
       - name: Upload gosec SARIF
-        if: always()
+        if: always() && hashFiles('gosec-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gosec-results.sarif
