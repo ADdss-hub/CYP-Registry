@@ -180,19 +180,62 @@ determine_pg_data_dir() {
     return
   fi
   
+  # 检查子目录是否已经初始化过（挂载点场景）
+  if [[ -f "${base_dir}/pgdata/PG_VERSION" ]] && [[ -s "${base_dir}/pgdata/PG_VERSION" ]]; then
+    debug "检测到已初始化的 PostgreSQL 数据目录（子目录）: ${base_dir}/pgdata"
+    echo "${base_dir}/pgdata"
+    return
+  fi
+  
   # 检查目录是否可写（处理只读挂载点场景）
+  # 注意：这里只检查 root 用户的可写性，实际 postgres 用户的可写性会在 start_postgres 中验证
   if [[ ! -w "${base_dir}" ]]; then
     warn "数据目录不可写，尝试使用子目录"
     echo "${base_dir}/pgdata"
     return
   fi
   
-  # 检查目录内容：NAS 环境（群晖/QNAP）挂载点可能包含系统隐藏文件
+  # 检查目录内容：NAS 环境挂载点可能包含系统隐藏文件
+  # 支持的 NAS 品牌：
+  # - 群晖 (Synology): @__syno, @__thumb
+  # - 威联通 (QNAP): @__qnap, @__thumb
+  # - 飞牛 (FeiNiu): 使用 /vol1/ 等路径，可能有 .@__thumb 等文件
+  # - 极空间 (ZSpace): 可能有 .zspace 等文件
+  # - 海康威视 (Hikvision): 可能有 .hikvision 等文件
+  # - 绿联 (UGREEN): 可能有 .ugreen 等文件
+  # - 铁威马 (TerraMaster): 可能有 .tmaster 等文件
+  # cSpell:ignore zspace hikvision ugreen tmaster Hikvision UGREEN FeiNiu feiniu
   # Linux/macOS/Windows Docker 卷挂载也可能包含系统文件
   # 如果目录不为空且没有 PostgreSQL 文件，可能是挂载点，需要使用子目录
   local file_count=0
   local has_pg_file=false
   local has_system_files_only=true
+  local detected_nas_brand=""
+  
+  # 检测 NAS 品牌（通过挂载路径特征）
+  if [[ "${base_dir}" =~ /vol[0-9]+/ ]] || [[ "${base_dir}" =~ /volume[0-9]+/ ]]; then
+    # 飞牛 NAS 常见路径：/vol1/1000/docker/...
+    if [[ "${base_dir}" =~ /vol[0-9]+/[0-9]+/ ]]; then
+      # cSpell:disable-next-line
+      detected_nas_brand="飞牛 (FeiNiu)"
+      debug "检测到飞牛 NAS 挂载路径特征"
+    elif [[ -f /etc/synoinfo.conf ]] 2>/dev/null; then
+      detected_nas_brand="群晖 (Synology)"
+      debug "检测到群晖 NAS"
+    elif [[ -d /share ]] || command -v getcfg >/dev/null 2>&1; then
+      detected_nas_brand="威联通 (QNAP)"
+      debug "检测到威联通 NAS"
+    else
+      detected_nas_brand="NAS (未知品牌)"
+      debug "检测到 NAS 挂载路径特征"
+    fi
+  elif [[ -f /etc/synoinfo.conf ]] 2>/dev/null; then
+    detected_nas_brand="群晖 (Synology)"
+    debug "检测到群晖 NAS"
+  elif [[ -d /share ]] || command -v getcfg >/dev/null 2>&1; then
+    detected_nas_brand="威联通 (QNAP)"
+    debug "检测到威联通 NAS"
+  fi
   
   # 统计目录中的文件（包括隐藏文件）
   # 使用 find 命令更可靠，兼容各种文件系统（ext4、xfs、btrfs、zfs 等）
@@ -218,9 +261,15 @@ determine_pg_data_dir() {
         break
       fi
       
-      # 检查是否是系统隐藏文件（NAS/Windows 常见）
-      # 如果发现非系统文件，标记为需要子目录
-      if [[ ! "${basename_item}" =~ ^\.(@__|DS_Store|@__thumb|@__qnap|@__syno) ]]; then
+      # 检查是否是系统隐藏文件（各 NAS 品牌常见）
+      # 群晖: @__syno, @__thumb, .@__thumb
+      # 威联通: @__qnap, @__thumb, .@__thumb
+      # 飞牛: .@__thumb, @__thumb (可能)
+      # 极空间: .zspace (可能)
+      # macOS: .DS_Store
+      # Windows: Thumbs.db, desktop.ini
+      # cSpell:disable-next-line
+      if [[ ! "${basename_item}" =~ ^\.?(@__|DS_Store|@__thumb|@__qnap|@__syno|zspace|hikvision|ugreen|tmaster|Thumbs\.db|desktop\.ini) ]]; then
         has_system_files_only=false
       fi
     done < <(find "${base_dir}" -mindepth 1 -maxdepth 1 -print0 2>/dev/null || true)
@@ -244,21 +293,37 @@ determine_pg_data_dir() {
           break
         fi
         
-        if [[ ! "${basename_item}" =~ ^\.(@__|DS_Store|@__thumb|@__qnap|@__syno) ]]; then
+        # cSpell:disable-next-line
+        if [[ ! "${basename_item}" =~ ^\.?(@__|DS_Store|@__thumb|@__qnap|@__syno|zspace|hikvision|ugreen|tmaster|Thumbs\.db|desktop\.ini) ]]; then
           has_system_files_only=false
         fi
       done <<< "${items}"
     fi
   fi
   
+  # 如果检测到 NAS 品牌，记录日志
+  if [[ -n "${detected_nas_brand}" ]]; then
+    debug "检测到 NAS 环境: ${detected_nas_brand}"
+  fi
+  
   # 如果目录不为空但没有 PostgreSQL 文件，说明是挂载点（NAS/Windows 环境常见情况）
   # 需要在子目录中初始化 PostgreSQL
   if [[ ${file_count} -gt 0 ]] && [[ "${has_pg_file}" == false ]]; then
-    debug "检测到挂载点场景（文件数: ${file_count}, 仅系统文件: ${has_system_files_only}），使用子目录"
+    if [[ -n "${detected_nas_brand}" ]]; then
+      debug "检测到 ${detected_nas_brand} 挂载点场景（文件数: ${file_count}, 仅系统文件: ${has_system_files_only}），使用子目录"
+    else
+      debug "检测到挂载点场景（文件数: ${file_count}, 仅系统文件: ${has_system_files_only}），使用子目录"
+    fi
     echo "${base_dir}/pgdata"
   else
-    debug "使用基础数据目录: ${base_dir}"
-    echo "${base_dir}"
+    if [[ -n "${detected_nas_brand}" ]] && [[ ${file_count} -eq 0 ]]; then
+      # NAS 环境但目录为空，可能是首次挂载，也使用子目录更安全
+      debug "检测到 ${detected_nas_brand} 环境，目录为空，使用子目录（更安全）"
+      echo "${base_dir}/pgdata"
+    else
+      debug "使用基础数据目录: ${base_dir}"
+      echo "${base_dir}"
+    fi
   fi
 }
 
@@ -519,52 +584,112 @@ fix_permissions() {
     fi
   done
   
-  # 设置 umask 确保新创建的文件有正确的权限（Linux 环境兼容性）
+  # 设置 umask 确保新创建的文件有正确的权限（跨平台兼容性）
   # 保存当前 umask，避免影响后续操作
-  local old_umask=$(umask)
+  local old_umask=$(umask 2>/dev/null || echo "0022")
   umask 0022  # 默认：目录 755，文件 644
   
   # 设置应用用户目录权限（多次尝试，兼容不同的权限模型）
-  # 兼容性说明：
-  # - Ubuntu/Debian: 标准 chown/chmod
-  # - CentOS/RHEL: 可能受 SELinux 影响，需要 chcon（容器内通常不需要）
-  # - Alpine: BusyBox 工具集，命令参数可能略有不同
+  # 跨平台兼容性说明：
+  # - Ubuntu/Debian: 标准 chown/chmod（GNU coreutils）
+  # - CentOS/RHEL: 标准 chown/chmod，可能受 SELinux 影响（容器内通常不需要 chcon）
+  # - Alpine: BusyBox 工具集，命令参数可能略有不同，但基本兼容
   # - SUSE: 标准 Linux 工具
+  # - macOS Docker Desktop: 标准 BSD/Linux 工具
+  # - Windows Docker Desktop (WSL2): 标准 Linux 工具
   local app_dirs=("/data/storage" "/data/redis" "/app/logs")
   for dir in "${app_dirs[@]}"; do
     local attempts=0
-    while [[ ${attempts} -lt 3 ]]; do
+    local perm_success=0
+    
+    while [[ ${attempts} -lt 5 ]] && [[ ${perm_success} -eq 0 ]]; do
       # 优先使用 chown，失败时尝试 chmod（兼容只读文件系统或特殊权限模型）
       if chown -R appuser:appuser "${dir}" 2>/dev/null; then
         # 确保目录权限正确（Linux 标准：目录 755）
         chmod 755 "${dir}" 2>/dev/null || true
-        break
+        
+        # 验证 appuser 用户是否能够实际访问（关键检查，兼容所有平台）
+        if su-exec appuser:appuser sh -c "test -r '${dir}' && test -x '${dir}'" >/dev/null 2>&1; then
+          perm_success=1
+          break
+        fi
       elif chmod -R 755 "${dir}" 2>/dev/null; then
         # Fallback：仅设置权限，不改变所有者（某些容器环境可能不需要 chown）
-        debug "使用 chmod 设置 ${dir} 权限（chown 不可用）"
-        break
+        # 验证是否可访问
+        if su-exec appuser:appuser sh -c "test -r '${dir}' && test -x '${dir}'" >/dev/null 2>&1; then
+          perm_success=1
+          debug "使用 chmod 设置 ${dir} 权限（chown 不可用）"
+          break
+        fi
       fi
+      
       attempts=$((attempts + 1))
-      [[ ${attempts} -lt 3 ]] && sleep 0.3 || debug "无法设置 ${dir} 权限（某些环境可能不需要）"
+      if [[ ${attempts} -lt 5 ]]; then
+        sleep 0.3
+        # 如果多次失败，尝试更宽松的权限（Windows/NAS 挂载场景）
+        if [[ ${attempts} -ge 3 ]]; then
+          chmod -R 777 "${dir}" 2>/dev/null || true
+          if su-exec appuser:appuser sh -c "test -r '${dir}' && test -x '${dir}'" >/dev/null 2>&1; then
+            perm_success=1
+            warn "使用宽松权限（777）设置 ${dir}（挂载点场景）"
+            break
+          fi
+        fi
+      else
+        debug "无法完全设置 ${dir} 权限（某些环境可能不需要，将在后续步骤中继续尝试）"
+      fi
     done
   done
   
   # 确保 PostgreSQL 相关目录权限正确（包括挂载点场景）
   # PostgreSQL 需要 postgres 用户和组，这在 Alpine 镜像中已预配置
+  # 注意：这里只设置基础目录，具体数据目录权限在 start_postgres 中处理
   local pg_dirs=("/var/lib/postgresql" "/run/postgresql")
   for dir in "${pg_dirs[@]}"; do
     local attempts=0
-    while [[ ${attempts} -lt 3 ]]; do
-      # PostgreSQL 目录需要 postgres:postgres 所有者和 700 权限（安全）
+    local perm_success=0
+    
+    while [[ ${attempts} -lt 5 ]] && [[ ${perm_success} -eq 0 ]]; do
+      # PostgreSQL 目录需要 postgres:postgres 所有者和适当权限
+      # 注意：/var/lib/postgresql 可能需要更宽松的权限（如果包含挂载点）
+      # /run/postgresql 需要 775 权限以便 socket 访问
       if chown -R postgres:postgres "${dir}" 2>/dev/null; then
-        chmod 700 "${dir}" 2>/dev/null || true
-        break
-      elif chmod 700 "${dir}" 2>/dev/null; then
-        debug "使用 chmod 设置 ${dir} 权限（chown 不可用）"
-        break
+        if [[ "${dir}" == "/run/postgresql" ]]; then
+          chmod 775 "${dir}" 2>/dev/null || chmod 755 "${dir}" 2>/dev/null || true
+        else
+          # /var/lib/postgresql 基础目录：使用 755（允许后续创建子目录）
+          chmod 755 "${dir}" 2>/dev/null || true
+        fi
+        
+        # 验证 postgres 用户是否能够实际访问
+        if su-exec postgres:postgres sh -c "test -r '${dir}' && test -x '${dir}'" >/dev/null 2>&1; then
+          perm_success=1
+          break
+        fi
+      elif chmod 755 "${dir}" 2>/dev/null || chmod 775 "${dir}" 2>/dev/null; then
+        # Fallback：仅设置权限
+        if su-exec postgres:postgres sh -c "test -r '${dir}' && test -x '${dir}'" >/dev/null 2>&1; then
+          perm_success=1
+          debug "使用 chmod 设置 ${dir} 权限（chown 不可用）"
+          break
+        fi
       fi
+      
       attempts=$((attempts + 1))
-      [[ ${attempts} -lt 3 ]] && sleep 0.3 || debug "无法设置 ${dir} 权限（某些环境可能不需要）"
+      if [[ ${attempts} -lt 5 ]]; then
+        sleep 0.3
+        # 如果多次失败，尝试更宽松的权限
+        if [[ ${attempts} -ge 3 ]]; then
+          chmod -R 777 "${dir}" 2>/dev/null || true
+          if su-exec postgres:postgres sh -c "test -r '${dir}' && test -x '${dir}'" >/dev/null 2>&1; then
+            perm_success=1
+            warn "使用宽松权限（777）设置 ${dir}（挂载点场景）"
+            break
+          fi
+        fi
+      else
+        debug "无法完全设置 ${dir} 权限（某些环境可能不需要，将在后续步骤中继续尝试）"
+      fi
     done
   done
   
@@ -578,28 +703,165 @@ start_postgres() {
   # PostgreSQL 数据目录已在脚本开头确定（支持 NAS/Windows 挂载点场景）
   # 如果检测到挂载点场景，记录日志
   if [[ "${PG_DATA_DIR}" == */pgdata ]]; then
-    log "检测到挂载点场景（NAS/Windows Docker 卷），使用子目录：${PG_DATA_DIR}"
+    # 检测 NAS 品牌并输出相应的提示信息
+    local nas_info=""
+    if [[ "${PG_DATA_DIR}" =~ /vol[0-9]+/ ]] || [[ "${PG_DATA_DIR}" =~ /volume[0-9]+/ ]]; then
+      if [[ "${PG_DATA_DIR}" =~ /vol[0-9]+/[0-9]+/ ]]; then
+        nas_info="飞牛 NAS"
+      elif [[ -f /etc/synoinfo.conf ]] 2>/dev/null; then
+        nas_info="群晖 NAS"
+      elif [[ -d /share ]] || command -v getcfg >/dev/null 2>&1; then
+        nas_info="威联通 NAS"
+      else
+        nas_info="NAS 环境"
+      fi
+    elif [[ -f /etc/synoinfo.conf ]] 2>/dev/null; then
+      nas_info="群晖 NAS"
+    elif [[ -d /share ]] || command -v getcfg >/dev/null 2>&1; then
+      nas_info="威联通 NAS"
+    fi
+    
+    if [[ -n "${nas_info}" ]]; then
+      log "检测到挂载点场景（${nas_info}），使用子目录：${PG_DATA_DIR}"
+    else
+      log "检测到挂载点场景（NAS/Windows Docker 卷），使用子目录：${PG_DATA_DIR}"
+    fi
     log "提示：这是正常行为，用于避免在挂载点直接初始化 PostgreSQL 数据目录"
   fi
 
   # 确保数据目录存在且权限正确
+  # 在 Windows/NAS 挂载场景下，需要逐级创建目录并设置权限
+  if [[ "${PG_DATA_DIR}" == */pgdata ]]; then
+    # 挂载点场景：先确保父目录存在
+    local parent_dir="${PG_DATA_DIR%/*}"
+    if [[ ! -d "${parent_dir}" ]]; then
+      if ! mkdir -p "${parent_dir}" 2>/dev/null; then
+        error "无法创建父目录: ${parent_dir}"
+        exit 1
+      fi
+    fi
+    
+    # 检测 NAS 品牌并应用相应的权限策略
+    # cSpell:ignore feiniu
+    local is_feiniu_nas=false
+    if [[ "${parent_dir}" =~ /vol[0-9]+/[0-9]+/ ]] || [[ "${PG_DATA_DIR}" =~ /vol[0-9]+/[0-9]+/ ]]; then
+      is_feiniu_nas=true
+      log "检测到飞牛 NAS 环境，应用特殊权限策略"
+    fi
+    
+    # 设置父目录权限（Windows/NAS 挂载可能需要）
+    # 飞牛 NAS 通常需要更宽松的权限
+    if [[ "${is_feiniu_nas}" == true ]]; then
+      chmod 777 "${parent_dir}" 2>/dev/null || chmod 755 "${parent_dir}" 2>/dev/null || true
+    else
+      chmod 755 "${parent_dir}" 2>/dev/null || true
+    fi
+    chown postgres:postgres "${parent_dir}" 2>/dev/null || true
+    
+    # 飞牛 NAS 特殊处理：确保目录为空（避免冲突）
+    if [[ "${is_feiniu_nas}" == true ]] && [[ -d "${PG_DATA_DIR}" ]]; then
+      local pgdata_file_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l || echo "0")
+      if [[ ${pgdata_file_count} -gt 0 ]]; then
+        # 检查是否只有系统文件
+        local has_non_system=false
+        while IFS= read -r item; do
+          [[ -z "${item}" ]] && continue
+          local basename_item=$(basename "${item}")
+          if [[ ! "${basename_item}" =~ ^\.?(@__|DS_Store|@__thumb|Thumbs\.db|desktop\.ini) ]] && \
+             [[ "${basename_item}" != "PG_VERSION" ]] && \
+             [[ "${basename_item}" != "postgresql.conf" ]] && \
+             [[ "${basename_item}" != "pg_hba.conf" ]] && \
+             [[ ! -d "${item}" ]] || ([[ -d "${item}" ]] && [[ "${basename_item}" != "base" ]] && [[ "${basename_item}" != "global" ]]); then
+            has_non_system=true
+            break
+          fi
+        done < <(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null || true)
+        
+        if [[ "${has_non_system}" == true ]]; then
+          warn "飞牛 NAS: 检测到数据目录包含非系统文件，建议清理以避免冲突"
+        fi
+      fi
+    fi
+  fi
+  
   if ! mkdir -p "${PG_DATA_DIR}" /run/postgresql; then
     error "无法创建数据目录: ${PG_DATA_DIR}"
     exit 1
   fi
   
   # 设置权限（多次尝试，兼容不同的权限模型）
-  # 先设置数据目录和 socket 目录权限
+  # Windows/NAS 挂载场景：需要更宽松的权限和多次尝试
   local chown_attempts=0
-  while [[ ${chown_attempts} -lt 3 ]]; do
-    if chown -R postgres:postgres "${PG_DATA_DIR}" /run/postgresql 2>/dev/null; then
-      break
-    fi
-    chown_attempts=$((chown_attempts + 1))
-    if [[ ${chown_attempts} -lt 3 ]]; then
-      sleep 0.5
+  local perm_set_success=0
+  
+  # 检测是否为 NAS 环境（用于应用特殊权限策略）
+  local is_nas_env=false
+  local nas_brand=""
+  if [[ "${PG_DATA_DIR}" =~ /vol[0-9]+/ ]] || [[ "${PG_DATA_DIR}" =~ /volume[0-9]+/ ]]; then
+    is_nas_env=true
+    if [[ "${PG_DATA_DIR}" =~ /vol[0-9]+/[0-9]+/ ]]; then
+      nas_brand="飞牛"
+    elif [[ -f /etc/synoinfo.conf ]] 2>/dev/null; then
+      nas_brand="群晖"
+    elif [[ -d /share ]] || command -v getcfg >/dev/null 2>&1; then
+      nas_brand="威联通"
     else
-      warn "无法设置数据目录权限，继续尝试（某些环境可能不需要）"
+      nas_brand="NAS"
+    fi
+  elif [[ -f /etc/synoinfo.conf ]] 2>/dev/null; then
+    is_nas_env=true
+    nas_brand="群晖"
+  elif [[ -d /share ]] || command -v getcfg >/dev/null 2>&1; then
+    is_nas_env=true
+    nas_brand="威联通"
+  fi
+  
+  while [[ ${chown_attempts} -lt 5 ]] && [[ ${perm_set_success} -eq 0 ]]; do
+    # 尝试设置所有者和权限
+    if chown -R postgres:postgres "${PG_DATA_DIR}" /run/postgresql 2>/dev/null; then
+      # 设置目录权限（Windows/NAS 挂载场景可能需要 777）
+      if [[ "${PG_DATA_DIR}" == */pgdata ]] || [[ "${is_nas_env}" == true ]]; then
+        # 挂载点场景或 NAS 环境：使用更宽松的权限
+        # 飞牛 NAS 通常需要 777，其他 NAS 品牌可能需要 755 或 777
+        if [[ "${nas_brand}" == "飞牛" ]]; then
+          chmod -R 777 "${PG_DATA_DIR}" 2>/dev/null || chmod -R 755 "${PG_DATA_DIR}" 2>/dev/null || true
+        else
+          # 其他 NAS 品牌：先尝试 755，失败则使用 777
+          chmod -R 755 "${PG_DATA_DIR}" 2>/dev/null || chmod -R 777 "${PG_DATA_DIR}" 2>/dev/null || true
+        fi
+      else
+        # 非挂载点：使用标准权限
+        chmod -R 700 "${PG_DATA_DIR}" 2>/dev/null || chmod -R 755 "${PG_DATA_DIR}" 2>/dev/null || true
+      fi
+      chmod 775 /run/postgresql 2>/dev/null || chmod 755 /run/postgresql 2>/dev/null || true
+      
+      # 验证 postgres 用户是否能够实际访问（关键检查）
+      if su-exec postgres:postgres sh -c "test -r '${PG_DATA_DIR}' && test -x '${PG_DATA_DIR}'" >/dev/null 2>&1; then
+        perm_set_success=1
+        break
+      fi
+    fi
+    
+    chown_attempts=$((chown_attempts + 1))
+    if [[ ${chown_attempts} -lt 5 ]]; then
+      sleep 0.5
+      # 如果 chown 失败，尝试仅使用 chmod（某些环境可能不支持 chown）
+      if [[ ${chown_attempts} -ge 2 ]]; then
+        if [[ "${PG_DATA_DIR}" == */pgdata ]]; then
+          chmod -R 777 "${PG_DATA_DIR}" 2>/dev/null || true
+        else
+          chmod -R 755 "${PG_DATA_DIR}" 2>/dev/null || true
+        fi
+        chmod 775 /run/postgresql 2>/dev/null || true
+        # 再次验证
+        if su-exec postgres:postgres sh -c "test -r '${PG_DATA_DIR}' && test -x '${PG_DATA_DIR}'" >/dev/null 2>&1; then
+          perm_set_success=1
+          warn "使用 chmod 设置权限成功（chown 不可用）"
+          break
+        fi
+      fi
+    else
+      warn "无法完全设置数据目录权限，将在后续步骤中继续尝试"
     fi
   done
   
@@ -648,20 +910,143 @@ start_postgres() {
   if [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
     log "PostgreSQL 数据目录未初始化，正在 initdb..."
     
-    # 检查目录是否可写
-    if [[ ! -w "${PG_DATA_DIR}" ]]; then
-      error "数据目录不可写: ${PG_DATA_DIR}"
+    # 确保数据目录对 postgres 用户可写（Windows/NAS 挂载场景关键修复）
+    # 在 Windows Docker 卷挂载时，即使 root 可以写入，postgres 用户可能无法写入
+    local pg_write_check=0
+    local perm_fix_attempts=0
+    
+    # 首先尝试使用 postgres 用户实际验证可写性
+    while [[ ${pg_write_check} -eq 0 ]] && [[ ${perm_fix_attempts} -lt 5 ]]; do
+      if su-exec postgres:postgres sh -c "test -w '${PG_DATA_DIR}' && touch '${PG_DATA_DIR}/.write_test' && rm -f '${PG_DATA_DIR}/.write_test'" >/dev/null 2>&1; then
+        pg_write_check=1
+        break
+      fi
+      
+      # 尝试修复权限（Windows/NAS 挂载场景可能需要更宽松的权限）
+      perm_fix_attempts=$((perm_fix_attempts + 1))
+      log "尝试修复数据目录权限（第 ${perm_fix_attempts} 次）..."
+      
+      # 尝试多种权限设置方式
+      chmod 777 "${PG_DATA_DIR}" 2>/dev/null || true
+      chown -R postgres:postgres "${PG_DATA_DIR}" 2>/dev/null || true
+      chmod 755 "${PG_DATA_DIR}" 2>/dev/null || true
+      
+      # 如果是在挂载点场景（子目录），也尝试设置父目录权限
+      if [[ "${PG_DATA_DIR}" == */pgdata ]]; then
+        local parent_dir="${PG_DATA_DIR%/*}"
+        if [[ -d "${parent_dir}" ]]; then
+          chmod 755 "${parent_dir}" 2>/dev/null || true
+          chown postgres:postgres "${parent_dir}" 2>/dev/null || true
+        fi
+      fi
+      
+      sleep 0.5
+    done
+    
+    # 如果仍然不可写，输出详细诊断信息
+    if [[ ${pg_write_check} -eq 0 ]]; then
+      error "数据目录对 postgres 用户不可写: ${PG_DATA_DIR}"
+      error "诊断信息："
+      
+      # 检查目录权限
+      if [[ -d "${PG_DATA_DIR}" ]]; then
+        local dir_perm="unknown"
+        if stat -c "%a" "${PG_DATA_DIR}" >/dev/null 2>&1; then
+          dir_perm=$(stat -c "%a" "${PG_DATA_DIR}" 2>/dev/null || echo "unknown")
+        elif stat -f "%OLp" "${PG_DATA_DIR}" >/dev/null 2>&1; then
+          dir_perm=$(stat -f "%OLp" "${PG_DATA_DIR}" 2>/dev/null || echo "unknown")
+        else
+          dir_perm=$(ls -ld "${PG_DATA_DIR}" 2>/dev/null | awk '{print $1}' || echo "unknown")
+        fi
+        error "  目录权限: ${dir_perm}"
+        error "  目录所有者: $(ls -ld "${PG_DATA_DIR}" 2>/dev/null | awk '{print $3":"$4}' || echo "unknown")"
+      fi
+      
+      # 检查磁盘空间
+      if command -v df >/dev/null 2>&1; then
+        local df_output=$(df -h "${PG_DATA_DIR}" 2>/dev/null | tail -n 1 || echo "")
+        if [[ -n "${df_output}" ]]; then
+          error "  磁盘空间: ${df_output}"
+        fi
+      fi
+      
+      # 检查 postgres 用户
+      if ! id postgres >/dev/null 2>&1; then
+        error "  postgres 用户不存在"
+      else
+        error "  postgres 用户: $(id postgres 2>/dev/null || echo "unknown")"
+      fi
+      
+      # 尝试使用 root 创建测试文件
+      if touch "${PG_DATA_DIR}/.root_write_test" 2>/dev/null; then
+        rm -f "${PG_DATA_DIR}/.root_write_test" 2>/dev/null || true
+        error "  root 用户可以写入，但 postgres 用户无法写入（Windows/NAS 挂载权限问题）"
+        error "  建议：检查 Docker 卷挂载配置，确保容器内 postgres 用户有写入权限"
+      else
+        error "  连 root 用户也无法写入（可能是只读挂载或磁盘空间不足）"
+      fi
+      
       exit 1
+    fi
+    
+    # 清理可能存在的部分初始化文件（避免 initdb 失败）
+    if [[ -d "${PG_DATA_DIR}" ]] && [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
+      # 只清理明显是 initdb 失败产生的空目录或临时文件
+      if find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -type f -name "*.tmp" -o -name "*.lock" 2>/dev/null | grep -q .; then
+        log "清理可能存在的临时文件..."
+        find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -type f \( -name "*.tmp" -o -name "*.lock" \) -delete 2>/dev/null || true
+      fi
     fi
     
     # 使用更安全的认证方式初始化：
     # - 本地连接使用 peer（系统用户 postgres 通过本地 Unix Socket 免密登录）
     # - TCP 连接使用 scram-sha-256（应用通过密码访问）
-    if ! su-exec postgres:postgres initdb \
+    log "执行 initdb 命令..."
+    local initdb_output=""
+    local initdb_exit_code=0
+    
+    # 捕获 initdb 的输出和错误（用于诊断）
+    initdb_output=$(su-exec postgres:postgres initdb \
       --auth-local=peer \
       --auth-host=scram-sha-256 \
-      -D "${PG_DATA_DIR}" >/dev/null 2>&1; then
-      error "PostgreSQL initdb 失败，请检查数据目录权限和磁盘空间"
+      -D "${PG_DATA_DIR}" 2>&1) || initdb_exit_code=$?
+    
+    if [[ ${initdb_exit_code} -ne 0 ]]; then
+      error "PostgreSQL initdb 失败（退出码: ${initdb_exit_code}）"
+      error "数据目录: ${PG_DATA_DIR}"
+      
+      # 输出 initdb 的实际错误信息
+      if [[ -n "${initdb_output}" ]]; then
+        error "initdb 错误输出："
+        echo "${initdb_output}" | while IFS= read -r line; do
+          error "  ${line}"
+        done
+      fi
+      
+      # 检查常见问题
+      if [[ -d "${PG_DATA_DIR}" ]]; then
+        local file_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l || echo "0")
+        if [[ ${file_count} -gt 0 ]]; then
+          error "数据目录不为空（文件数: ${file_count}），可能之前初始化失败"
+          error "目录内容："
+          ls -la "${PG_DATA_DIR}" 2>/dev/null | head -20 | while IFS= read -r line; do
+            error "  ${line}"
+          done || true
+        fi
+      fi
+      
+      # 检查磁盘空间
+      if command -v df >/dev/null 2>&1; then
+        local available_space=$(df -BG "${PG_DATA_DIR}" 2>/dev/null | tail -n 1 | awk '{print $4}' || echo "unknown")
+        error "可用磁盘空间: ${available_space}"
+      fi
+      
+      exit 1
+    fi
+    
+    # initdb 成功，验证关键文件是否存在
+    if [[ ! -f "${PG_DATA_DIR}/PG_VERSION" ]]; then
+      error "initdb 完成但未找到 PG_VERSION 文件"
       error "数据目录: ${PG_DATA_DIR}"
       exit 1
     fi
@@ -1101,14 +1486,44 @@ start_redis() {
     exit 1
   fi
   
-  # 设置权限
+  # 设置权限（跨平台兼容，与 PostgreSQL 权限设置逻辑一致）
   local attempts=0
-  while [[ ${attempts} -lt 3 ]]; do
-    if chown -R appuser:appuser /data/redis 2>/dev/null || chmod 755 /data/redis 2>/dev/null; then
-      break
+  local perm_success=0
+  
+  while [[ ${attempts} -lt 5 ]] && [[ ${perm_success} -eq 0 ]]; do
+    # 优先使用 chown，失败时尝试 chmod
+    if chown -R appuser:appuser /data/redis 2>/dev/null; then
+      chmod 755 /data/redis 2>/dev/null || true
+      
+      # 验证 appuser 用户是否能够实际访问（关键检查，兼容所有平台）
+      if su-exec appuser:appuser sh -c "test -r /data/redis && test -x /data/redis && test -w /data/redis" >/dev/null 2>&1; then
+        perm_success=1
+        break
+      fi
+    elif chmod 755 /data/redis 2>/dev/null; then
+      # Fallback：仅设置权限
+      if su-exec appuser:appuser sh -c "test -r /data/redis && test -x /data/redis && test -w /data/redis" >/dev/null 2>&1; then
+        perm_success=1
+        debug "使用 chmod 设置 Redis 数据目录权限（chown 不可用）"
+        break
+      fi
     fi
+    
     attempts=$((attempts + 1))
-    [[ ${attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置 Redis 数据目录权限（继续尝试）"
+    if [[ ${attempts} -lt 5 ]]; then
+      sleep 0.3
+      # 如果多次失败，尝试更宽松的权限（Windows/NAS 挂载场景）
+      if [[ ${attempts} -ge 3 ]]; then
+        chmod -R 777 /data/redis 2>/dev/null || true
+        if su-exec appuser:appuser sh -c "test -r /data/redis && test -x /data/redis && test -w /data/redis" >/dev/null 2>&1; then
+          perm_success=1
+          warn "使用宽松权限（777）设置 Redis 数据目录（挂载点场景）"
+          break
+        fi
+      fi
+    else
+      warn "无法完全设置 Redis 数据目录权限，继续尝试（某些环境可能不需要）"
+    fi
   done
   
   # 配置持久化（AOF），数据写到 /data/redis
@@ -1126,22 +1541,58 @@ start_redis() {
     redis_log_dir="/data/redis"
   fi
   
-  # 设置日志目录权限
+  # 设置日志目录权限（跨平台兼容）
   local log_chown_attempts=0
-  while [[ ${log_chown_attempts} -lt 3 ]]; do
-    if chown appuser:appuser "${redis_log_dir}" 2>/dev/null || chmod 755 "${redis_log_dir}" 2>/dev/null; then
-      break
+  local log_perm_success=0
+  
+  while [[ ${log_chown_attempts} -lt 5 ]] && [[ ${log_perm_success} -eq 0 ]]; do
+    if chown appuser:appuser "${redis_log_dir}" 2>/dev/null; then
+      chmod 755 "${redis_log_dir}" 2>/dev/null || true
+      
+      # 验证 appuser 用户是否能够实际写入
+      if su-exec appuser:appuser sh -c "test -w '${redis_log_dir}'" >/dev/null 2>&1; then
+        log_perm_success=1
+        break
+      fi
+    elif chmod 755 "${redis_log_dir}" 2>/dev/null; then
+      if su-exec appuser:appuser sh -c "test -w '${redis_log_dir}'" >/dev/null 2>&1; then
+        log_perm_success=1
+        debug "使用 chmod 设置 Redis 日志目录权限（chown 不可用）"
+        break
+      fi
     fi
+    
     log_chown_attempts=$((log_chown_attempts + 1))
-    [[ ${log_chown_attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置 Redis 日志目录权限，继续尝试"
+    if [[ ${log_chown_attempts} -lt 5 ]]; then
+      sleep 0.3
+      # 如果多次失败，尝试更宽松的权限
+      if [[ ${log_chown_attempts} -ge 3 ]]; then
+        chmod 777 "${redis_log_dir}" 2>/dev/null || true
+        if su-exec appuser:appuser sh -c "test -w '${redis_log_dir}'" >/dev/null 2>&1; then
+          log_perm_success=1
+          warn "使用宽松权限（777）设置 Redis 日志目录（挂载点场景）"
+          break
+        fi
+      fi
+    else
+      warn "无法完全设置 Redis 日志目录权限，继续尝试"
+    fi
   done
   
   local redis_log_file="${redis_log_dir}/redis-$(date +%Y%m%d-%H%M%S).log"
   log "启动 Redis，日志文件: ${redis_log_file}"
   
-  # 确保日志文件可以被创建
-  touch "${redis_log_file}" 2>/dev/null || true
-  chown appuser:appuser "${redis_log_file}" 2>/dev/null || chmod 666 "${redis_log_file}" 2>/dev/null || true
+  # 确保日志文件可以被创建（使用 appuser 用户实际验证）
+  if ! su-exec appuser:appuser sh -c "touch '${redis_log_file}'" >/dev/null 2>&1; then
+    # 如果 appuser 无法创建，尝试使用 root 创建并设置权限
+    touch "${redis_log_file}" 2>/dev/null || true
+    chown appuser:appuser "${redis_log_file}" 2>/dev/null || chmod 666 "${redis_log_file}" 2>/dev/null || true
+    # 再次验证
+    if ! su-exec appuser:appuser sh -c "test -w '${redis_log_file}'" >/dev/null 2>&1; then
+      warn "Redis 日志文件可能无法写入，将输出到标准输出"
+      redis_log_file="/dev/stdout"
+    fi
+  fi
   
   # 启动 Redis（后台运行，输出到日志文件）
   redis-server \

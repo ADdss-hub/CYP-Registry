@@ -298,7 +298,15 @@
       "findutils",
       "syno",
       "chcon",
-      "coreutils"
+      "coreutils",
+      "zspace",
+      "hikvision",
+      "Hikvision",
+      "ugreen",
+      "UGREEN",
+      "tmaster",
+      "FeiNiu",
+      "feiniu"
   ],
   "ignorePaths": [
     "node_modules/**",
