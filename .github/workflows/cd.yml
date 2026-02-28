@@ -31,9 +31,13 @@ jobs:
   # ========================================
   security-audit:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       
       - name: Run Trivy Vulnerability Scan
         uses: aquasecurity/trivy-action@master
@@ -46,7 +50,7 @@ jobs:
       
       - name: Upload Vulnerability Results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
 

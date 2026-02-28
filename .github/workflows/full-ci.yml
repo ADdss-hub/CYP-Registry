@@ -22,6 +22,10 @@ jobs:
   # ========================================
   lint-and-sec:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -71,7 +75,7 @@ jobs:
       
       - name: Upload Security Results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
 
@@ -163,6 +167,10 @@ jobs:
   build-verify:
     runs-on: ubuntu-latest
     needs: integration-test
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -192,7 +200,7 @@ jobs:
       
       - name: Upload Trivy Results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
 
