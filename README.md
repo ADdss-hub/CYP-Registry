@@ -38,6 +38,7 @@ CYP-Registry 是一款面向个人开发者和中小型团队的中文私有容�
 ### 📦 镜像仓库管理
 - 支持 Docker Registry API v2
 - 镜像推送、拉取、删除操作
+- **从 URL 添加镜像**：支持从 Docker Hub、GHCR 等公共仓库拉取镜像到私有仓库
 - 镜像标签管理
 - 存储配额管理
 - 支持本地存储和 MinIO 对象存储
@@ -255,7 +256,42 @@ curl -X GET http://localhost:8080/api/v1/users/me \
 
 #### 镜像管理
 - `GET /api/v1/projects/:id/images` - 获取镜像列表
+- `POST /api/v1/projects/:id/images/add-from-url` - 从 URL 添加镜像
 - `DELETE /api/v1/projects/:id/images/:name` - 删除镜像
+
+**从 URL 添加镜像功能说明：**
+
+通过 Web 界面或 API 可以从公共镜像仓库（如 Docker Hub、GHCR）拉取镜像到私有仓库：
+
+**Web 界面操作：**
+1. 进入项目 → 镜像管理页面
+2. 点击 "+ 添加镜像" 按钮
+3. 选择 "从 URL 添加"
+4. 填写镜像信息：
+   - **镜像**（必填）：输入镜像名称或完整 URL
+     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.2`
+     - 支持 Docker Hub、GHCR、Quay.io 等公共仓库
+   - **用户**（选填）：私有仓库的用户名（如果需要认证）
+   - **密码**（选填）：私有仓库的密码或访问令牌
+5. 点击 "确认" 开始拉取镜像
+
+**API 调用示例：**
+```bash
+curl -X POST http://localhost:8080/api/v1/projects/{project_id}/images/add-from-url \
+  -H "Authorization: Bearer <your-access-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "image": "nginx:latest",
+    "username": "optional_username",
+    "password": "optional_password"
+  }'
+```
+
+**支持的镜像源：**
+- Docker Hub：`docker.io/library/nginx:latest` 或 `nginx:latest`
+- GitHub Container Registry：`ghcr.io/owner/repo:tag`
+- Quay.io：`quay.io/namespace/repo:tag`
+- 其他符合 OCI Distribution Specification 的仓库
 
 完整的 API 文档请访问：http://localhost:8080/docs
 
