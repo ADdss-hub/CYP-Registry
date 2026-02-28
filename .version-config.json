@@ -5,7 +5,7 @@
     "type": [
       "generic"
     ],
-    "root": "E:\\kf\\CYP-Registry"
+    "root": "."
   },
   "versioning": {
     "format": "semver",

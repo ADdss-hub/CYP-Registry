@@ -1,0 +1,25 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname", "job", "instance"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: "default"
+
+receivers:
+  - name: "default"
+    # 根据需要选择一种或多种通知方式（邮件 / Webhook / 企业微信 / 飞书等）
+    # 这里给出 Webhook 示例，默认留空，避免启动失败：
+    # webhook_configs:
+    #   - url: "http://your-alert-webhook-endpoint"
+
+inhibit_rules:
+  # 当存在严重级别告警时，抑制同一对象上的 warning 级别告警
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ["alertname", "job", "instance"]
+

@@ -1,0 +1,62 @@
+groups:
+  - name: registry-alerts
+    rules:
+      # Registry 服务不可用
+      - alert: RegistryDown
+        expr: up{job="registry"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CYP-Registry 服务不可用"
+          description: "Prometheus 检测到 registry 实例 {{ $labels.instance }} 在 1 分钟内持续 down。"
+
+      # HTTP 5xx 错误率过高
+      - alert: RegistryHighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          /
+          rate(http_requests_total[5m])
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CYP-Registry HTTP 错误率超过 5%"
+          description: "实例 {{ $labels.instance }} 最近 5 分钟内 5xx 比例持续超过 5%。"
+
+      # 内存使用率过高（依赖 cAdvisor / kubelet / container_exporter）
+      - alert: RegistryHighMemory
+        expr: |
+          container_memory_usage_bytes{container=~"registry.*"}
+          /
+          container_spec_memory_limit_bytes{container=~"registry.*"}
+          > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CYP-Registry 容器内存使用率过高"
+          description: "容器 {{ $labels.container }} 在 5 分钟内内存使用率持续超过 85%。"
+
+      # CPU 使用率过高
+      - alert: RegistryHighCPU
+        expr: |
+          rate(container_cpu_usage_seconds_total{container=~"registry.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CYP-Registry 容器 CPU 使用率过高"
+          description: "容器 {{ $labels.container }} 在 5 分钟内 CPU 使用率持续超过 80%。"
+
+      # PostgreSQL 服务不可用（依赖 postgres_exporter 提供 up{job="postgres"}）
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL 服务不可用"
+          description: "Prometheus 检测到 PostgreSQL job 在 1 分钟内持续 down。"
+
