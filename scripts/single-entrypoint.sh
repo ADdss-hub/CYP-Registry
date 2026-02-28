@@ -494,6 +494,7 @@ start_postgres() {
   fi
   
   # 设置权限（多次尝试，兼容不同的权限模型）
+  # 先设置数据目录和 socket 目录权限
   local chown_attempts=0
   while [[ ${chown_attempts} -lt 3 ]]; do
     if chown -R postgres:postgres "${PG_DATA_DIR}" /run/postgresql 2>/dev/null; then
@@ -506,6 +507,29 @@ start_postgres() {
       warn "无法设置数据目录权限，继续尝试（某些环境可能不需要）"
     fi
   done
+  
+  # 设置日志目录（在数据目录下）
+  local pg_log_dir="${PG_DATA_DIR}/log"
+  if ! mkdir -p "${pg_log_dir}" 2>/dev/null; then
+    warn "无法创建日志目录: ${pg_log_dir}，将使用数据目录"
+    pg_log_dir="${PG_DATA_DIR}"
+  fi
+  
+  # 设置日志目录权限
+  local log_chown_attempts=0
+  while [[ ${log_chown_attempts} -lt 3 ]]; do
+    if chown postgres:postgres "${pg_log_dir}" 2>/dev/null || chmod 755 "${pg_log_dir}" 2>/dev/null; then
+      break
+    fi
+    log_chown_attempts=$((log_chown_attempts + 1))
+    [[ ${log_chown_attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置日志目录权限，继续尝试"
+  done
+  
+  # 确保 postgres 用户可以写入日志目录
+  if [[ -d "${pg_log_dir}" ]] && [[ ! -w "${pg_log_dir}" ]]; then
+    warn "日志目录不可写，尝试修复权限: ${pg_log_dir}"
+    chmod 755 "${pg_log_dir}" 2>/dev/null || true
+  fi
 
   # 初始化数据库目录（仅首次）
   if [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
@@ -549,22 +573,110 @@ start_postgres() {
     log "PostgreSQL 数据目录初始化完成"
   fi
 
-  # 启动 PostgreSQL（后台运行）
-  if ! su-exec postgres:postgres postgres -D "${PG_DATA_DIR}" -k /run/postgresql >/dev/null 2>&1 &
-  then
-    error "无法启动 PostgreSQL 进程"
-    exit 1
+  # 启动 PostgreSQL（后台运行，输出日志到文件）
+  local pg_log_file="${pg_log_dir}/postgresql-$(date +%Y%m%d-%H%M%S).log"
+  log "启动 PostgreSQL，日志文件: ${pg_log_file}"
+  
+  # 配置 PostgreSQL 日志（在 postgresql.conf 中设置）
+  if [[ -f "${PG_DATA_DIR}/postgresql.conf" ]]; then
+    # 确保日志配置存在
+    if ! grep -q "^log_directory" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
+      echo "log_directory = 'log'" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || true
+    fi
+    if ! grep -q "^logging_collector" "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
+      echo "logging_collector = on" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null || true
+    fi
   fi
+  
+  # 使用 su-exec 启动 PostgreSQL
+  # 将标准输出和错误输出重定向到日志文件
+  # 注意：在 Windows/NAS 环境下，确保使用绝对路径
+  log "执行启动命令: postgres -D ${PG_DATA_DIR} -k /run/postgresql"
+  
+  # 确保日志文件可以被创建（提前创建，避免权限问题）
+  touch "${pg_log_file}" 2>/dev/null || true
+  chown postgres:postgres "${pg_log_file}" 2>/dev/null || chmod 666 "${pg_log_file}" 2>/dev/null || true
+  
+  # 启动 PostgreSQL（后台运行）
+  # 使用 exec 重定向确保输出到日志文件
+  # 在 Windows/NAS 环境下，确保使用正确的用户和路径
+  su-exec postgres:postgres sh -c "exec postgres -D '${PG_DATA_DIR}' -k /run/postgresql >>'${pg_log_file}' 2>&1" &
+  
   PG_PID=$!
   
-  # 等待进程启动
-  sleep 1
+  # 验证进程是否真的启动
+  if [[ -z "${PG_PID}" ]] || [[ "${PG_PID}" -eq 0 ]]; then
+    error "无法获取 PostgreSQL 进程 PID"
+    error "请检查 su-exec 和 postgres 命令是否可用"
+    
+    # 诊断信息
+    if ! command -v su-exec >/dev/null 2>&1; then
+      error "su-exec 命令不存在"
+    fi
+    if ! command -v postgres >/dev/null 2>&1; then
+      error "postgres 命令不存在"
+    fi
+    if ! id postgres >/dev/null 2>&1; then
+      error "postgres 用户不存在"
+    fi
+    
+    exit 1
+  fi
+  
+  log "PostgreSQL 进程已启动，PID: ${PG_PID}"
+  
+  # 等待进程启动（Windows/NAS 环境可能需要更长时间）
+  log "等待 PostgreSQL 进程启动..."
+  sleep 3
+  
+  # 检查进程是否真的在运行
+  if ! ps -p "${PG_PID}" >/dev/null 2>&1 && ! kill -0 "${PG_PID}" 2>/dev/null; then
+    error "PostgreSQL 进程未运行（PID: ${PG_PID}）"
+    error "请检查日志文件: ${pg_log_file}"
+    if [[ -f "${pg_log_file}" ]]; then
+      error "日志内容："
+      cat "${pg_log_file}" >&2 || true
+    fi
+    exit 1
+  fi
   
   # 检查进程是否还在运行
   if ! kill -0 "${PG_PID}" 2>/dev/null; then
-    error "PostgreSQL 进程启动后立即退出，请检查日志"
+    error "PostgreSQL 进程启动后立即退出（PID: ${PG_PID}）"
+    error "数据目录: ${PG_DATA_DIR}"
+    error "日志文件: ${pg_log_file}"
+    
+    # 输出日志文件内容（最后 50 行）
+    if [[ -f "${pg_log_file}" ]]; then
+      error "PostgreSQL 启动日志（最后 50 行）："
+      tail -n 50 "${pg_log_file}" >&2 || true
+    else
+      # 如果没有日志文件，尝试检查标准错误
+      error "未找到日志文件，可能的原因："
+      error "1. 数据目录权限问题: ${PG_DATA_DIR}"
+      error "2. 日志目录权限问题: ${pg_log_dir}"
+      error "3. postgres 用户无法执行 postgres 命令"
+      
+      # 检查数据目录权限
+      if [[ -d "${PG_DATA_DIR}" ]]; then
+        local dir_perm=$(stat -c "%a" "${PG_DATA_DIR}" 2>/dev/null || ls -ld "${PG_DATA_DIR}" 2>/dev/null || echo "unknown")
+        error "数据目录权限: ${dir_perm}"
+      fi
+      
+      # 检查 postgres 用户和命令
+      if ! id postgres >/dev/null 2>&1; then
+        error "postgres 用户不存在"
+      fi
+      
+      if ! command -v postgres >/dev/null 2>&1; then
+        error "postgres 命令不存在"
+      fi
+    fi
+    
     exit 1
   fi
+  
+  log "PostgreSQL 进程已启动（PID: ${PG_PID}）"
 
   # 等待就绪（增加重试次数和详细日志）
   local max_attempts=60
@@ -580,7 +692,19 @@ start_postgres() {
     # 检查进程是否还在运行
     if ! kill -0 "${PG_PID}" 2>/dev/null; then
       error "PostgreSQL 进程意外退出（PID: ${PG_PID}）"
-      error "请检查数据目录权限和 PostgreSQL 日志"
+      error "数据目录: ${PG_DATA_DIR}"
+      
+      # 查找最新的日志文件
+      local latest_log=$(ls -t "${pg_log_dir}"/*.log 2>/dev/null | head -1)
+      if [[ -n "${latest_log}" ]] && [[ -f "${latest_log}" ]]; then
+        error "PostgreSQL 日志文件: ${latest_log}"
+        error "日志内容（最后 30 行）："
+        tail -n 30 "${latest_log}" >&2 || true
+      else
+        error "未找到 PostgreSQL 日志文件"
+        error "请检查数据目录权限: ${PG_DATA_DIR}"
+      fi
+      
       exit 1
     fi
     
@@ -594,7 +718,35 @@ start_postgres() {
   if ! su-exec postgres:postgres pg_isready -h /run/postgresql -p "${DB_PORT}" >/dev/null 2>&1; then
     error "PostgreSQL 启动超时（${max_attempts} 秒后仍未就绪）"
     error "数据目录: ${PG_DATA_DIR}"
-    error "请检查 PostgreSQL 日志和系统资源"
+    error "进程 PID: ${PG_PID}"
+    
+    # 检查进程状态
+    if kill -0 "${PG_PID}" 2>/dev/null; then
+      error "PostgreSQL 进程仍在运行，但无法连接"
+      error "可能的原因："
+      error "1. PostgreSQL 配置问题（端口、监听地址）"
+      error "2. Socket 文件权限问题: /run/postgresql"
+      error "3. 网络连接问题"
+    else
+      error "PostgreSQL 进程已退出"
+    fi
+    
+    # 输出日志
+    local latest_log=""
+    if [[ -d "${pg_log_dir}" ]]; then
+      latest_log=$(ls -t "${pg_log_dir}"/*.log 2>/dev/null | head -1)
+    fi
+    
+    if [[ -n "${latest_log}" ]] && [[ -f "${latest_log}" ]]; then
+      error "PostgreSQL 日志文件: ${latest_log}"
+      error "日志内容（最后 50 行）："
+      tail -n 50 "${latest_log}" >&2 || true
+    elif [[ -f "${pg_log_file}" ]]; then
+      error "PostgreSQL 日志文件: ${pg_log_file}"
+      error "日志内容（最后 50 行）："
+      tail -n 50 "${pg_log_file}" >&2 || true
+    fi
+    
     exit 1
   fi
 
