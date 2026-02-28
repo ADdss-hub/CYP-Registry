@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
@@ -92,17 +92,51 @@ docker compose -f docker-compose.single.yml logs -f
 
 ### 方式二：使用预构建镜像
 
+#### 从 GitHub Container Registry (GHCR) 拉取
+
 ```bash
-# 拉取镜像（待发布到 Docker Hub）
+# 拉取最新版本镜像
+docker pull ghcr.io/addss-hub/cyp-registry:latest
+
+# 或拉取指定版本（推荐生产环境）
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2-2026-02-28
+
+# 运行容器（单镜像模式）
+docker run -d \
+  --name cyp-registry \
+  -p 8080:8080 \
+  -v cyp-registry-pg-data:/var/lib/postgresql/data \
+  -v cyp-registry-redis-data:/data/redis \
+  -v cyp-registry-storage:/data/storage \
+  -v cyp-registry-logs:/app/logs \
+  ghcr.io/addss-hub/cyp-registry:v1.0.2
+```
+
+#### 从 Docker Hub 拉取（如果已同步）
+
+```bash
+# 拉取最新版本镜像
 docker pull addss-hub/cyp-registry:latest
+
+# 或拉取指定版本
+docker pull addss-hub/cyp-registry:v1.0.2
 
 # 运行容器
 docker run -d \
   --name cyp-registry \
   -p 8080:8080 \
-  -v cyp-registry-data:/data \
-  addss-hub/cyp-registry:latest
+  -v cyp-registry-pg-data:/var/lib/postgresql/data \
+  -v cyp-registry-redis-data:/data/redis \
+  -v cyp-registry-storage:/data/storage \
+  -v cyp-registry-logs:/app/logs \
+  addss-hub/cyp-registry:v1.0.2
 ```
+
+**镜像版本说明：**
+- `latest`：最新版本标签
+- `v1.0.2`：标准版本号（语义化版本）
+- `v1.0.2-2026-02-28`：带日期的版本号（便于识别发布日期）
 
 ### 方式三：从源码构建
 
@@ -249,11 +283,13 @@ docker login
 
 # 标记镜像
 docker tag cyp-registry:single addss-hub/cyp-registry:latest
-docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.3
+docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.2
+docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.2-2026-02-28
 
 # 推送镜像
 docker push addss-hub/cyp-registry:latest
-docker push addss-hub/cyp-registry:v1.0.3
+docker push addss-hub/cyp-registry:v1.0.2
+docker push addss-hub/cyp-registry:v1.0.2-2026-02-28
 ```
 
 ## 🧪 测试
