@@ -214,26 +214,6 @@ func HGetAll(ctx context.Context, key string) (map[string]string, error) {
 	return Cache.HGetAll(ctx, Key(key)).Result()
 }
 
-// incrCounter 内部方法：计数器自增（用于限流等）
-func incrCounter(ctx context.Context, key string, expiration time.Duration) (int64, error) {
-	if Cache == nil {
-		return 0, fmt.Errorf("缓存未初始化")
-	}
-	// 尝试设置NX键（使用Key函数添加前缀）
-	fullKey := Key(key)
-	set, err := Cache.SetNX(ctx, fullKey, 1, expiration).Result()
-	if err != nil {
-		return 0, err
-	}
-
-	// 如果键已存在，直接使用 fullKey 自增（保持一致性）
-	if !set {
-		return Cache.Incr(ctx, fullKey).Result()
-	}
-
-	return 1, nil
-}
-
 // GetCounter 获取计数器当前值
 func GetCounter(ctx context.Context, key string) (int64, error) {
 	val, err := Get(ctx, key)

@@ -671,11 +671,7 @@ func (s *Service) isBruteForceAttack(ctx context.Context, username, ip string) b
 	// 检查IP级别锁定
 	ipKey := fmt.Sprintf("login:fail:ip:%s", ip)
 	ipFailCount, _ := cache.GetCounter(ctx, ipKey)
-	if ipFailCount >= 50 {
-		return true
-	}
-
-	return false
+	return ipFailCount >= 50
 }
 
 // recordLoginFailure 记录登录失败

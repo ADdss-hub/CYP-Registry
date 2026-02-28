@@ -24,6 +24,12 @@ func createTestStorage(t *testing.T) *driver.LocalStorage {
 	return store
 }
 
+// TestCreateTestStorage 确保测试辅助函数可正常工作
+func TestCreateTestStorage(t *testing.T) {
+	store := createTestStorage(t)
+	require.NotNil(t, store)
+}
+
 // TestBuildBlobPath 测试构建Blob路径
 func TestBuildBlobPath(t *testing.T) {
 	path := registry.BuildBlobPath("myproject", "sha256:abc123")
@@ -43,15 +49,15 @@ func TestBuildManifestPath(t *testing.T) {
 // TestParseDigest 测试解析摘要
 func TestParseDigest(t *testing.T) {
 	testCases := []struct {
-		name        string
-		digest      string
-		wantAlgo    string
-		wantHex     string
-		wantErr     bool
+		name     string
+		digest   string
+		wantAlgo string
+		wantHex  string
+		wantErr  bool
 	}{
 		{
-			name:    "valid sha256",
-			digest:  "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			name:     "valid sha256",
+			digest:   "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 			wantAlgo: "sha256",
 			wantHex:  "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
 			wantErr:  false,
@@ -91,28 +97,28 @@ func TestParseDigest(t *testing.T) {
 // TestParseReference 测试解析引用
 func TestParseReference(t *testing.T) {
 	testCases := []struct {
-		name      string
-		ref       string
+		name       string
+		ref        string
 		wantDigest bool
-		wantRef   string
+		wantRef    string
 	}{
 		{
-			name:      "tag",
-			ref:       "latest",
+			name:       "tag",
+			ref:        "latest",
 			wantDigest: false,
-			wantRef:   "latest",
+			wantRef:    "latest",
 		},
 		{
-			name:      "digest",
-			ref:       "sha256:abc123",
+			name:       "digest",
+			ref:        "sha256:abc123",
 			wantDigest: true,
-			wantRef:   "sha256:abc123",
+			wantRef:    "sha256:abc123",
 		},
 		{
-			name:      "another tag",
-			ref:       "v1.0.0",
+			name:       "another tag",
+			ref:        "v1.0.0",
 			wantDigest: false,
-			wantRef:   "v1.0.0",
+			wantRef:    "v1.0.0",
 		},
 	}
 
@@ -252,6 +258,7 @@ func TestUploadInfo(t *testing.T) {
 
 	assert.Equal(t, "test-uuid", info.UUID)
 	assert.Equal(t, "myproject", info.Project)
+	assert.Equal(t, "latest", info.Reference)
+	assert.Equal(t, int64(0), info.Size)
 	assert.Empty(t, info.Digest)
 }
-

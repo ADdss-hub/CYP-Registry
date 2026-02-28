@@ -72,7 +72,7 @@ func (c *WebhookController) RegistryEventStream(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
 
-	flusher, ok := ctx.Writer.(gin.ResponseWriter)
+	flusher, ok := ctx.Writer.(interface{ Flush() })
 	if !ok {
 		ctx.Status(500)
 		return
@@ -83,9 +83,7 @@ func (c *WebhookController) RegistryEventStream(ctx *gin.Context) {
 
 	// 发送一个初始事件，帮助前端确认连接成功
 	fmt.Fprintf(ctx.Writer, "event: ping\ndata: {\"time\": %q}\n\n", time.Now().Format(time.RFC3339))
-	if f, ok := flusher.(interface{ Flush() }); ok {
-		f.Flush()
-	}
+	flusher.Flush()
 
 	notify := ctx.Request.Context().Done()
 
@@ -104,9 +102,7 @@ func (c *WebhookController) RegistryEventStream(ctx *gin.Context) {
 			}
 
 			fmt.Fprintf(ctx.Writer, "event: registry\ndata: %s\n\n", payload)
-			if f, ok := flusher.(interface{ Flush() }); ok {
-				f.Flush()
-			}
+			flusher.Flush()
 		}
 	}
 }

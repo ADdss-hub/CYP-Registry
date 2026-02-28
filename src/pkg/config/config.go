@@ -191,15 +191,12 @@ type WebhookConfig struct {
 }
 
 var (
-	cfg     *Config
-	cfgPath string
+	cfg *Config
 )
 
 // Init 初始化配置
 // 遵循《全平台通用容器开发设计规范》2.1节环境变量配置
 func Init(path string) error {
-	cfgPath = path
-
 	// 尝试读取配置文件（如果存在）
 	if path != "" {
 		if data, err := os.ReadFile(path); err == nil {
