@@ -139,6 +139,161 @@ docker run -d \
 - `v1.0.2`：标准版本号（语义化版本）
 - `v1.0.2-2026-02-28`：带日期的版本号（便于识别发布日期）
 
+#### 在其他环境部署（生产环境推荐）
+
+**使用 Docker Compose 部署（推荐）：**
+
+1. **创建部署目录和配置文件：**
+```bash
+mkdir -p /opt/cyp-registry
+cd /opt/cyp-registry
+
+# 创建 docker-compose.yml
+cat > docker-compose.yml << 'EOF'
+version: '3.8'
+
+services:
+  cyp-registry:
+    image: ghcr.io/addss-hub/cyp-registry:v1.0.2
+    container_name: cyp-registry
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 应用配置
+      - APP_ENV=production
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      
+      # 数据库配置（内置 PostgreSQL）
+      - DB_HOST=127.0.0.1
+      - DB_PORT=5432
+      - DB_USER=registry
+      - DB_NAME=registry_db
+      - DB_PASSWORD=${DB_PASSWORD:-}  # 建议设置强密码
+      
+      # Redis 配置（内置 Redis）
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}  # 建议设置密码
+      
+      # JWT 密钥（必须设置）
+      - JWT_SECRET=${JWT_SECRET:-}  # 必须设置强随机值
+      
+      # 存储配置
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_ROOT_PATH=/data/storage
+    volumes:
+      # 数据持久化
+      - pg_data:/var/lib/postgresql/data
+      - redis_data:/data/redis
+      - storage_data:/data/storage
+      - logs_data:/app/logs
+      # 可选：挂载自定义配置文件
+      # - ./config.yaml:/app/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  pg_data:
+  redis_data:
+  storage_data:
+  logs_data:
+EOF
+
+# 创建 .env 文件（包含敏感信息）
+cat > .env << 'EOF'
+# 数据库密码（建议使用强随机值）
+DB_PASSWORD=your_strong_db_password_here
+
+# Redis 密码（可选，建议设置）
+REDIS_PASSWORD=your_redis_password_here
+
+# JWT 密钥（必须设置，建议使用强随机值）
+JWT_SECRET=your_jwt_secret_here
+EOF
+
+# 设置 .env 文件权限
+chmod 600 .env
+```
+
+2. **启动服务：**
+```bash
+# 拉取最新镜像
+docker compose pull
+
+# 启动服务
+docker compose up -d
+
+# 查看服务状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f
+```
+
+**使用 Docker 命令直接部署：**
+
+```bash
+# 拉取镜像
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.2
+
+# 创建数据目录
+mkdir -p /data/cyp-registry/{pg-data,redis-data,storage,logs}
+chmod -R 755 /data/cyp-registry
+
+# 运行容器
+docker run -d \
+  --name cyp-registry \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -e APP_ENV=production \
+  -e DB_PASSWORD=your_strong_db_password \
+  -e REDIS_PASSWORD=your_redis_password \
+  -e JWT_SECRET=your_jwt_secret \
+  -v /data/cyp-registry/pg-data:/var/lib/postgresql/data \
+  -v /data/cyp-registry/redis-data:/data/redis \
+  -v /data/cyp-registry/storage:/data/storage \
+  -v /data/cyp-registry/logs:/app/logs \
+  ghcr.io/addss-hub/cyp-registry:v1.0.2
+```
+
+**生产环境注意事项：**
+
+1. **安全配置：**
+   - ✅ 必须设置强密码的 `DB_PASSWORD` 和 `JWT_SECRET`
+   - ✅ 建议设置 `REDIS_PASSWORD`
+   - ✅ 使用 HTTPS（通过反向代理，如 Nginx）
+   - ✅ 定期更新镜像到最新稳定版本
+
+2. **数据持久化：**
+   - ✅ 使用命名卷或绑定挂载确保数据持久化
+   - ✅ 定期备份 PostgreSQL 数据目录
+   - ✅ 监控磁盘空间使用情况
+
+3. **网络配置：**
+   - ✅ 生产环境建议使用反向代理（Nginx/Caddy）
+   - ✅ 配置防火墙规则，仅开放必要端口
+   - ✅ 如需外部访问，配置域名和 SSL 证书
+
+4. **监控和维护：**
+   - ✅ 配置健康检查（已内置）
+   - ✅ 设置日志轮转
+   - ✅ 监控容器资源使用情况
+
+**访问服务：**
+- Web 界面：http://your-server-ip:8080
+- Registry API：http://your-server-ip:8080/v2/
+- API 文档：http://your-server-ip:8080/docs
+
+**首次登录：**
+1. 访问 Web 界面
+2. 注册管理员账号
+3. 创建项目并开始使用
+
 ### 方式三：从源码构建
 
 ```bash
