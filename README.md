@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.7-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
@@ -118,6 +118,22 @@ docker compose -f docker-compose.single.yml ps
 docker compose -f docker-compose.single.yml logs -f
 ```
 
+#### 使用 Docker Desktop / 图形界面导入（可选）
+
+如果你习惯通过 **Docker Desktop**（或其他支持 Compose 的图形化工具）来管理容器，可以直接导入本仓库的 `docker-compose.single.yml` 文件：
+
+1. 打开 Docker Desktop，在左侧导航中选择 `Compose`（或类似入口）。
+2. 点击右上角「新建项目」，在弹出的对话框中填写：
+   - **项目名称**：例如 `cyp-registry`；
+   - **路径**：选择本项目在宿主机上的目录（能访问到 `docker-compose.single.yml`）；
+   - **来源**：选择「使用/上传 docker-compose.yml」，并选中 `docker-compose.single.yml`。
+3. 如需调整端口、数据卷路径或环境变量，可以：
+   - 在导入前直接编辑 `docker-compose.single.yml`；或
+   - 在 Docker Desktop 提供的 YAML 编辑器中按需修改（例如更改 `8080:8080` 为其他宿主机端口）。
+4. 确认无误后点击「确认/创建」，Docker Desktop 会在后台执行等价的：
+   - `docker compose -f docker-compose.single.yml up -d --build`
+5. 后续即可在 Docker Desktop 中通过图形界面查看容器状态、日志以及健康检查结果。
+
 **单镜像配置说明（重要）：**
 - 默认**不需要**提供 `config.yaml`：容器会在启动时自动生成 `/app/config.yaml`（基于当前环境变量），并且**生成提示日志仅首次显示一次**。
 - 如需固定配置（推荐生产）：在宿主机准备 `./config.yaml`，并在 `docker-compose.single.yml` 中启用对应的 volume 挂载（只读）。
@@ -140,7 +156,7 @@ podman run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.0.3
+  ghcr.io/addss-hub/cyp-registry:v1.0.7
 ```
 
 ### 方式二：使用预构建镜像
@@ -149,10 +165,10 @@ podman run -d \
 
 ```bash
 # 拉取指定版本（推荐生产环境）
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.3
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.7
 
 # 或拉取带日期的版本号
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.3-2026-02-28
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.7-2026-02-28
 
 # 运行容器（单镜像模式）
 docker run -d \
@@ -162,14 +178,14 @@ docker run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.0.3
+  ghcr.io/addss-hub/cyp-registry:v1.0.7
 ```
 
 #### 从 Docker Hub 拉取（如果已同步）
 
 ```bash
 # 拉取指定版本
-docker pull addss-hub/cyp-registry:v1.0.3
+docker pull addss-hub/cyp-registry:v1.0.7
 
 # 运行容器
 docker run -d \
@@ -179,12 +195,12 @@ docker run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  addss-hub/cyp-registry:v1.0.3
+  addss-hub/cyp-registry:v1.0.7
 ```
 
 **镜像版本说明：**
-- `v1.0.3`：标准版本号（语义化版本，推荐使用）
-- `v1.0.3-2026-02-28`：带日期的版本号（便于识别发布日期）
+- `v1.0.7`：标准版本号（语义化版本，推荐使用）
+- `v1.0.7-2026-02-28`：带日期的版本号（便于识别发布日期）
 - **注意**：镜像仓库使用语义化版本号标签，不提供 `latest` 标签。请使用具体的版本号标签拉取镜像。
 
 #### 在其他环境部署（生产环境推荐）
@@ -202,7 +218,7 @@ version: '3.8'
 
 services:
   cyp-registry:
-    image: ghcr.io/addss-hub/cyp-registry:v1.0.3
+    image: ghcr.io/addss-hub/cyp-registry:v1.0.7
     container_name: cyp-registry
     restart: unless-stopped
     ports:
@@ -287,7 +303,7 @@ docker compose logs -f
 
 ```bash
 # 拉取镜像
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.3
+docker pull ghcr.io/addss-hub/cyp-registry:v1.0.7
 
 # 创建数据目录（Linux/macOS）
 mkdir -p /data/cyp-registry/{pg-data,redis-data,storage,logs}
@@ -312,7 +328,7 @@ docker run -d \
   -v /data/cyp-registry/redis-data:/data/redis \
   -v /data/cyp-registry/storage:/data/storage \
   -v /data/cyp-registry/logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.0.3
+  ghcr.io/addss-hub/cyp-registry:v1.0.7
 
 # Windows/NAS 环境使用命名卷的示例：
 # docker run -d \
@@ -327,7 +343,7 @@ docker run -d \
 #   -v cyp-registry-redis-data:/data/redis \
 #   -v cyp-registry-storage:/data/storage \
 #   -v cyp-registry-logs:/app/logs \
-#   ghcr.io/addss-hub/cyp-registry:v1.0.3
+#   ghcr.io/addss-hub/cyp-registry:v1.0.7
 ```
 
 **生产环境注意事项：**
@@ -500,7 +516,7 @@ curl -X GET http://localhost:8080/api/v1/users/me \
 3. 选择 "从 URL 添加"
 4. 填写镜像信息：
    - **镜像**（必填）：输入镜像名称或完整 URL
-     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.3`（注意：本仓库使用版本号标签，不使用 latest）
+     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.0.7`（注意：本仓库使用版本号标签，不使用 latest）
      - 支持 Docker Hub、GHCR、Quay.io 等公共仓库
    - **用户**（选填）：私有仓库的用户名（如果需要认证）
    - **密码**（选填）：私有仓库的密码或访问令牌
@@ -549,12 +565,12 @@ docker run -d \
 docker login
 
 # 标记镜像（使用版本号标签）
-docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.3
-docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.3-2026-02-28
+docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.7
+docker tag cyp-registry:single addss-hub/cyp-registry:v1.0.7-2026-02-28
 
 # 推送镜像
-docker push addss-hub/cyp-registry:v1.0.3
-docker push addss-hub/cyp-registry:v1.0.3-2026-02-28
+docker push addss-hub/cyp-registry:v1.0.7
+docker push addss-hub/cyp-registry:v1.0.7-2026-02-28
 ```
 
 ## 🧪 测试

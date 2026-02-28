@@ -699,6 +699,9 @@ fix_permissions() {
 
 start_postgres() {
   log "启动内置 PostgreSQL..."
+  
+  # 声明日志目录变量（在整个函数中可用）
+  local pg_log_dir=""
 
   # PostgreSQL 数据目录已在脚本开头确定（支持 NAS/Windows 挂载点场景）
   # 如果检测到挂载点场景，记录日志
@@ -864,51 +867,93 @@ start_postgres() {
       warn "无法完全设置数据目录权限，将在后续步骤中继续尝试"
     fi
   done
-  
-  # 设置日志目录（在数据目录下）
-  local pg_log_dir="${PG_DATA_DIR}/log"
-  if ! mkdir -p "${pg_log_dir}" 2>/dev/null; then
-    warn "无法创建日志目录: ${pg_log_dir}，将使用数据目录"
-    pg_log_dir="${PG_DATA_DIR}"
-  fi
-  
-  # 设置日志目录权限
-  local log_chown_attempts=0
-  while [[ ${log_chown_attempts} -lt 3 ]]; do
-    chown postgres:postgres "${pg_log_dir}" 2>/dev/null || true
-    chmod 755 "${pg_log_dir}" 2>/dev/null || true
-    # 使用 postgres 用户实际验证可写性（避免 root 的 -w 误判）
-    if su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
-      break
-    fi
-    log_chown_attempts=$((log_chown_attempts + 1))
-    [[ ${log_chown_attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置日志目录权限，继续尝试"
-  done
-  
-  # 若数据目录下日志目录仍不可写，则回退到 /app/logs/postgres 或 /tmp（更适合 NAS/Windows 权限模型）
-  if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
-    warn "数据目录下日志目录对 postgres 不可写，回退到 /app/logs/postgres 或 /tmp"
-    if mkdir -p /app/logs/postgres 2>/dev/null; then
-      chown -R postgres:postgres /app/logs/postgres 2>/dev/null || true
-      chmod 755 /app/logs/postgres 2>/dev/null || true
-      if su-exec postgres:postgres sh -c "test -w /app/logs/postgres" >/dev/null 2>&1; then
-        pg_log_dir="/app/logs/postgres"
-      fi
-    fi
-  fi
-  if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
-    if mkdir -p /tmp/postgres-logs 2>/dev/null; then
-      chown -R postgres:postgres /tmp/postgres-logs 2>/dev/null || true
-      chmod 755 /tmp/postgres-logs 2>/dev/null || true
-      if su-exec postgres:postgres sh -c "test -w /tmp/postgres-logs" >/dev/null 2>&1; then
-        pg_log_dir="/tmp/postgres-logs"
-      fi
-    fi
-  fi
 
   # 初始化数据库目录（仅首次）
   if [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
     log "PostgreSQL 数据目录未初始化，正在 initdb..."
+    
+    # 关键修复：在 initdb 之前强制清理目录（避免目录不为空导致 initdb 失败）
+    # 必须在权限检查之前执行，确保目录完全清空
+    if [[ -d "${PG_DATA_DIR}" ]]; then
+      local file_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l || echo "0")
+      if [[ ${file_count} -gt 0 ]]; then
+        log "检测到数据目录不为空（文件数: ${file_count}），清理非 PostgreSQL 文件以重新初始化..."
+        
+        # 先备份密钥文件（如果存在）
+        local temp_secrets_dir=""
+        if mkdir -p /tmp/cyp_registry_secrets_backup 2>/dev/null; then
+          temp_secrets_dir="/tmp/cyp_registry_secrets_backup"
+          # 备份所有密钥文件
+          if find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -name ".cyp_registry_*" -type f 2>/dev/null | grep -q .; then
+            log "备份密钥文件..."
+            find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -name ".cyp_registry_*" -type f -exec cp {} "${temp_secrets_dir}/" \; 2>/dev/null || true
+          fi
+        fi
+        
+        # 强制清理所有文件和目录（包括 log 目录）
+        # 使用多种方法确保清理彻底（兼容不同环境）
+        log "清理数据目录中的所有文件和目录..."
+        
+        # 方法1：使用 find + rm（最可靠）
+        if command -v find >/dev/null 2>&1; then
+          # 先删除所有非密钥文件
+          find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" -exec rm -rf {} \; 2>/dev/null || true
+          # 如果还有残留，使用更强制的方法
+          sleep 0.2
+          find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" -delete 2>/dev/null || true
+        fi
+        
+        # 方法2：使用 ls + rm（fallback，兼容性更好）
+        if [[ -d "${PG_DATA_DIR}" ]]; then
+          local remaining_items=$(ls -A "${PG_DATA_DIR}" 2>/dev/null | grep -v "^\.cyp_registry_" || true)
+          if [[ -n "${remaining_items}" ]]; then
+            while IFS= read -r item; do
+              [[ -z "${item}" ]] && continue
+              rm -rf "${PG_DATA_DIR}/${item}" 2>/dev/null || true
+            done <<< "${remaining_items}"
+          fi
+        fi
+        
+        # 恢复密钥文件
+        if [[ -n "${temp_secrets_dir}" ]] && [[ -d "${temp_secrets_dir}" ]]; then
+          if ls "${temp_secrets_dir}"/.cyp_registry_* >/dev/null 2>&1; then
+            log "恢复密钥文件..."
+            cp "${temp_secrets_dir}"/.cyp_registry_* "${PG_DATA_DIR}/" 2>/dev/null || true
+          fi
+          rm -rf "${temp_secrets_dir}" 2>/dev/null || true
+        fi
+        
+        # 验证清理结果
+        local final_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l || echo "0")
+        if [[ ${final_count} -gt 0 ]]; then
+          # 检查是否只有密钥文件
+          local non_secret_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" 2>/dev/null | wc -l || echo "0")
+          if [[ ${non_secret_count} -gt 0 ]]; then
+            warn "清理后仍有 ${non_secret_count} 个非密钥文件，尝试强制删除..."
+            # 最后一次强制清理
+            find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" -exec rm -rf {} + 2>/dev/null || true
+            # 如果还有残留，尝试删除整个目录并重建
+            sleep 0.2
+            local still_has_files=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" 2>/dev/null | wc -l || echo "0")
+            if [[ ${still_has_files} -gt 0 ]]; then
+              warn "仍有文件残留，尝试删除并重建目录..."
+              # 备份密钥文件到父目录
+              if [[ "${PG_DATA_DIR}" == */pgdata ]]; then
+                local parent_dir="${PG_DATA_DIR%/*}"
+                find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -name ".cyp_registry_*" -type f -exec mv {} "${parent_dir}/" \; 2>/dev/null || true
+                rm -rf "${PG_DATA_DIR}" 2>/dev/null || true
+                mkdir -p "${PG_DATA_DIR}" 2>/dev/null || true
+                find "${parent_dir}" -mindepth 1 -maxdepth 1 -name ".cyp_registry_*" -type f -exec mv {} "${PG_DATA_DIR}/" \; 2>/dev/null || true
+              fi
+            fi
+          else
+            log "清理完成，保留 ${final_count} 个密钥文件"
+          fi
+        else
+          log "数据目录已完全清空"
+        fi
+      fi
+    fi
     
     # 确保数据目录对 postgres 用户可写（Windows/NAS 挂载场景关键修复）
     # 在 Windows Docker 卷挂载时，即使 root 可以写入，postgres 用户可能无法写入
@@ -989,13 +1034,16 @@ start_postgres() {
       exit 1
     fi
     
-    # 清理可能存在的部分初始化文件（避免 initdb 失败）
-    if [[ -d "${PG_DATA_DIR}" ]] && [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
-      # 只清理明显是 initdb 失败产生的空目录或临时文件
-      if find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -type f -name "*.tmp" -o -name "*.lock" 2>/dev/null | grep -q .; then
-        log "清理可能存在的临时文件..."
-        find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 -type f \( -name "*.tmp" -o -name "*.lock" \) -delete 2>/dev/null || true
-      fi
+    # 最终验证：确保目录为空（除了密钥文件）
+    local pre_initdb_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" 2>/dev/null | wc -l || echo "0")
+    if [[ ${pre_initdb_count} -gt 0 ]]; then
+      error "initdb 前数据目录仍不为空（非密钥文件数: ${pre_initdb_count}）"
+      error "目录内容："
+      ls -la "${PG_DATA_DIR}" 2>/dev/null | head -20 | while IFS= read -r line; do
+        error "  ${line}"
+      done || true
+      error "无法继续初始化，请手动清理目录或检查权限"
+      exit 1
     fi
     
     # 使用更安全的认证方式初始化：
@@ -1023,11 +1071,30 @@ start_postgres() {
         done
       fi
       
-      # 检查常见问题
+      # 检查常见问题：如果是因为目录不为空失败，尝试再次清理
       if [[ -d "${PG_DATA_DIR}" ]]; then
         local file_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l || echo "0")
+        local non_secret_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" 2>/dev/null | wc -l || echo "0")
+        
+        # 如果错误信息包含 "not empty"，说明是目录不为空的问题
+        if echo "${initdb_output}" | grep -qi "not empty\|exists but is not empty"; then
+          if [[ ${non_secret_count} -gt 0 ]]; then
+            error "检测到目录不为空错误，尝试最后一次强制清理..."
+            # 最后一次强制清理
+            find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" -exec rm -rf {} + 2>/dev/null || true
+            sleep 0.3
+            # 验证清理结果
+            local after_cleanup_count=$(find "${PG_DATA_DIR}" -mindepth 1 -maxdepth 1 ! -name ".cyp_registry_*" 2>/dev/null | wc -l || echo "0")
+            if [[ ${after_cleanup_count} -eq 0 ]]; then
+              warn "清理成功，但 initdb 已失败。请重新启动容器以重试初始化。"
+            else
+              error "清理失败，仍有 ${after_cleanup_count} 个文件无法删除"
+            fi
+          fi
+        fi
+        
         if [[ ${file_count} -gt 0 ]]; then
-          error "数据目录不为空（文件数: ${file_count}），可能之前初始化失败"
+          error "数据目录不为空（总文件数: ${file_count}，非密钥文件数: ${non_secret_count}）"
           error "目录内容："
           ls -la "${PG_DATA_DIR}" 2>/dev/null | head -20 | while IFS= read -r line; do
             error "  ${line}"
@@ -1050,6 +1117,48 @@ start_postgres() {
       error "数据目录: ${PG_DATA_DIR}"
       exit 1
     fi
+    
+    # initdb 成功后，创建日志目录（避免在 initdb 之前创建导致目录不为空）
+    log "PostgreSQL 初始化完成，设置日志目录..."
+    pg_log_dir="${PG_DATA_DIR}/log"
+    if ! mkdir -p "${pg_log_dir}" 2>/dev/null; then
+      warn "无法创建日志目录: ${pg_log_dir}，将使用数据目录"
+      pg_log_dir="${PG_DATA_DIR}"
+    fi
+    
+    # 设置日志目录权限
+    local log_chown_attempts=0
+    while [[ ${log_chown_attempts} -lt 3 ]]; do
+      chown postgres:postgres "${pg_log_dir}" 2>/dev/null || true
+      chmod 755 "${pg_log_dir}" 2>/dev/null || true
+      # 使用 postgres 用户实际验证可写性（避免 root 的 -w 误判）
+      if su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+        break
+      fi
+      log_chown_attempts=$((log_chown_attempts + 1))
+      [[ ${log_chown_attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置日志目录权限，继续尝试"
+    done
+    
+    # 若数据目录下日志目录仍不可写，则回退到 /app/logs/postgres 或 /tmp（更适合 NAS/Windows 权限模型）
+    if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+      warn "数据目录下日志目录对 postgres 不可写，回退到 /app/logs/postgres 或 /tmp"
+      if mkdir -p /app/logs/postgres 2>/dev/null; then
+        chown -R postgres:postgres /app/logs/postgres 2>/dev/null || true
+        chmod 755 /app/logs/postgres 2>/dev/null || true
+        if su-exec postgres:postgres sh -c "test -w /app/logs/postgres" >/dev/null 2>&1; then
+          pg_log_dir="/app/logs/postgres"
+        fi
+      fi
+    fi
+    if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+      if mkdir -p /tmp/postgres-logs 2>/dev/null; then
+        chown -R postgres:postgres /tmp/postgres-logs 2>/dev/null || true
+        chmod 755 /tmp/postgres-logs 2>/dev/null || true
+        if su-exec postgres:postgres sh -c "test -w /tmp/postgres-logs" >/dev/null 2>&1; then
+          pg_log_dir="/tmp/postgres-logs"
+        fi
+      fi
+    fi
 
     # 允许本地连接（单机容器内）
     if ! echo "listen_addresses = '127.0.0.1'" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
@@ -1069,6 +1178,37 @@ start_postgres() {
     fi
     
     log "PostgreSQL 数据目录初始化完成"
+  else
+    # 如果已经初始化，确保日志目录存在（兼容已存在的数据库）
+    pg_log_dir="${PG_DATA_DIR}/log"
+    if ! mkdir -p "${pg_log_dir}" 2>/dev/null; then
+      warn "无法创建日志目录: ${pg_log_dir}，将使用数据目录"
+      pg_log_dir="${PG_DATA_DIR}"
+    fi
+    
+    # 设置日志目录权限（如果已存在）
+    chown postgres:postgres "${pg_log_dir}" 2>/dev/null || true
+    chmod 755 "${pg_log_dir}" 2>/dev/null || true
+    
+    # 若数据目录下日志目录不可写，则回退到 /app/logs/postgres 或 /tmp
+    if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+      if mkdir -p /app/logs/postgres 2>/dev/null; then
+        chown -R postgres:postgres /app/logs/postgres 2>/dev/null || true
+        chmod 755 /app/logs/postgres 2>/dev/null || true
+        if su-exec postgres:postgres sh -c "test -w /app/logs/postgres" >/dev/null 2>&1; then
+          pg_log_dir="/app/logs/postgres"
+        fi
+      fi
+    fi
+    if ! su-exec postgres:postgres sh -c "test -w '${pg_log_dir}'" >/dev/null 2>&1; then
+      if mkdir -p /tmp/postgres-logs 2>/dev/null; then
+        chown -R postgres:postgres /tmp/postgres-logs 2>/dev/null || true
+        chmod 755 /tmp/postgres-logs 2>/dev/null || true
+        if su-exec postgres:postgres sh -c "test -w /tmp/postgres-logs" >/dev/null 2>&1; then
+          pg_log_dir="/tmp/postgres-logs"
+        fi
+      fi
+    fi
   fi
 
   # 启动 PostgreSQL（后台运行）

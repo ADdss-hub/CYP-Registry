@@ -13,7 +13,7 @@
 | **Windows（本机开发，PowerShell）** | 在仓库根目录执行：`.\scripts\auto-config.ps1` | 在仓库根目录执行：`go run .\cmd\server\main.go` | 在 `web` 目录执行：`npm install`（首次）+ `npm run dev` | 依赖已安装：Go、Node 20+；推荐使用 PowerShell 7+；浏览器访问 `http://localhost:3000`（前端）或 `http://localhost:8080`（后端） |
 | **Linux/macOS（本机开发）** | 在仓库根目录执行：`./scripts/auto-config.sh` | 在仓库根目录执行：`go run ./cmd/server/main.go` | 在 `web` 目录执行：`npm install`（首次）+ `npm run dev` | 依赖已安装：Go、Node 20+；浏览器访问 `http://localhost:3000` / `http://localhost:8080` |
 | **Docker 单镜像模式（推荐：Windows/macOS/Linux + Docker Desktop/Podman）** | 无需手动生成：`docker compose -f docker-compose.single.yml up -d --build` 时，由容器自动在宿主机项目根目录生成 `.env` | 同上：`docker compose -f docker-compose.single.yml up -d --build`（启动内置 Postgres + Redis + 后端） | 内置前端已在镜像构建时打包，直接访问 `http://localhost:8080` 即可 | 适合离线/单机/快速体验；所有配置通过宿主机根级 `.env` 控制，容器入口脚本自动加载 |
-| **Linux 服务器 / 生产环境（推荐 Compose 部署）** | 手动准备 `.env`（参考 `env.production.example` 或本文件示例），放在部署目录根 | 使用生产 `docker-compose.yml` 启动：`docker compose up -d` | 同 Docker 单镜像模式，由容器内前端负责 | 建议使用固定版本镜像（如 `ghcr.io/addss-hub/cyp-registry:v1.0.3`），并在 `.env` 中显式设置强随机 `JWT_SECRET` / `DB_PASSWORD` 等 |
+| **Linux 服务器 / 生产环境（推荐 Compose 部署）** | 手动准备 `.env`（参考 `env.production.example` 或本文件示例），放在部署目录根 | 使用生产 `docker-compose.yml` 启动：`docker compose up -d` | 同 Docker 单镜像模式，由容器内前端负责 | 建议使用固定版本镜像（如 `ghcr.io/addss-hub/cyp-registry:v1.0.7`），并在 `.env` 中显式设置强随机 `JWT_SECRET` / `DB_PASSWORD` 等 |
 
 说明（重要约定）：
 - 若 `.env` 已存在，脚本不会覆盖（可重复执行）。

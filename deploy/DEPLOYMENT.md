@@ -121,7 +121,32 @@ docker compose -f docker-compose.single.yml up -d --build
 docker compose -f docker-compose.single.yml ps
 ```
 
-### 4. 验证部署
+### 4. 使用 Docker Desktop 图形界面（Compose 项目）部署（可选）
+
+> 说明：本项目底层仍然使用 `docker compose`，如果你习惯通过 Docker Desktop / Rancher Desktop 等图形化工具来管理 Compose 项目，可以直接导入本仓库中的 `docker-compose.single.yml` 文件，而无需手写命令行。
+
+以 Windows 版 Docker Desktop 为例，步骤如下：
+
+1. 打开 Docker Desktop，在左侧导航中选择 **Compose**（或类似入口）。
+2. 点击右上角 **「新建项目」** 按钮，弹出「创建项目」对话框。
+3. **项目名称**：例如填写 `cyp-registry`，用于在 Docker Desktop 中标识该 Compose 项目。
+4. **路径**：选择本仓库在宿主机上的目录，例如 `C:\path\to\registry`（需要能够访问到 `docker-compose.single.yml`）。
+5. **来源**：
+   - 选择「上传 docker-compose.yml」/「使用现有 docker-compose 文件」；
+   - 选择仓库根目录下的 `docker-compose.single.yml` 作为 Compose 定义文件。
+6. （可选）如需修改端口映射、数据卷路径或环境变量：
+   - 可以在导入前直接编辑 `docker-compose.single.yml`；
+   - 或者在 Docker Desktop 提供的 YAML 编辑器中进行修改，常见调整包括：
+     - 修改 `ports` 中的宿主机端口（例如将 `3000:3000` 改为 `8080:3000`）；
+     - 修改 `volumes` 挂载到宿主机的目录路径；
+     - 按需覆盖环境变量（如数据库密码、JWT 密钥等敏感配置）。
+7. 确认无误后点击 **「确认 / 创建」**，Docker Desktop 会在后台执行等价的：
+   - `docker compose -f docker-compose.single.yml up -d`  
+   并在图形界面中展示服务状态、日志和健康检查结果。
+
+如你在其他项目中使用过类似的 Compose 定义（例如包含 `services`、`depends_on`、`healthcheck`、`volumes`、`networks` 等字段的 YAML，如 Halo、PostgreSQL 等组合服务），CYP-Registry 的单镜像 Compose 文件也可以以完全相同的方式被导入和管理。
+
+### 5. 验证部署
 ```bash
 # 健康检查
 curl http://localhost:8080/health
