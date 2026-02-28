@@ -101,7 +101,7 @@ function getAvatarUrl(avatar: string): string {
 <template>
   <div class="cyp-layout" :class="{ 'sidebar-collapsed': isCollapsed }">
     <!-- 侧边栏 -->
-    <aside class="cyp-layout__sidebar">
+    <aside class="cyp-layout__sidebar" data-testid="sidebar">
       <div class="cyp-layout__logo">
         <div class="logo-icon">
           <img
@@ -166,7 +166,7 @@ function getAvatarUrl(avatar: string): string {
       </nav>
 
       <div class="cyp-layout__sidebar-footer">
-        <button class="collapse-btn" @click="toggleSidebar">
+        <button class="collapse-btn" data-testid="sidebar-toggle" @click="toggleSidebar">
           <svg
             viewBox="0 0 24 24"
             width="20"
@@ -275,7 +275,7 @@ function getAvatarUrl(avatar: string): string {
       </header>
 
       <!-- 页面内容 -->
-      <main class="cyp-layout__content">
+      <main class="cyp-layout__content" data-testid="main-content">
         <router-view />
       </main>
 

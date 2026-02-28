@@ -752,6 +752,7 @@ function handleAvatarError() {
                   type="radio"
                   name="theme"
                   value="dark"
+                  data-testid="dark-theme-option"
                   :checked="themeStore.theme === 'dark'"
                   @change="themeStore.setTheme('dark')"
                 />

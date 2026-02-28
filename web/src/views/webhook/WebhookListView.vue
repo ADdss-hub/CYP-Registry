@@ -386,7 +386,7 @@ function getEventLabel(event: string): string {
           配置外部系统的事件通知，实现与CI/CD、监控等系统的集成
         </p>
       </div>
-      <CypButton type="primary" @click="showCreateDialog = true">
+      <CypButton type="primary" data-testid="create-webhook-button" @click="showCreateDialog = true">
         <svg
           viewBox="0 0 24 24"
           width="16"
@@ -457,6 +457,7 @@ function getEventLabel(event: string): string {
         v-for="webhook in webhooks"
         :key="webhook.webhookId"
         class="webhook-card"
+        :data-testid="`webhook-card-${webhook.webhookId}`"
       >
         <template #header>
           <div class="webhook-header">
@@ -522,7 +523,7 @@ function getEventLabel(event: string): string {
             <CypButton size="small" @click="openDetailDialog(webhook)">
               详情
             </CypButton>
-            <CypButton size="small" @click="openTestDialog(webhook)">
+            <CypButton size="small" data-testid="test-button" @click="openTestDialog(webhook)">
               测试
             </CypButton>
             <CypButton size="small" @click="openEditDialog(webhook)">
@@ -573,7 +574,7 @@ function getEventLabel(event: string): string {
 
         <div class="form-group">
           <label>名称 *</label>
-          <CypInput v-model="newWebhook.name" placeholder="Webhook名称" />
+          <CypInput v-model="newWebhook.name" placeholder="Webhook名称" data-testid="webhook-name-input" />
         </div>
 
         <div class="form-group">
@@ -591,6 +592,7 @@ function getEventLabel(event: string): string {
           <CypInput
             v-model="newWebhook.url"
             placeholder="https://example.com/webhook"
+            data-testid="webhook-url-input"
           />
         </div>
 
@@ -615,6 +617,7 @@ function getEventLabel(event: string): string {
               <input
                 type="checkbox"
                 :checked="isEventSelected(event.value)"
+                :data-testid="event.value === 'push' ? 'image-push-event' : event.value === 'scan' ? 'scan-completed-event' : `event-${event.value}`"
                 @change="toggleEvent(event.value)"
               />
               <span class="event-icon">{{ event.icon }}</span>
@@ -626,7 +629,7 @@ function getEventLabel(event: string): string {
       </div>
       <template #footer>
         <CypButton @click="showCreateDialog = false"> 取消 </CypButton>
-        <CypButton type="primary" @click="handleCreateWebhook">
+        <CypButton type="primary" data-testid="submit-button" @click="handleCreateWebhook">
           创建
         </CypButton>
       </template>
@@ -721,7 +724,7 @@ function getEventLabel(event: string): string {
       </div>
       <template #footer>
         <CypButton @click="showTestDialog = false"> 关闭 </CypButton>
-        <CypButton type="primary" :loading="isTesting" @click="submitTest">
+        <CypButton type="primary" data-testid="confirm-test-button" :loading="isTesting" @click="submitTest">
           发送测试
         </CypButton>
       </template>

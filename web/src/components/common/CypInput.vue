@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, useAttrs } from "vue";
 
 interface Props {
   modelValue: string | number;
@@ -23,6 +23,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   "update:modelValue": [value: string | number];
 }>();
+
+const attrs = useAttrs();
 
 const inputClass = computed(() => [
   "cyp-input",
@@ -48,6 +50,7 @@ function handleInput(event: Event) {
       :placeholder="placeholder"
       :disabled="disabled"
       :autocomplete="autocomplete"
+      v-bind="attrs"
       @input="handleInput"
     />
     <span v-if="error" class="cyp-input__error">{{ error }}</span>
