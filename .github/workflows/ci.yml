@@ -184,11 +184,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Install gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
 
       - name: Run gosec
-        uses: securego/gosec-action@v2
-        with:
-          args: ./... -fmt=sarif -out=gosec-results.sarif
+        run: |
+          gosec -fmt=sarif -out=gosec-results.sarif ./...
 
       - name: Upload gosec SARIF
         if: always()
