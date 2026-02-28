@@ -359,6 +359,8 @@ jobs:
       EXTERNAL_DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
       EXTERNAL_DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       EXTERNAL_DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      # 外部仓库的完整仓库名（如 cyp97/cyp-registry），如果未设置则使用 EXTERNAL_DOCKER_USERNAME/cyp-registry
+      EXTERNAL_DOCKER_REPO: ${{ secrets.DOCKER_REPO }}
     permissions:
       contents: read
       packages: write
@@ -417,7 +419,16 @@ jobs:
           # 使用 GHCR 中已构建的镜像（全小写仓库名，使用语义化版本号，如 0.1.9）
           set -e
           SOURCE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}"
-          TARGET_IMAGE="${{ env.EXTERNAL_DOCKER_REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}"
+          
+          # 确定外部仓库的完整仓库名
+          if [ -n "${{ env.EXTERNAL_DOCKER_REPO }}" ]; then
+            EXTERNAL_REPO="${{ env.EXTERNAL_DOCKER_REPO }}"
+          else
+            # 如果未设置 EXTERNAL_DOCKER_REPO，则使用 EXTERNAL_DOCKER_USERNAME/cyp-registry
+            EXTERNAL_REPO="${{ env.EXTERNAL_DOCKER_USERNAME }}/cyp-registry"
+          fi
+          
+          TARGET_IMAGE="${{ env.EXTERNAL_DOCKER_REGISTRY }}/$EXTERNAL_REPO:${{ steps.meta.outputs.version }}"
           
           echo "📥 从 GHCR 拉取镜像: $SOURCE_IMAGE"
           docker pull "$SOURCE_IMAGE" || {
@@ -432,9 +443,9 @@ jobs:
           }
           
           echo "📤 推送到外部仓库: $TARGET_IMAGE"
-          echo "   仓库: ${{ env.EXTERNAL_DOCKER_REGISTRY }}"
+          echo "   仓库地址: ${{ env.EXTERNAL_DOCKER_REGISTRY }}"
           echo "   用户名: ${{ env.EXTERNAL_DOCKER_USERNAME }}"
-          echo "   镜像名: ${{ env.IMAGE_NAME_SLUG }}"
+          echo "   仓库名: $EXTERNAL_REPO"
           echo "   版本: ${{ steps.meta.outputs.version }}"
           
           # 验证 Docker 登录状态
