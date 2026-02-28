@@ -166,7 +166,11 @@ function getAvatarUrl(avatar: string): string {
       </nav>
 
       <div class="cyp-layout__sidebar-footer">
-        <button class="collapse-btn" data-testid="sidebar-toggle" @click="toggleSidebar">
+        <button
+          class="collapse-btn"
+          data-testid="sidebar-toggle"
+          @click="toggleSidebar"
+        >
           <svg
             viewBox="0 0 24 24"
             width="20"
