@@ -1,16 +1,20 @@
 {
-  "version": "v1.0.0",
-  "timestamp": "2026-02-27T16:34:55.016Z",
-  "author": "Unknown",
+  "version": "v1.0.2",
+  "timestamp": "2026-02-28T19:35:00.000Z",
+  "author": "CYP",
   "project": "CYP-Registry",
   "changes": [
     {
-      "type": "chore",
-      "description": "发布 1.0.0 版本"
+      "type": "feat",
+      "description": "单镜像部署环境兼容性优化（NAS/Windows Docker 卷挂载点处理）"
+    },
+    {
+      "type": "docs",
+      "description": "新增单镜像部署环境兼容性优化规范文档"
     }
   ],
   "metadata": {
-    "previousVersion": "v0.1.0",
+    "previousVersion": "v1.0.0",
     "updated": true,
     "schema": "2.1.0"
   }
