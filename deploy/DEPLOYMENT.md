@@ -83,6 +83,13 @@ CORS_ALLOW_ORIGINS=http://localhost:3000
 
 ### 3. 使用 Docker Compose 启动（单镜像模式为主）
 
+> 生产环境提示（单镜像模式）：
+> - 若未显式提供 `DB_PASSWORD` / `JWT_SECRET`，单镜像容器会在**首次启动**自动生成强随机值并持久化到数据卷（后续重启不会改变，且“已自动生成”的提示日志不会重复刷屏）。
+> - 需要查看当前自动生成的值时，可在容器内读取：
+>   - `cat /var/lib/postgresql/data/.cyp_registry_db_password`
+>   - `cat /var/lib/postgresql/data/.cyp_registry_jwt_secret`
+> - 为便于审计/轮换，生产环境仍推荐通过 `.env` 或外部 Secret 显式注入上述敏感值。
+
 #### 创建必要目录
 ```bash
 # 创建数据目录

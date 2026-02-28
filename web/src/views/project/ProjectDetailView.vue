@@ -58,7 +58,7 @@ let registryEventSource: EventSource | null = null
 
 const isOwner = computed(() => {
   const currentUser = userStore.user
-  return currentUser?.username === 'admin' || project.value?.ownerId === currentUser?.id
+  return userStore.isAdmin || project.value?.ownerId === currentUser?.id
 })
 
 // 从 Registry V2 API 加载当前项目下的镜像标签与信息

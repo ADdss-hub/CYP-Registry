@@ -59,7 +59,10 @@ services:
       - single_redis_data:/data/redis
       - storage_data:/data/storage
       - logs_data:/app/logs
-      - ./config.yaml:/app/config.yaml:ro
+      # 可选：自定义配置文件
+      # - 默认无需提供 config.yaml：单镜像入口脚本会在容器内自动生成 /app/config.yaml（仅首次生成时提示一次日志）
+      # - 如需固定配置（推荐生产）：请自行在宿主机准备 ./config.yaml，再取消注释下方挂载
+      # - ./config.yaml:/app/config.yaml:ro
     restart: unless-stopped
 
 volumes:

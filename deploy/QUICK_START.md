@@ -25,6 +25,8 @@ cd registry
 # 说明：
 # - 如宿主机项目根目录不存在 .env，容器入口脚本会自动在宿主机生成 .env（含强随机 DB_PASSWORD/JWT_SECRET 等）
 # - 如已存在 .env，则不会覆盖现有配置
+# - 默认无需提供 config.yaml：容器启动时会自动生成 /app/config.yaml（提示日志仅首次显示一次）
+# - 如需固定配置（推荐生产）：在宿主机准备 ./config.yaml，并在 docker-compose.single.yml 中启用对应 volume 挂载（只读）
 docker compose -f docker-compose.single.yml up -d --build
 
 # 查看状态

@@ -1,0 +1,335 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'fix/**'
+    tags:
+      - 'v*.*.*'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  schedule:
+    # 每周一 00:00 UTC 执行一次安全审计
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '20'
+  GOPROXY: https://goproxy.cn,direct
+  NODE_REGISTRY: https://registry.npmmirror.com
+
+jobs:
+  quality-check:
+    name: Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+
+      - name: Run gofmt (list)
+        run: gofmt -l .
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci --registry=${{ env.NODE_REGISTRY }} --no-audit --progress=false
+
+      - name: Frontend lint (no-fix)
+        working-directory: web
+        run: npx eslint src/ --ext .vue,.ts,.tsx --max-warnings=0
+
+      - name: Prettier check
+        working-directory: web
+        run: npx prettier --check src/
+
+      - name: Type check (Vue)
+        working-directory: web
+        run: npx vue-tsc --noEmit
+
+  unit-test:
+    name: Unit Test
+    runs-on: ubuntu-latest
+    needs: quality-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run Go tests with coverage
+        run: |
+          go test -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Check coverage threshold (>= 60%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          if (( $(echo "$COVERAGE < 60" | bc -l) )); then
+            echo "❌ 测试覆盖率 $COVERAGE% < 60%，测试失败"
+            exit 1
+          fi
+          echo "✅ 测试覆盖率 $COVERAGE% >= 60%"
+
+  build-verify:
+    name: Build Verify (Dockerfile.single)
+    runs-on: ubuntu-latest
+    needs: unit-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.single
+          push: false
+          tags: cyp-registry:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GOPROXY=${{ env.GOPROXY }}
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build-verify
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy FS scan (push/PR)
+        if: github.event_name != 'schedule'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Trivy FS scan (schedule)
+        if: github.event_name == 'schedule'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run gosec
+        uses: securego/gosec-action@v2
+        with:
+          args: ./... -fmt=sarif -out=gosec-results.sarif
+
+      - name: Upload gosec SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gosec-results.sarif
+          category: gosec
+
+      - name: Install gitleaks (schedule only)
+        if: github.event_name == 'schedule'
+        run: |
+          wget -O /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          sudo mv /tmp/gitleaks /usr/local/bin/
+
+      - name: Run gitleaks (schedule only)
+        if: github.event_name == 'schedule'
+        run: |
+          gitleaks detect --source=. --verbose --redact --leaks-exit-code=1 || true
+
+  e2e-test:
+    name: E2E Test (PR -> main)
+    runs-on: ubuntu-latest
+    needs: build-verify
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+        with:
+          build: npm run build
+          start: npm run preview
+          wait-on: 'http://localhost:4173'
+          wait-on-timeout: 120
+          working-directory: ./web
+
+      - name: Upload Cypress screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: web/cypress/screenshots
+
+  deploy-dev:
+    name: Deploy to Dev (placeholder)
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: development
+      url: https://dev.registry.cyp-registry.com
+    steps:
+      - name: Deploy to development environment
+        run: |
+          echo "部署到开发环境（占位）"
+
+  build-and-push-release:
+    name: Release - Build & Push Image
+    runs-on: ubuntu-latest
+    needs: [security-scan]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push (GHCR)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.single
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GOPROXY=${{ env.GOPROXY }}
+
+      - name: Log in to external registry (optional)
+        if: ${{ secrets.DOCKER_REGISTRY != '' && secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Re-tag and push to external registry (optional)
+        if: ${{ secrets.DOCKER_REGISTRY != '' && secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          docker tag  ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }} ${{ secrets.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          docker push ${{ secrets.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+
+  github-release:
+    name: Release - Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-and-push-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+

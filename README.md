@@ -81,6 +81,10 @@ docker compose -f docker-compose.single.yml ps
 docker compose -f docker-compose.single.yml logs -f
 ```
 
+**单镜像配置说明（重要）：**
+- 默认**不需要**提供 `config.yaml`：容器会在启动时自动生成 `/app/config.yaml`（基于当前环境变量），并且**生成提示日志仅首次显示一次**。
+- 如需固定配置（推荐生产）：在宿主机准备 `./config.yaml`，并在 `docker-compose.single.yml` 中启用对应的 volume 挂载（只读）。
+
 **访问服务：**
 - Web 界面：http://localhost:8080
 - Registry API：http://localhost:8080/v2/
@@ -159,6 +163,12 @@ JWT_SECRET=<自动生成>
 STORAGE_TYPE=local  # 或 minio
 STORAGE_LOCAL_ROOT_PATH=/data/storage
 ```
+
+**生产环境补充（自动设置密码 & 仅提示一次）：**
+- 若你未显式提供 `DB_PASSWORD` / `JWT_SECRET`，单镜像容器会在首次启动时自动生成强随机值并持久化到数据卷（后续重启不会改变，也不会重复打印“已自动生成”的提示日志）。
+- 需要查看当前自动生成的值时，可在容器内读取：
+  - `cat /var/lib/postgresql/data/.cyp_registry_db_password`
+  - `cat /var/lib/postgresql/data/.cyp_registry_jwt_secret`
 
 完整配置说明请参考 [环境变量文档](./docs/ENV.md)。
 
@@ -255,8 +265,8 @@ cd src && go test ./...
 # 运行前端测试
 cd web && npm run test
 
-# 运行 E2E 测试
-cd web && npm run test:e2e
+# 运行 E2E 测试（Cypress）
+cd web && npm run test
 ```
 
 ## 📊 技术栈

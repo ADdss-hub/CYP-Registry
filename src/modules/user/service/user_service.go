@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -105,7 +106,8 @@ func (s *Service) ensureDefaultAdmin() error {
 		return nil
 	}
 
-	username := generateRandomUsername()
+	// 默认管理员用户名：固定为项目名称（APP_NAME / config.app.name），并做必要清洗以满足用户名规则
+	username := defaultAdminUsernameFromAppName()
 	password := generateRandomPassword()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.cfg.BcryptCost)
@@ -136,8 +138,72 @@ func (s *Service) ensureDefaultAdmin() error {
 	}
 	defaultAdminMu.Unlock()
 
-	fmt.Printf("[INIT] 已自动创建默认管理员账号，请尽快登录并修改密码：用户名=%s（6-10 位英文+数字随机）、密码=%s（10-15 位英文+数字+符号随机）\n", username, password)
+	fmt.Printf("[INIT] 已自动创建默认管理员账号，请尽快登录并修改密码：用户名=%s（固定为项目名称）、密码=%s（10-15 位英文+数字+符号随机）\n", username, password)
 	return nil
+}
+
+// defaultAdminUsernameFromAppName 将项目名称（APP_NAME / config.app.name）转换为合法用户名：
+// - 允许字母数字及 _ . -，且必须以字母/数字开头
+// - 长度 3-64
+// 若无法得到合法值，则回退到 "cyp-registry"。
+func defaultAdminUsernameFromAppName() string {
+	// 优先使用全局配置（已应用环境变量覆盖）
+	appName := ""
+	if c := config.Get(); c != nil {
+		appName = strings.TrimSpace(c.App.Name)
+	}
+	if appName == "" {
+		appName = strings.TrimSpace(os.Getenv("APP_NAME"))
+	}
+	if appName == "" {
+		appName = "CYP-Registry"
+	}
+
+	// 与单镜像入口脚本保持一致的规则：
+	// 1. 统一转为小写
+	// 2. 非 [a-z0-9] 字符全部替换为 '-'
+	// 3. 连续的 '-' 折叠为一个
+	// 4. 去掉首尾 '-'
+	lower := strings.ToLower(appName)
+	var b strings.Builder
+	b.Grow(len(lower))
+	prevDash := false
+	for _, r := range lower {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+			r = '-'
+		}
+
+		if r == '-' {
+			if prevDash {
+				continue
+			}
+			prevDash = true
+		} else {
+			prevDash = false
+		}
+		b.WriteRune(r)
+	}
+	username := strings.Trim(b.String(), "-")
+	// 必须以字母/数字开头：否则加一个前缀
+	if username == "" || !regexp.MustCompile(`^[a-z0-9]`).MatchString(username) {
+		username = "cyp-" + username
+		username = strings.Trim(username, "-")
+	}
+	// 限制长度 3-64
+	if len(username) > 64 {
+		username = username[:64]
+		username = strings.Trim(username, "-")
+	}
+	if len(username) < 3 {
+		username = "cyp-registry"
+	}
+
+	// 最终校验（与注册规则保持一致）
+	usernameRe := regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{2,63}$`)
+	if !usernameRe.MatchString(username) {
+		return "cyp-registry"
+	}
+	return username
 }
 
 // ConsumeDefaultAdminCreds 获取默认管理员凭据（仅返回一次），用于前端在登录页首次提示并复制保存。
@@ -147,20 +213,6 @@ func (s *Service) ConsumeDefaultAdminCreds() *DefaultAdminCreds {
 	creds := defaultAdminCreds
 	defaultAdminCreds = nil
 	return creds
-}
-
-// generateRandomUsername 生成 6-10 位，仅包含英文和数字的用户名。
-func generateRandomUsername() string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	src := rand.NewSource(time.Now().UnixNano())
-	r := rand.New(src)
-
-	length := 6 + r.Intn(5) // 6-10
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = letters[r.Intn(len(letters))]
-	}
-	return string(b)
 }
 
 // generateRandomPassword 生成 10-15 位的密码，仅包含英文、数字和常见符号（不包含中文），以避免在命令行或部分客户端中出现编码兼容问题。

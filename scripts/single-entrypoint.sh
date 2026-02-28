@@ -91,7 +91,30 @@ export GIN_MODE="release"
 
 export DB_HOST="${DB_HOST:-127.0.0.1}"
 export DB_PORT="${DB_PORT:-5432}"
-export DB_USER="${DB_USER:-registry}"
+# 数据库业务账号用户名：默认从 APP_NAME 生成（与默认管理员账号保持一致）
+# 若 APP_NAME 未设置或生成失败，则回退到 "registry"
+if [[ -z "${DB_USER:-}" ]]; then
+  # 从 APP_NAME 生成数据库用户名（与默认管理员账号逻辑一致）
+  app_name="${APP_NAME:-CYP-Registry}"
+  db_user_from_app_name=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+  # 确保以字母/数字开头，长度 3-64
+  if [[ -z "$db_user_from_app_name" ]] || [[ ! "$db_user_from_app_name" =~ ^[a-z0-9] ]]; then
+    db_user_from_app_name="cyp-${db_user_from_app_name}"
+  fi
+  if [[ ${#db_user_from_app_name} -gt 64 ]]; then
+    db_user_from_app_name="${db_user_from_app_name:0:64}"
+  fi
+  if [[ ${#db_user_from_app_name} -lt 3 ]]; then
+    db_user_from_app_name="cyp-registry"
+  fi
+  # 最终校验（仅允许字母数字及 _ . -，且需以字母或数字开头）
+  if [[ ! "$db_user_from_app_name" =~ ^[a-z0-9][a-z0-9_.-]{2,63}$ ]]; then
+    db_user_from_app_name="cyp-registry"
+  fi
+  export DB_USER="$db_user_from_app_name"
+else
+  export DB_USER
+fi
 export DB_NAME="${DB_NAME:-registry_db}"
 export DB_SSLMODE="${DB_SSLMODE:-disable}"
 
@@ -133,7 +156,7 @@ fi
 if [[ -z "${DB_PASSWORD:-}" ]]; then
   DB_PASSWORD="$(gen_random_hex)"
   ensure_secret_file "${DB_PASSWORD_FILE}" "${DB_PASSWORD}"
-  log "WARN: 未设置 DB_PASSWORD，已自动生成并持久化到 ${DB_PASSWORD_FILE}（建议生产环境显式注入以便审计/轮换）"
+  log "WARN: 未设置 DB_PASSWORD，已自动生成并持久化到 ${DB_PASSWORD_FILE}（该提示仅首次显示一次；建议生产环境显式注入以便审计/轮换）"
 fi
 export DB_PASSWORD
 
@@ -172,9 +195,148 @@ fi
 if [[ -z "${JWT_SECRET:-}" ]]; then
   JWT_SECRET="$(gen_random_hex)"
   ensure_secret_file "${JWT_SECRET_FILE}" "${JWT_SECRET}"
-  log "WARN: 未设置 JWT_SECRET，已自动生成并持久化到 ${JWT_SECRET_FILE}（建议生产环境显式注入以便审计/轮换）"
+  log "WARN: 未设置 JWT_SECRET，已自动生成并持久化到 ${JWT_SECRET_FILE}（该提示仅首次显示一次；建议生产环境显式注入以便审计/轮换）"
 fi
 export JWT_SECRET
+
+# ----------------------------
+# config.yaml：若未挂载/不存在则自动生成（单镜像默认不提交 config.yaml）
+# 说明：
+# - 后端会尝试加载 config.yaml；即使不存在也会回退到默认配置，但 pre-start-check.sh 会严格要求文件存在
+# - 因此在单镜像入口脚本中保证 /app/config.yaml 一定存在
+# - 生产环境建议通过 volume 挂载自定义 config.yaml 覆盖本文件
+# ----------------------------
+CONFIG_FILE="${CONFIG_FILE:-/app/config.yaml}"
+# 生成日志只提示一次（持久化到数据卷；避免每次容器重建/误删配置后反复刷屏）
+CONFIG_GENERATED_MARKER="${SECRETS_DIR}/.cyp_registry_config_generated"
+
+yaml_squote() {
+  # YAML 单引号字符串：内部单引号需要写成两个单引号
+  local s="${1:-}"
+  s="${s//\'/''}"
+  printf "'%s'" "$s"
+}
+
+generate_config_yaml_if_missing() {
+  if [[ -f "${CONFIG_FILE}" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "${CONFIG_GENERATED_MARKER}" ]]; then
+    log "未检测到配置文件 ${CONFIG_FILE}，将根据当前环境变量自动生成（单镜像默认；该提示仅首次显示）"
+    umask 077
+    touch "${CONFIG_GENERATED_MARKER}" 2>/dev/null || true
+  fi
+  mkdir -p "$(dirname "${CONFIG_FILE}")" 2>/dev/null || true
+
+  # 注意：这里写入的是“可运行的默认配置”，具体值仍可被环境变量覆盖（src/pkg/config/applyEnvOverrides）
+  cat > "${CONFIG_FILE}" <<YAML
+# CYP-Registry 配置文件（由单镜像入口脚本自动生成）
+app:
+  name: $(yaml_squote "${APP_NAME}")
+  host: $(yaml_squote "${APP_HOST}")
+  port: ${APP_PORT}
+  env: $(yaml_squote "${APP_ENV}")
+  debug: false
+
+database:
+  host: $(yaml_squote "${DB_HOST}")
+  port: ${DB_PORT}
+  username: $(yaml_squote "${DB_USER}")
+  password: $(yaml_squote "${DB_PASSWORD}")
+  name: $(yaml_squote "${DB_NAME}")
+  sslmode: $(yaml_squote "${DB_SSLMODE}")
+  max_open_conns: 100
+  max_idle_conns: 10
+  conn_max_lifetime: 300
+
+redis:
+  host: $(yaml_squote "${REDIS_HOST}")
+  port: ${REDIS_PORT}
+  password: $(yaml_squote "${REDIS_PASSWORD:-}")
+  db: ${REDIS_DB}
+  pool_size: 100
+  min_idle_conns: 10
+  key_prefix: $(yaml_squote "cyp:registry:")
+
+auth:
+  jwt:
+    access_token_expire: 7200
+    refresh_token_expire: 604800
+    secret: $(yaml_squote "${JWT_SECRET}")
+  pat:
+    prefix: $(yaml_squote "pat_v1_")
+    expire: 2592000
+  bcrypt_cost: 12
+
+storage:
+  type: $(yaml_squote "${STORAGE_TYPE:-local}")
+  local:
+    root_path: $(yaml_squote "${STORAGE_LOCAL_ROOT_PATH:-/data/storage}")
+  minio:
+    endpoint: $(yaml_squote "${STORAGE_MINIO_ENDPOINT:-localhost:9000}")
+    access_key: $(yaml_squote "${STORAGE_MINIO_ACCESS_KEY:-minioadmin}")
+    secret_key: $(yaml_squote "${STORAGE_MINIO_SECRET_KEY:-minioadmin}")
+    bucket: $(yaml_squote "${STORAGE_MINIO_BUCKET:-registry}")
+    use_ssl: false
+
+registry:
+  max_layer_size: 107374182400
+  allow_anonymous: false
+  token_expire: 300
+
+security:
+  rate_limit:
+    enabled: true
+    requests_per_second: 100
+    burst: 200
+  brute_force:
+    max_attempts_per_minute: 10
+    lockout_duration: 86400
+    max_attempts_per_ip: 50
+  cors:
+    allowed_origins:
+      - $(yaml_squote "http://localhost:3000")
+      - $(yaml_squote "http://localhost:8080")
+    allowed_methods:
+      - $(yaml_squote "GET")
+      - $(yaml_squote "POST")
+      - $(yaml_squote "PUT")
+      - $(yaml_squote "DELETE")
+      - $(yaml_squote "OPTIONS")
+    allowed_headers:
+      - $(yaml_squote "Authorization")
+      - $(yaml_squote "Content-Type")
+      - $(yaml_squote "X-Requested-With")
+
+logging:
+  level: $(yaml_squote "info")
+  format: $(yaml_squote "json")
+  output: $(yaml_squote "stdout")
+  file:
+    path: $(yaml_squote "./logs/app.log")
+    max_size: 100
+    max_age: 30
+    max_backups: 10
+  trace:
+    enabled: true
+    sample_rate: 1.0
+
+scanner:
+  enabled: true
+  severity:
+    - $(yaml_squote "CRITICAL")
+    - $(yaml_squote "HIGH")
+    - $(yaml_squote "MEDIUM")
+  block_on_critical: true
+  async: true
+
+webhook:
+  max_retries: 3
+  timeout: 30
+  signature_secret: $(yaml_squote "")
+YAML
+}
 
 fix_permissions() {
   mkdir -p /data/storage /data/redis /app/logs /var/lib/postgresql/data /run/postgresql || true
@@ -366,6 +528,9 @@ shutdown() {
 trap shutdown SIGTERM SIGINT
 
 fix_permissions
+
+# 确保 /app/config.yaml 存在（避免 pre-start-check 阻断启动）
+generate_config_yaml_if_missing
 
 # 先启动内置 Postgres/Redis，再做环境/连通性检测，避免“数据库/Redis 不可达”的误报
 start_postgres
