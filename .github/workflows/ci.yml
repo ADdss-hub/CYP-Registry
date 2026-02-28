@@ -154,34 +154,11 @@ jobs:
             web/package-lock.json
         timeout-minutes: 3
 
-      - name: Run Go tests with coverage (Windows)
+      - name: Run Go tests (Windows)
         timeout-minutes: 10
         run: |
-          go test -race -coverprofile=coverage-windows.out -covermode=atomic ./...
-          go tool cover -func=coverage-windows.out
+          go test -race ./...
         continue-on-error: false
-
-      - name: Check Go test coverage threshold (Windows)
-        timeout-minutes: 2
-        run: |
-          $coverage = (go tool cover -func=coverage-windows.out | Select-String "total:" | ForEach-Object { ($_ -split '\s+')[2] -replace '%','' })
-          $minCoverage = 60
-          $coverageFloat = [float]$coverage
-          if ($coverageFloat -lt $minCoverage) {
-            Write-Host "⚠️ Windows 测试覆盖率 $coverage% < $minCoverage%，仅告警，不阻断当前 CI。请后续通过补充测试用例逐步提升覆盖率。"
-          } else {
-            Write-Host "✅ Windows 测试覆盖率 $coverage% >= $minCoverage%"
-          }
-
-      - name: Upload Go coverage (Windows)
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage-windows.out
-          fail_ci_if_error: false
-          verbose: true
-          flags: windows
-        timeout-minutes: 3
-        continue-on-error: true
 
       - name: Install frontend dependencies
         working-directory: web
