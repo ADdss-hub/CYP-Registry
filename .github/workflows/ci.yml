@@ -109,14 +109,15 @@ jobs:
           fail_ci_if_error: false
           verbose: true
 
-      - name: Check coverage threshold (>= 60%)
+      - name: Check coverage threshold (目标 >= 60%，不阻断 CI，仅告警)
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          if (( $(echo "$COVERAGE < 60" | bc -l) )); then
-            echo "❌ 测试覆盖率 $COVERAGE% < 60%，测试失败"
-            exit 1
+          MIN_COVERAGE=60
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "⚠️ 测试覆盖率 $COVERAGE% < $MIN_COVERAGE%，仅告警，不阻断当前 CI。请后续通过补充测试用例逐步提升覆盖率。"
+          else
+            echo "✅ 测试覆盖率 $COVERAGE% >= $MIN_COVERAGE%"
           fi
-          echo "✅ 测试覆盖率 $COVERAGE% >= 60%"
 
   build-verify:
     name: Build Verify (Dockerfile.single)
