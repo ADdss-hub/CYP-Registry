@@ -343,7 +343,4 @@ func ParseInt64(s string, defaultValue int64) int64 {
 	return val
 }
 
-// parseJSON 解析JSON
-func parseJSON(data []byte, v interface{}) error {
-	return json.Unmarshal(data, v)
-}
+// 预留的 JSON 工具函数已移除：如后续有需要，可在具体使用场景下实现专门的解析逻辑。
