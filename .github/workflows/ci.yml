@@ -30,7 +30,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  IMAGE_NAME_SLUG: ${{ toLower(github.repository) }}
+  # 注意：Docker 仓库名必须全小写，这里直接显式指定小写形式，避免表达式函数不兼容问题
+  IMAGE_NAME_SLUG: addss-hub/cyp-registry
   NODE_VERSION: '20'
   GOPROXY: https://goproxy.cn,direct
   NODE_REGISTRY: https://registry.npmmirror.com
