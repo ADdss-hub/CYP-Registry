@@ -9,6 +9,9 @@
 set -euo pipefail
 
 log() { echo "[single] $*"; }
+error() { echo "[single] ERROR: $*" >&2; }
+warn() { echo "[single] WARN: $*" >&2; }
+debug() { [[ "${DEBUG:-0}" == "1" ]] && echo "[single] DEBUG: $*" >&2 || true; }
 
 # ----------------------------
 # 在任何启动逻辑之前：自动生成并加载宿主机 .env
@@ -119,13 +122,113 @@ export DB_NAME="${DB_NAME:-registry_db}"
 export DB_SSLMODE="${DB_SSLMODE:-disable}"
 
 # ----------------------------
+# PostgreSQL 数据目录：支持挂载点场景（Windows Docker 卷挂载）
+# 提前检测并确定数据目录，确保密钥文件路径正确
+# ----------------------------
+determine_pg_data_dir() {
+  local base_dir="/var/lib/postgresql/data"
+  
+  # 如果目录不存在，直接返回基础路径
+  if [[ ! -d "${base_dir}" ]]; then
+    debug "数据目录不存在，使用基础路径: ${base_dir}"
+    echo "${base_dir}"
+    return
+  fi
+  
+  # 如果已经初始化过 PostgreSQL（存在 PG_VERSION），直接使用基础路径
+  if [[ -f "${base_dir}/PG_VERSION" ]] && [[ -s "${base_dir}/PG_VERSION" ]]; then
+    debug "检测到已初始化的 PostgreSQL 数据目录: ${base_dir}"
+    echo "${base_dir}"
+    return
+  fi
+  
+  # 检查目录是否可写（处理只读挂载点场景）
+  if [[ ! -w "${base_dir}" ]]; then
+    warn "数据目录不可写，尝试使用子目录"
+    echo "${base_dir}/pgdata"
+    return
+  fi
+  
+  # 检查目录内容：NAS 环境（群晖/QNAP）挂载点可能包含系统隐藏文件
+  # Linux/macOS/Windows Docker 卷挂载也可能包含系统文件
+  # 如果目录不为空且没有 PostgreSQL 文件，可能是挂载点，需要使用子目录
+  local file_count=0
+  local has_pg_file=false
+  local has_system_files_only=true
+  
+  # 统计目录中的文件（包括隐藏文件）
+  # 使用 find 命令更可靠，兼容各种文件系统
+  if command -v find >/dev/null 2>&1; then
+    while IFS= read -r -d '' item; do
+      [[ -z "${item}" ]] && continue
+      file_count=$((file_count + 1))
+      local basename_item=$(basename "${item}")
+      
+      # 检查是否是 PostgreSQL 初始化文件
+      if [[ "${basename_item}" == "PG_VERSION" ]] || \
+         [[ "${basename_item}" == "postgresql.conf" ]] || \
+         [[ "${basename_item}" == "pg_hba.conf" ]] || \
+         ([[ -d "${item}" ]] && [[ "${basename_item}" == "base" ]]) || \
+         ([[ -d "${item}" ]] && [[ "${basename_item}" == "global" ]]); then
+        has_pg_file=true
+        has_system_files_only=false
+        break
+      fi
+      
+      # 检查是否是系统隐藏文件（NAS/Windows 常见）
+      # 如果发现非系统文件，标记为需要子目录
+      if [[ ! "${basename_item}" =~ ^\.(@__|DS_Store|@__thumb|@__qnap|@__syno) ]]; then
+        has_system_files_only=false
+      fi
+    done < <(find "${base_dir}" -mindepth 1 -maxdepth 1 -print0 2>/dev/null || true)
+  else
+    # fallback: 使用 ls（兼容性更好但可能不够准确）
+    local items
+    items=$(ls -A "${base_dir}" 2>/dev/null || true)
+    if [[ -n "${items}" ]]; then
+      while IFS= read -r item; do
+        [[ -z "${item}" ]] && continue
+        file_count=$((file_count + 1))
+        local basename_item="${item}"
+        
+        if [[ "${basename_item}" == "PG_VERSION" ]] || \
+           [[ "${basename_item}" == "postgresql.conf" ]] || \
+           [[ "${basename_item}" == "pg_hba.conf" ]] || \
+           [[ "${basename_item}" == "base" ]] || \
+           [[ "${basename_item}" == "global" ]]; then
+          has_pg_file=true
+          has_system_files_only=false
+          break
+        fi
+        
+        if [[ ! "${basename_item}" =~ ^\.(@__|DS_Store|@__thumb|@__qnap|@__syno) ]]; then
+          has_system_files_only=false
+        fi
+      done <<< "${items}"
+    fi
+  fi
+  
+  # 如果目录不为空但没有 PostgreSQL 文件，说明是挂载点（NAS/Windows 环境常见情况）
+  # 需要在子目录中初始化 PostgreSQL
+  if [[ ${file_count} -gt 0 ]] && [[ "${has_pg_file}" == false ]]; then
+    debug "检测到挂载点场景（文件数: ${file_count}, 仅系统文件: ${has_system_files_only}），使用子目录"
+    echo "${base_dir}/pgdata"
+  else
+    debug "使用基础数据目录: ${base_dir}"
+    echo "${base_dir}"
+  fi
+}
+
+PG_DATA_DIR="${PG_DATA_DIR:-$(determine_pg_data_dir)}"
+
+# ----------------------------
 # 关键密钥：自动生成 + 持久化（避免 pre-start-check 阻断启动）
 # 说明：
-# - 生产环境“最佳实践”仍然是外部显式注入；但为了避免因为缺失而导致服务不可用，
+# - 生产环境"最佳实践"仍然是外部显式注入；但为了避免因为缺失而导致服务不可用，
 #   单镜像模式下我们会在缺失时自动生成并写入数据卷内的 secrets 文件。
-# - 持久化位置选择 /var/lib/postgresql/data（compose 中为持久卷），确保重启/升级不变。
+# - 持久化位置选择 PostgreSQL 数据目录（compose 中为持久卷），确保重启/升级不变。
 # ----------------------------
-SECRETS_DIR="/var/lib/postgresql/data"
+SECRETS_DIR="${PG_DATA_DIR}"
 DB_PASSWORD_FILE="${SECRETS_DIR}/.cyp_registry_db_password"
 JWT_SECRET_FILE="${SECRETS_DIR}/.cyp_registry_jwt_secret"
 
@@ -339,47 +442,159 @@ YAML
 }
 
 fix_permissions() {
-  mkdir -p /data/storage /data/redis /app/logs /var/lib/postgresql/data /run/postgresql || true
-  chown -R appuser:appuser /data/storage /data/redis /app/logs 2>/dev/null || true
-  chown -R postgres:postgres /var/lib/postgresql /run/postgresql 2>/dev/null || true
+  # 确保基础目录存在（不依赖 PG_DATA_DIR，因为可能在 start_postgres 中会调整）
+  local dirs=("/data/storage" "/data/redis" "/app/logs" "/var/lib/postgresql" "/run/postgresql")
+  for dir in "${dirs[@]}"; do
+    if ! mkdir -p "${dir}" 2>/dev/null; then
+      warn "无法创建目录: ${dir}（某些环境可能不需要）"
+    fi
+  done
+  
+  # 设置应用用户目录权限（多次尝试，兼容不同的权限模型）
+  local app_dirs=("/data/storage" "/data/redis" "/app/logs")
+  for dir in "${app_dirs[@]}"; do
+    local attempts=0
+    while [[ ${attempts} -lt 3 ]]; do
+      if chown -R appuser:appuser "${dir}" 2>/dev/null; then
+        break
+      fi
+      attempts=$((attempts + 1))
+      [[ ${attempts} -lt 3 ]] && sleep 0.3 || debug "无法设置 ${dir} 权限（某些环境可能不需要）"
+    done
+  done
+  
+  # 确保 PostgreSQL 相关目录权限正确（包括挂载点场景）
+  local pg_dirs=("/var/lib/postgresql" "/run/postgresql")
+  for dir in "${pg_dirs[@]}"; do
+    local attempts=0
+    while [[ ${attempts} -lt 3 ]]; do
+      if chown -R postgres:postgres "${dir}" 2>/dev/null; then
+        break
+      fi
+      attempts=$((attempts + 1))
+      [[ ${attempts} -lt 3 ]] && sleep 0.3 || debug "无法设置 ${dir} 权限（某些环境可能不需要）"
+    done
+  done
 }
 
 start_postgres() {
   log "启动内置 PostgreSQL..."
 
+  # PostgreSQL 数据目录已在脚本开头确定（支持 NAS/Windows 挂载点场景）
+  # 如果检测到挂载点场景，记录日志
+  if [[ "${PG_DATA_DIR}" == */pgdata ]]; then
+    log "检测到挂载点场景（NAS/Windows Docker 卷），使用子目录：${PG_DATA_DIR}"
+    log "提示：这是正常行为，用于避免在挂载点直接初始化 PostgreSQL 数据目录"
+  fi
+
+  # 确保数据目录存在且权限正确
+  if ! mkdir -p "${PG_DATA_DIR}" /run/postgresql; then
+    error "无法创建数据目录: ${PG_DATA_DIR}"
+    exit 1
+  fi
+  
+  # 设置权限（多次尝试，兼容不同的权限模型）
+  local chown_attempts=0
+  while [[ ${chown_attempts} -lt 3 ]]; do
+    if chown -R postgres:postgres "${PG_DATA_DIR}" /run/postgresql 2>/dev/null; then
+      break
+    fi
+    chown_attempts=$((chown_attempts + 1))
+    if [[ ${chown_attempts} -lt 3 ]]; then
+      sleep 0.5
+    else
+      warn "无法设置数据目录权限，继续尝试（某些环境可能不需要）"
+    fi
+  done
+
   # 初始化数据库目录（仅首次）
-  if [[ ! -s /var/lib/postgresql/data/PG_VERSION ]]; then
+  if [[ ! -s "${PG_DATA_DIR}/PG_VERSION" ]]; then
     log "PostgreSQL 数据目录未初始化，正在 initdb..."
+    
+    # 检查目录是否可写
+    if [[ ! -w "${PG_DATA_DIR}" ]]; then
+      error "数据目录不可写: ${PG_DATA_DIR}"
+      exit 1
+    fi
+    
     # 使用更安全的认证方式初始化：
     # - 本地连接使用 peer（系统用户 postgres 通过本地 Unix Socket 免密登录）
     # - TCP 连接使用 scram-sha-256（应用通过密码访问）
-    su-exec postgres:postgres initdb \
+    if ! su-exec postgres:postgres initdb \
       --auth-local=peer \
       --auth-host=scram-sha-256 \
-      -D /var/lib/postgresql/data >/dev/null
+      -D "${PG_DATA_DIR}" >/dev/null 2>&1; then
+      error "PostgreSQL initdb 失败，请检查数据目录权限和磁盘空间"
+      error "数据目录: ${PG_DATA_DIR}"
+      exit 1
+    fi
 
     # 允许本地连接（单机容器内）
-    echo "listen_addresses = '127.0.0.1'" >> /var/lib/postgresql/data/postgresql.conf
-    echo "port = ${DB_PORT}" >> /var/lib/postgresql/data/postgresql.conf
+    if ! echo "listen_addresses = '127.0.0.1'" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
+      error "无法写入 postgresql.conf"
+      exit 1
+    fi
+    
+    if ! echo "port = ${DB_PORT}" >> "${PG_DATA_DIR}/postgresql.conf" 2>/dev/null; then
+      error "无法写入 postgresql.conf"
+      exit 1
+    fi
 
     # 确保 127.0.0.1 使用基于密码的安全认证（应用侧使用 registry/DB_PASSWORD 登录）
-    echo "host all all 127.0.0.1/32 scram-sha-256" >> /var/lib/postgresql/data/pg_hba.conf
+    if ! echo "host all all 127.0.0.1/32 scram-sha-256" >> "${PG_DATA_DIR}/pg_hba.conf" 2>/dev/null; then
+      error "无法写入 pg_hba.conf"
+      exit 1
+    fi
+    
+    log "PostgreSQL 数据目录初始化完成"
   fi
 
-  su-exec postgres:postgres postgres -D /var/lib/postgresql/data -k /run/postgresql &
+  # 启动 PostgreSQL（后台运行）
+  if ! su-exec postgres:postgres postgres -D "${PG_DATA_DIR}" -k /run/postgresql >/dev/null 2>&1 &
+  then
+    error "无法启动 PostgreSQL 进程"
+    exit 1
+  fi
   PG_PID=$!
+  
+  # 等待进程启动
+  sleep 1
+  
+  # 检查进程是否还在运行
+  if ! kill -0 "${PG_PID}" 2>/dev/null; then
+    error "PostgreSQL 进程启动后立即退出，请检查日志"
+    exit 1
+  fi
 
-  # 等待就绪
-  for i in $(seq 1 60); do
+  # 等待就绪（增加重试次数和详细日志）
+  local max_attempts=60
+  local attempt=0
+  log "等待 PostgreSQL 就绪（最多 ${max_attempts} 秒）..."
+  
+  while [[ ${attempt} -lt ${max_attempts} ]]; do
     if su-exec postgres:postgres pg_isready -h /run/postgresql -p "${DB_PORT}" >/dev/null 2>&1; then
-      log "PostgreSQL 就绪"
+      log "PostgreSQL 就绪（耗时 ${attempt} 秒）"
       break
+    fi
+    
+    # 检查进程是否还在运行
+    if ! kill -0 "${PG_PID}" 2>/dev/null; then
+      error "PostgreSQL 进程意外退出（PID: ${PG_PID}）"
+      error "请检查数据目录权限和 PostgreSQL 日志"
+      exit 1
+    fi
+    
+    attempt=$((attempt + 1))
+    if [[ $((attempt % 10)) -eq 0 ]]; then
+      debug "PostgreSQL 仍在启动中... (${attempt}/${max_attempts})"
     fi
     sleep 1
   done
 
   if ! su-exec postgres:postgres pg_isready -h /run/postgresql -p "${DB_PORT}" >/dev/null 2>&1; then
-    log "ERROR: PostgreSQL 启动失败"
+    error "PostgreSQL 启动超时（${max_attempts} 秒后仍未就绪）"
+    error "数据目录: ${PG_DATA_DIR}"
+    error "请检查 PostgreSQL 日志和系统资源"
     exit 1
   fi
 
@@ -388,15 +603,27 @@ start_postgres() {
 
 init_db_schema_once() {
   # 用一个 marker 文件确保只初始化一次
-  local marker="/var/lib/postgresql/data/.cyp_registry_initialized"
+  # 使用 PG_DATA_DIR（在 start_postgres 中已设置）
+  local marker="${PG_DATA_DIR:-/var/lib/postgresql/data}/.cyp_registry_initialized"
   if [[ -f "$marker" ]]; then
+    debug "数据库已初始化，跳过初始化步骤"
     return 0
   fi
 
   log "初始化数据库用户/库并执行 schema（仅首次）..."
 
+  # 等待 PostgreSQL 完全就绪（额外等待，确保可以接受连接）
+  local wait_count=0
+  while [[ ${wait_count} -lt 10 ]]; do
+    if su-exec postgres:postgres psql -h /run/postgresql -p "${DB_PORT}" -d postgres -c "SELECT 1" >/dev/null 2>&1; then
+      break
+    fi
+    wait_count=$((wait_count + 1))
+    sleep 1
+  done
+
   # 创建用户（若不存在）
-  su-exec postgres:postgres psql -h /run/postgresql -p "${DB_PORT}" -d postgres -v ON_ERROR_STOP=1 <<SQL
+  if ! su-exec postgres:postgres psql -h /run/postgresql -p "${DB_PORT}" -d postgres -v ON_ERROR_STOP=1 <<SQL
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}') THEN
@@ -405,11 +632,27 @@ BEGIN
 END
 \$\$;
 SQL
+  then
+    error "创建数据库用户失败: ${DB_USER}"
+    exit 1
+  fi
 
   # 执行初始化脚本（包含 CREATE DATABASE / \c）
-  su-exec postgres:postgres psql -h /run/postgresql -p "${DB_PORT}" -d postgres -v ON_ERROR_STOP=1 -f /app/init-scripts/01-schema.sql
+  if [[ ! -f /app/init-scripts/01-schema.sql ]]; then
+    error "初始化脚本不存在: /app/init-scripts/01-schema.sql"
+    exit 1
+  fi
+  
+  if ! su-exec postgres:postgres psql -h /run/postgresql -p "${DB_PORT}" -d postgres -v ON_ERROR_STOP=1 -f /app/init-scripts/01-schema.sql; then
+    error "执行数据库初始化脚本失败"
+    exit 1
+  fi
 
-  touch "$marker"
+  # 创建标记文件
+  if ! touch "$marker" 2>/dev/null; then
+    warn "无法创建初始化标记文件: $marker（可能影响后续启动）"
+  fi
+  
   log "数据库初始化完成"
 }
 
@@ -495,6 +738,23 @@ SQL
 
 start_redis() {
   log "启动内置 Redis..."
+  
+  # 确保 Redis 数据目录存在
+  if ! mkdir -p /data/redis; then
+    error "无法创建 Redis 数据目录: /data/redis"
+    exit 1
+  fi
+  
+  # 设置权限
+  local attempts=0
+  while [[ ${attempts} -lt 3 ]]; do
+    if chown -R appuser:appuser /data/redis 2>/dev/null || chmod 755 /data/redis 2>/dev/null; then
+      break
+    fi
+    attempts=$((attempts + 1))
+    [[ ${attempts} -lt 3 ]] && sleep 0.3 || warn "无法设置 Redis 数据目录权限（继续尝试）"
+  done
+  
   # 配置持久化（AOF），数据写到 /data/redis
   # 如果显式设置了 REDIS_PASSWORD，则启用 requirepass，保证与全局配置中心一致
   # - 未设置则保持无密码（默认与 docker-compose.single.yml 一致）
@@ -503,7 +763,8 @@ start_redis() {
     REDIS_AUTH_ARGS+=(--requirepass "${REDIS_PASSWORD}")
   fi
 
-  redis-server \
+  # 启动 Redis（后台运行）
+  if ! redis-server \
     --bind 127.0.0.1 \
     --port "${REDIS_PORT}" \
     --dir /data/redis \
@@ -511,18 +772,92 @@ start_redis() {
     --appendfilename "appendonly.aof" \
     --save 900 1 --save 300 10 --save 60 10000 \
     "${REDIS_AUTH_ARGS[@]}" \
-    &
+    >/dev/null 2>&1 &
+  then
+    error "无法启动 Redis 进程"
+    exit 1
+  fi
+  
   export REDIS_PID=$!
+  
+  # 等待进程启动
+  sleep 1
+  
+  # 检查进程是否还在运行
+  if ! kill -0 "${REDIS_PID}" 2>/dev/null; then
+    error "Redis 进程启动后立即退出，请检查配置和日志"
+    exit 1
+  fi
+  
+  # 等待 Redis 就绪
+  local max_attempts=30
+  local attempt=0
+  while [[ ${attempt} -lt ${max_attempts} ]]; do
+    if redis-cli -h 127.0.0.1 -p "${REDIS_PORT}" ping >/dev/null 2>&1; then
+      log "Redis 就绪（耗时 ${attempt} 秒）"
+      break
+    fi
+    
+    # 检查进程是否还在运行
+    if ! kill -0 "${REDIS_PID}" 2>/dev/null; then
+      error "Redis 进程意外退出（PID: ${REDIS_PID}）"
+      exit 1
+    fi
+    
+    attempt=$((attempt + 1))
+    sleep 1
+  done
+  
+  if ! redis-cli -h 127.0.0.1 -p "${REDIS_PORT}" ping >/dev/null 2>&1; then
+    error "Redis 启动超时（${max_attempts} 秒后仍未就绪）"
+    exit 1
+  fi
 }
 
 shutdown() {
-  log "收到退出信号，正在停止..."
-  if [[ -n "${REDIS_PID:-}" ]]; then
-    kill "${REDIS_PID}" 2>/dev/null || true
+  log "收到退出信号，正在停止服务..."
+  
+  # 优雅停止 Redis
+  if [[ -n "${REDIS_PID:-}" ]] && kill -0 "${REDIS_PID}" 2>/dev/null; then
+    log "停止 Redis (PID: ${REDIS_PID})..."
+    redis-cli -h 127.0.0.1 -p "${REDIS_PORT:-6379}" SHUTDOWN SAVE >/dev/null 2>&1 || \
+      kill -TERM "${REDIS_PID}" 2>/dev/null || true
+    
+    # 等待进程退出（最多 10 秒）
+    local wait_count=0
+    while [[ ${wait_count} -lt 10 ]] && kill -0 "${REDIS_PID}" 2>/dev/null; do
+      sleep 1
+      wait_count=$((wait_count + 1))
+    done
+    
+    # 如果还在运行，强制终止
+    if kill -0 "${REDIS_PID}" 2>/dev/null; then
+      warn "Redis 未正常退出，强制终止"
+      kill -KILL "${REDIS_PID}" 2>/dev/null || true
+    fi
   fi
-  if [[ -n "${PG_PID:-}" ]]; then
-    kill "${PG_PID}" 2>/dev/null || true
+  
+  # 优雅停止 PostgreSQL
+  if [[ -n "${PG_PID:-}" ]] && kill -0 "${PG_PID}" 2>/dev/null; then
+    log "停止 PostgreSQL (PID: ${PG_PID})..."
+    su-exec postgres:postgres pg_ctl stop -D "${PG_DATA_DIR:-/var/lib/postgresql/data}" -m fast >/dev/null 2>&1 || \
+      kill -TERM "${PG_PID}" 2>/dev/null || true
+    
+    # 等待进程退出（最多 15 秒）
+    local wait_count=0
+    while [[ ${wait_count} -lt 15 ]] && kill -0 "${PG_PID}" 2>/dev/null; do
+      sleep 1
+      wait_count=$((wait_count + 1))
+    done
+    
+    # 如果还在运行，强制终止
+    if kill -0 "${PG_PID}" 2>/dev/null; then
+      warn "PostgreSQL 未正常退出，强制终止"
+      kill -KILL "${PG_PID}" 2>/dev/null || true
+    fi
   fi
+  
+  log "服务已停止"
 }
 
 trap shutdown SIGTERM SIGINT

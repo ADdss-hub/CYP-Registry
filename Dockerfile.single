@@ -127,7 +127,9 @@ RUN chmod +x /app/scripts/*.sh /app/single-entrypoint.sh \
     && chown -R appuser:appuser /app/scripts
 
 # 数据目录（本地存储 + Postgres 数据目录 + Redis 数据目录）
-RUN mkdir -p /data/storage /data/redis /var/lib/postgresql/data /run/postgresql /app/logs \
+# 注意：/var/lib/postgresql/data 可能被挂载为 Windows 卷，因此不在构建时创建子目录
+# 启动脚本会自动检测挂载点并在需要时创建 pgdata 子目录
+RUN mkdir -p /data/storage /data/redis /var/lib/postgresql /run/postgresql /app/logs \
     && chown -R appuser:appuser /data/storage /data/redis /app/logs \
     && chown -R postgres:postgres /var/lib/postgresql /run/postgresql
 
