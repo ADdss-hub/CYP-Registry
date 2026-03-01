@@ -91,8 +91,9 @@ jobs:
             echo "::error::.golangci.yml 配置文件不存在"
             exit 1
           fi
-          # 运行 golangci-lint，使用配置文件，显式禁用 typecheck
-          golangci-lint run --config .golangci.yml --disable typecheck ./... || {
+          # 运行 golangci-lint，使用配置文件
+          # 注意：由于配置文件中使用了 disable-all: true，typecheck 已自动禁用，无需命令行参数
+          golangci-lint run --config .golangci.yml ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
           }
