@@ -65,7 +65,22 @@ jobs:
         run: |
           echo "::group::依赖漏洞扫描 (Trivy)"
           # 安装 Trivy（轻量、活跃维护的开源漏洞扫描工具）
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.57.2
+          TRIVY_VERSION="v0.57.2"
+          TRIVY_DIR="/usr/local/bin"
+          echo "安装 Trivy $TRIVY_VERSION..."
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$TRIVY_DIR" "$TRIVY_VERSION"
+          
+          # 确保 PATH 包含 trivy 安装目录
+          export PATH="$TRIVY_DIR:$PATH"
+          
+          # 验证安装
+          if ! command -v trivy >/dev/null 2>&1; then
+            echo "::error::Trivy 安装失败，命令未找到"
+            echo "检查安装目录:"
+            ls -la "$TRIVY_DIR/trivy" || echo "文件不存在"
+            exit 1
+          fi
+          
           trivy --version
           
           # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别，忽略未修复的漏洞）
