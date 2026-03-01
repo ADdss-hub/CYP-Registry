@@ -75,11 +75,24 @@ jobs:
           echo "::group::静态代码分析 (golangci-lint)"
           go mod tidy
           go mod download
-          # 先构建一次确保依赖正确解析
-          go build ./... || true
+          # 先构建一次确保依赖正确解析和类型检查
+          echo "验证构建..."
+          if ! go build ./...; then
+            echo "::error::构建失败，无法继续运行 golangci-lint"
+            exit 1
+          fi
+          echo "✅ 构建验证通过"
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+          # 确保 PATH 包含 golangci-lint
+          export PATH=$(go env GOPATH)/bin:$PATH
           golangci-lint --version
-          golangci-lint run ./... || {
+          # 验证配置文件存在
+          if [ ! -f ".golangci.yml" ]; then
+            echo "::error::.golangci.yml 配置文件不存在"
+            exit 1
+          fi
+          # 运行 golangci-lint，使用配置文件，显式禁用 typecheck
+          golangci-lint run --config .golangci.yml --disable typecheck ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
           }

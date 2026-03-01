@@ -13,6 +13,7 @@ linters-settings:
     # 禁用typecheck检查器，因为它无法正确解析外部依赖
     # 使用go build和go test来验证类型
     disabled: true
+    # 确保 typecheck 不会因为默认行为而启用
   govet:
     check-shadowing: true
   gocyclo:
@@ -77,12 +78,9 @@ linters:
     - noctx
     - nolintlint
     - rowserrcheck
-    - scopelint
     - sqlclosecheck
-    - structcheck
     - stylecheck
     - unconvert
-    - varcheck
     - whitespace
   # typecheck 已通过不在 enable 列表中自动禁用，无需在 disable 中显式禁用
   # 当使用 disable-all: true 时，不能使用 disable 列表
