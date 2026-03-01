@@ -18,6 +18,8 @@ env:
   NODE_VERSION: '20'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # 使用国内 Go 模块代理，加速依赖下载并提升稳定性
+  GOPROXY: https://goproxy.cn,direct
 
 jobs:
   # 后端CI
@@ -61,12 +63,39 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
-      - name: 🛡️ 安装 Trivy
+      - name: 🛡️ 安装 Trivy（优先使用国内镜像）
         run: |
-          echo "::group::安装 Trivy"
-          # 使用官方一键安装脚本（推荐方式，避免 Git 仓库拉取问题）
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.57.1
+          echo "::group::安装 Trivy（优先使用国内镜像）"
+          TRIVY_VERSION="v0.57.1"
+          TRIVY_MIRROR_REPO="https://gitcode.com/GitHub_Trending/tr/trivy.git"
+          WORK_DIR=$(mktemp -d)
+
+          echo "优先从 GitCode 镜像仓库克隆 Trivy 源码..."
+          if git clone --depth=1 "$TRIVY_MIRROR_REPO" "$WORK_DIR"; then
+            echo "✅ GitCode 镜像克隆成功，使用镜像安装 Trivy..."
+            cd "$WORK_DIR"
+            if [ -f "contrib/install.sh" ]; then
+              chmod +x contrib/install.sh || true
+              ./contrib/install.sh -b /usr/local/bin "$TRIVY_VERSION"
+            else
+              echo "::warning::镜像仓库中未找到 contrib/install.sh，回退到官方安装脚本"
+              curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin "$TRIVY_VERSION"
+            fi
+            cd - >/dev/null 2>&1 || true
+          else
+            echo "::warning::GitCode 镜像克隆失败，回退到官方安装脚本"
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin "$TRIVY_VERSION"
+          fi
+
+          # 清理临时目录
+          rm -rf "$WORK_DIR"
+
           # 验证安装成功
+          if ! command -v trivy >/dev/null 2>&1; then
+            echo "::error::Trivy 安装失败，命令未找到"
+            exit 1
+          fi
+
           trivy --version
           echo "✅ Trivy 安装成功"
           echo "::endgroup::"
@@ -132,7 +161,16 @@ jobs:
           echo "✅ 构建验证通过，依赖解析正常"
           # 使用 golangci-lint v1.59.3 稳定版（2024年10月最新小版本，兼容 Go 1.24）
           GOLANGCI_LINT_VERSION="v1.59.3"
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
+          # 优先使用 GitCode 镜像安装脚本，加速国内访问；失败时回退到官方地址
+          GOLANGCI_INSTALL_MIRROR="https://gitcode.com/golangci/golangci-lint/raw/master/install.sh"
+          GOLANGCI_INSTALL_OFFICIAL="https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh"
+          echo "优先从 GitCode 镜像下载安装脚本..."
+          if curl -sSfL "$GOLANGCI_INSTALL_MIRROR" | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION; then
+            echo "✅ 通过 GitCode 镜像安装 golangci-lint 成功"
+          else
+            echo "::warning::从 GitCode 镜像安装失败，回退到官方安装脚本"
+            curl -sSfL "$GOLANGCI_INSTALL_OFFICIAL" | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
+          fi
           # 确保 PATH 包含 golangci-lint
           export PATH=$(go env GOPATH)/bin:$PATH
           golangci-lint --version
