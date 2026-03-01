@@ -15,6 +15,7 @@ const notificationStore = useNotificationStore();
 
 const isCollapsed = ref(false);
 
+// 菜单项：当前系统仅存在管理员用户，所有人都可以看到系统日志
 const menuItems = [
   { path: "/dashboard", icon: "dashboard", label: "仪表盘" },
   { path: "/projects", icon: "project", label: "项目管理" },
@@ -154,6 +155,12 @@ function getAvatarUrl(avatar: string): string {
                   <path
                     fill="currentColor"
                     d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"
+                  />
+                </template>
+                <template v-else-if="item.icon === 'logs'">
+                  <path
+                    fill="currentColor"
+                    d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"
                   />
                 </template>
                 <template v-else>
