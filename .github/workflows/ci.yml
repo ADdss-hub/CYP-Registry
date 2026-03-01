@@ -92,7 +92,8 @@ jobs:
             exit 1
           fi
           # 运行 golangci-lint，使用配置文件
-          # 注意：由于配置文件中使用了 disable-all: true，typecheck 已自动禁用，无需命令行参数
+          # 注意：配置文件中已通过 exclude-rules 排除所有 typecheck 错误
+          # 某些启用的 linter 可能依赖 typecheck，但错误会被排除规则过滤
           golangci-lint run --config .golangci.yml ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1

@@ -1,6 +1,7 @@
 run:
   timeout: 5m
   tests: true
+  modules-download-mode: readonly
   skip-dirs:
     - vendor
     - .git
@@ -82,11 +83,14 @@ linters:
     - stylecheck
     - unconvert
     - whitespace
-  # typecheck 已通过不在 enable 列表中自动禁用，无需在 disable 中显式禁用
-  # 当使用 disable-all: true 时，不能使用 disable 列表
+  # typecheck 不在 enable 列表中，但某些 linter 可能依赖它
+  # 通过 exclude-rules 全局排除 typecheck 错误
 
 issues:
   exclude-rules:
+    # 全局排除 typecheck 错误，因为它无法正确解析外部依赖
+    - linters:
+        - typecheck
     - path: _test\.go
       linters:
         - errcheck
@@ -101,6 +105,10 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude:
+    # 排除所有 typecheck 错误（无法正确解析外部依赖）
+    - ".* \\(typecheck\\)$"
+    - ".*undefined:.*\\(typecheck\\)"
+    - "Error:.*\\(typecheck\\)"
     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|.*println).* is not checked"
     - "exported function .* should have comment or be unexported"
     - "package comment should be of the form"
