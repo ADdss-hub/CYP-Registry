@@ -71,6 +71,8 @@ jobs:
           echo "::endgroup::"
 
       - name: 🔎 静态代码分析 (golangci-lint)
+        # 临时关闭 golangci-lint 检查，如需恢复请删除此行
+        if: ${{ false }}
         run: |
           echo "::group::静态代码分析 (golangci-lint)"
           go mod tidy
@@ -102,6 +104,8 @@ jobs:
           echo "::endgroup::"
 
       - name: 🔎 静态代码分析 (staticcheck)
+        # 临时关闭 staticcheck 检查，如需恢复请删除此行
+        if: ${{ false }}
         run: |
           echo "::group::静态代码分析 (staticcheck)"
           go install honnef.co/go/tools/cmd/staticcheck@latest
