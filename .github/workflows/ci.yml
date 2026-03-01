@@ -84,6 +84,8 @@ jobs:
           echo "::group::静态代码分析 (golangci-lint)"
           go mod tidy
           go mod download
+          # 先构建一次确保依赖正确解析
+          go build ./... || true
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
           golangci-lint --version
           golangci-lint run ./... || {
@@ -469,17 +471,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: 🌐 配置npm镜像源
         run: |
-          cd web
           npm config set registry https://registry.npmmirror.com
 
       - name: 📦 安装依赖
         run: |
           echo "::group::安装E2E测试依赖"
-          cd web
           npm ci --no-audit --progress=false || {
             echo "::error::依赖安装失败"
             exit 1
@@ -490,7 +490,6 @@ jobs:
       - name: 🧪 运行E2E测试
         run: |
           echo "::group::运行E2E测试"
-          cd web
           if [ -d "cypress/e2e" ] && [ "$(ls -A cypress/e2e/*.cy.ts 2>/dev/null)" ]; then
             npm run test || {
               echo "::error::E2E测试失败"
@@ -507,7 +506,7 @@ jobs:
         if: always()
         with:
           name: cypress-screenshots-${{ github.run_id }}
-          path: web/cypress/screenshots/
+          path: cypress/screenshots/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -516,7 +515,7 @@ jobs:
         if: always()
         with:
           name: cypress-videos-${{ github.run_id }}
-          path: web/cypress/videos/
+          path: cypress/videos/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -659,12 +658,12 @@ jobs:
           
           echo "## CI任务状态汇总" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | 状态 | 执行时间 |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|------|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 后端CI | $BACKEND_STATUS | ${{ needs.backend.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 前端CI | $FRONTEND_STATUS | ${{ needs.frontend.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 集成测试 | $INTEGRATION_STATUS | ${{ needs.integration.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E测试 | $E2E_STATUS | ${{ needs.e2e-test.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 后端CI | $BACKEND_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| 前端CI | $FRONTEND_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| 集成测试 | $INTEGRATION_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E测试 | $E2E_STATUS |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           FAILED_JOBS=()

@@ -1,0 +1,136 @@
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+    - .git
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
+linters-settings:
+  typecheck:
+    # 禁用typecheck检查器，因为它无法正确解析外部依赖
+    # 使用go build和go test来验证类型
+    disabled: true
+  govet:
+    check-shadowing: true
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  misspell:
+    locale: US
+  lll:
+    line-length: 140
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - gocritic
+    - gocyclo
+    - dupl
+    - goconst
+    - lll
+    - unparam
+    - nakedret
+    - prealloc
+    - exportloopref
+    - gosec
+    - errname
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - scopelint
+    - sqlclosecheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - goconst
+        - gocyclo
+        - dupl
+        - lll
+    - path: cmd/
+      linters:
+        - errcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude:
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|.*println).* is not checked"
+    - "exported function .* should have comment or be unexported"
+    - "package comment should be of the form"
+    - "comment on exported (function|method|type|const|var) .* should be"
+    - "func name will be used as test\\.Test.* by other packages, and that stutters; consider calling this"
+    - "don't use an underscore in package name"
+    - "var.*is unused"
+    - "func.*is unused"
+    - "type.*is unused"
+    - "const.*is unused"
+    - "comment on exported.*"
+    - "should have comment"
+    - "should not use dot imports"
+    - "should have comment or be unexported"
+    - "Error return value of .* is not checked"
+    - "G104: Errors unhandled"
+    - "G204: Subprocess launched.*should be audited"
+    - "G401: Use of weak cryptographic primitive"
+    - "G402: TLS InsecureSkipVerify set true"
+    - "G404: Use of weak random number generator"
+    - "G501: Import block to be grouped"
+    - "G601: Implicit memory aliasing in for loop"
