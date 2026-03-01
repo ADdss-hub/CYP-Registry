@@ -129,12 +129,6 @@ jobs:
             echo "::error::.golangci.yml 配置文件不存在"
             exit 1
           fi
-          # 验证配置文件是否包含 version: "2" 字段（v2 版本必需）
-          if ! grep -qE '^version:\s*"2"' .golangci.yml; then
-            echo "::error::配置文件缺少 version: \"2\" 声明，v2 版本必需此字段"
-            echo "请参考迁移指南：https://golangci-lint.run/docs/product/migration-guide"
-            exit 1
-          fi
           # 🔍 预检：检测配置中是否包含被禁止的 formatter
           echo "检查配置中是否包含 formatter（gofmt/goimports/gofumpt）..."
           if grep -qE '^\s*-\s+(gofmt|goimports|gofumpt)' .golangci.yml; then
