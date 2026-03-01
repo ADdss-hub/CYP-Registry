@@ -396,6 +396,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 📋 准备平台标签
+        run: |
+          # 将平台格式从 linux/amd64 转换为 linux-amd64（Docker Tag 不允许 /）
+          PLATFORM_TAG=$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo "PLATFORM_TAG=$PLATFORM_TAG" >> $GITHUB_ENV
+          echo "平台标签: $PLATFORM_TAG"
+
       - name: 📋 提取元数据
         id: meta
         uses: docker/metadata-action@v5
@@ -407,7 +414,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
-            type=raw,value=${{ replace(matrix.platform, '/', '-') }},enable={{is_default_branch}}
+            type=raw,value=${{ env.PLATFORM_TAG }},enable={{is_default_branch}}
 
       - name: 🏗️ 构建并推送Docker镜像（${{ matrix.platform }}）
         uses: docker/build-push-action@v5
