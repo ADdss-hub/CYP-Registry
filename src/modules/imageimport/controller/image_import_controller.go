@@ -3,6 +3,7 @@ package controller
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -41,13 +42,6 @@ func (c *ImageImportController) ImportImage(ctx *gin.Context) {
 		return
 	}
 
-	// 确保项目存在
-	project, err := c.projectSvc.GetProject(ctx.Request.Context(), projectID)
-	if err != nil {
-		response.NotFound(ctx, "项目不存在")
-		return
-	}
-
 	var req imageimportdto.ImportImageRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.ParamError(ctx, "请求参数不合法")
@@ -66,9 +60,50 @@ func (c *ImageImportController) ImportImage(ctx *gin.Context) {
 		}
 	}
 
+	// 确保项目存在：如果不存在则自动创建
+	project, err := c.projectSvc.GetProject(ctx.Request.Context(), projectID)
+	if err != nil {
+		// 项目不存在时尝试自动创建项目
+		// 规则：优先从 target_image 提取项目名（有斜杠时取第一段），否则使用 projectID 作为项目名
+		var ownerID string
+		if userID != nil {
+			ownerID = userID.String()
+		}
+
+		// 只有在能识别到 ownerID 时才尝试自动创建项目
+		if ownerID == "" {
+			response.NotFound(ctx, "项目不存在")
+			return
+		}
+
+		projectName := projectID
+		if strings.TrimSpace(req.TargetImage) != "" {
+			ti := strings.TrimSpace(req.TargetImage)
+			if idx := strings.Index(ti, "/"); idx > 0 {
+				projectName = ti[:idx]
+			}
+		}
+
+		created, createErr := c.projectSvc.CreateProject(
+			ctx.Request.Context(),
+			projectName,
+			"Auto created from image import",
+			ownerID,
+			false, // 默认私有
+			0,     // 使用默认配额
+		)
+		if createErr != nil {
+			response.NotFound(ctx, "project not found and failed to create: "+createErr.Error())
+			return
+		}
+		project = created
+		// 更新 projectID 为新创建项目的 ID，以便后续任务绑定正确的项目
+		projectID = project.ID
+	}
+
 	task, err := c.svc.ImportImageFromURL(
 		ctx.Request.Context(),
-		project.ID,
+		projectID,
 		project.Name,
 		userID,
 		&req,

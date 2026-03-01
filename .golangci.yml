@@ -1,44 +1,13 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
 
-linters-settings:
-  # typecheck 已通过 linters.disable-all + enable 列表排除（不在列表中即被禁用）
-  # 即使升级到 v1.60.1+，typecheck 仍可能因依赖解析问题产生误报
-  # 由于 go build 已完成类型检查，typecheck 属于冗余检查，直接禁用即可
-  govet:
-    # 注意：check-shadowing 已废弃，如需检查变量遮蔽，请在 linters.enable 中添加 shadow
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
-
 linters:
-  disable-all: true
+  # 使用 default: enable 启用默认 linter 集合，然后添加额外的 linter
+  default: enable
   enable:
     - errcheck
     - gosimple
@@ -75,10 +44,41 @@ linters:
     - stylecheck
     - unconvert
     - whitespace
-    - shadow  # 检查变量遮蔽（替代已废弃的 govet.check-shadowing）
-  # typecheck 已通过 disable-all + enable 列表排除（不在列表中即被禁用）
+  # typecheck 已通过 default: enable 排除（不在列表中即被禁用）
   # 如果依赖正确下载，可以启用 typecheck 进行更严格的类型检查
   # 如需启用 typecheck，将其添加到 enable 列表即可
+  settings:
+    # govet 设置：在 v2 中，shadow 检查是 govet 的子检查项
+    govet:
+      enable:
+        - shadow  # 检查变量遮蔽（替代已废弃的 govet.check-shadowing）
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    misspell:
+      locale: US
+    lll:
+      line-length: 140
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+        - whyNoLint
+        - wrapperFunc
 
 issues:
   exclude-dirs:

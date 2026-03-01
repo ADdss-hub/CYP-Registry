@@ -87,8 +87,8 @@ jobs:
             exit 1
           fi
           echo "✅ 构建验证通过，依赖解析正常"
-          # 升级到适配 Go 1.24 的最新版本（v1.61.0+，支持 shadow linter）
-          GOLANGCI_LINT_VERSION="v1.61.0"
+          # 使用 golangci-lint v2.x 版本（支持 v2 配置格式）
+          GOLANGCI_LINT_VERSION="v2.10.1"
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
           # 确保 PATH 包含 golangci-lint
           export PATH=$(go env GOPATH)/bin:$PATH
@@ -98,19 +98,16 @@ jobs:
             echo "::error::.golangci.yml 配置文件不存在"
             exit 1
           fi
-          # 验证 shadow linter 是否可用（v1.61.0+ 应该支持）
-          echo "验证 shadow linter 是否支持..."
-          if golangci-lint help linters 2>/dev/null | grep -qE "^shadow$"; then
-            echo "✅ shadow linter 已支持"
-          else
-            echo "::warning::shadow linter 在当前版本中不可用，尝试使用最新版本..."
-            # 如果当前版本不支持，尝试安装最新版本
-            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
-            golangci-lint --version
+          # 验证配置文件是否包含 version: "2" 字段（v2 版本必需）
+          if ! grep -qE '^version:\s*"2"' .golangci.yml; then
+            echo "::error::配置文件缺少 version: \"2\" 声明，v2 版本必需此字段"
+            echo "请参考迁移指南：https://golangci-lint.run/docs/product/migration-guide"
+            exit 1
           fi
+          echo "✅ 配置文件格式验证通过（v2 格式）"
           # 运行 golangci-lint，使用配置文件
           # 使用 --modules-download-mode=readonly 确保依赖解析正确
-          # v1.61.0+ 已修复与 Go 1.24 的兼容性问题，并支持 shadow linter
+          # v2.x 版本已修复与 Go 1.24 的兼容性问题，shadow 检查现在是 govet 的子检查项
           golangci-lint run --config .golangci.yml --modules-download-mode=readonly ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
