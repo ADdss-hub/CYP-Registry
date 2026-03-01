@@ -61,55 +61,21 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
+      - name: 🛡️ 安装 Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          trivy_version: '0.57.2'
+          install-only: true
+
       - name: 🛡️ 依赖漏洞扫描 (Trivy)
         run: |
           echo "::group::依赖漏洞扫描 (Trivy)"
-          # 安装 Trivy（轻量、活跃维护的开源漏洞扫描工具）
-          TRIVY_VERSION="0.57.2"
-          TRIVY_DIR="/usr/local/bin"
-          
-          echo "下载 Trivy v${TRIVY_VERSION} 二进制文件..."
-          # 直接下载预编译二进制文件（更可靠，避免安装脚本问题）
-          curl -sfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" -o /tmp/trivy.tar.gz || {
-            echo "::error::Trivy 下载失败，尝试备用方法..."
-            # 备用方法：使用安装脚本但添加错误处理
-            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$TRIVY_DIR" "v${TRIVY_VERSION}" || {
-              echo "::error::Trivy 安装失败"
-              exit 1
-            }
-          }
-          
-          # 如果下载成功，解压并安装
-          if [ -f "/tmp/trivy.tar.gz" ]; then
-            tar -xzf /tmp/trivy.tar.gz -C /tmp/ trivy
-            sudo mv /tmp/trivy "$TRIVY_DIR/trivy"
-            sudo chmod +x "$TRIVY_DIR/trivy"
-            rm -f /tmp/trivy.tar.gz
-          fi
-          
-          # 确保 PATH 包含 trivy 安装目录
-          export PATH="$TRIVY_DIR:$PATH"
-          
-          # 验证安装（使用完整路径）
-          if [ ! -f "$TRIVY_DIR/trivy" ]; then
-            echo "::error::Trivy 二进制文件不存在: $TRIVY_DIR/trivy"
-            echo "检查目录内容:"
-            ls -la "$TRIVY_DIR" | grep -i trivy || echo "未找到 trivy 文件"
-            exit 1
-          fi
-          
-          if ! "$TRIVY_DIR/trivy" --version >/dev/null 2>&1; then
-            echo "::error::Trivy 无法执行，检查权限和文件类型:"
-            file "$TRIVY_DIR/trivy" || true
-            exit 1
-          fi
-          
-          TRIVY_VER=$("$TRIVY_DIR/trivy" --version 2>&1 | head -n 1 || echo "unknown")
-          echo "✅ Trivy 安装成功: $TRIVY_VER"
+          # 验证 Trivy 安装
+          trivy --version
           
           # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别，忽略未修复的漏洞）
           echo "扫描 Go 依赖漏洞..."
-          "$TRIVY_DIR/trivy" fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format table --exit-code 1 . || {
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format table --exit-code 1 . || {
             EXIT_CODE=$?
             echo "::error::Trivy 发现 HIGH/CRITICAL 级别漏洞，阻断构建"
             exit $EXIT_CODE
