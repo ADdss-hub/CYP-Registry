@@ -63,53 +63,16 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
-      - name: 🛡️ 安装 Trivy（优先使用国内镜像）
-        run: |
-          echo "::group::安装 Trivy（优先使用国内镜像）"
-          # 直接下载预编译二进制文件（更可靠，避免安装脚本版本问题）
-          TRIVY_VERSION="0.57.1"
-          TRIVY_BINARY_URL="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          
-          echo "下载 Trivy v${TRIVY_VERSION} 二进制文件..."
-          # 优先尝试从 GitHub Releases 下载（GitHub Actions 环境通常可以访问）
-          if curl -sfL "$TRIVY_BINARY_URL" -o /tmp/trivy.tar.gz; then
-            echo "✅ 从 GitHub Releases 下载成功"
-            # 解压并安装二进制文件
-            tar -xzf /tmp/trivy.tar.gz -C /tmp/ trivy
-            chmod +x /tmp/trivy
-            sudo mv /tmp/trivy /usr/local/bin/trivy
-            rm -f /tmp/trivy.tar.gz
-          else
-            echo "::warning::GitHub Releases 下载失败，尝试使用官方安装脚本..."
-            # 回退到官方安装脚本（使用具体版本号）
-            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin "v${TRIVY_VERSION}" || {
-              echo "::error::Trivy 安装失败"
-              exit 1
-            }
-          fi
-
-          # 验证安装成功
-          if ! command -v trivy >/dev/null 2>&1; then
-            echo "::error::Trivy 安装失败，命令未找到"
-            exit 1
-          fi
-
-          trivy --version
-          echo "✅ Trivy 安装成功"
-          echo "::endgroup::"
-
       - name: 🛡️ 依赖漏洞扫描 (Trivy)
-        run: |
-          echo "::group::依赖漏洞扫描 (Trivy)"
-          # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别，忽略未修复的漏洞）
-          echo "扫描 Go 依赖漏洞..."
-          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format table --exit-code 1 . || {
-            EXIT_CODE=$?
-            echo "::error::Trivy 发现 HIGH/CRITICAL 级别漏洞，阻断构建"
-            exit $EXIT_CODE
-          }
-          echo "✅ Trivy 扫描通过，无高/严重级漏洞"
-          echo "::endgroup::"
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'fs'                # 扫描文件系统（当前仓库）
+          scan-ref: '.'                  # 扫描工作目录
+          scanners: 'vuln'               # 仅扫描漏洞（不扫描 misconfig/secret 等）
+          severity: 'CRITICAL,HIGH'      # 仅关注高危和严重漏洞
+          ignore-unfixed: true           # 忽略未修复漏洞
+          format: 'table'                # 终端表格输出
+          exit-code: '1'                 # 发现匹配漏洞时返回非 0，阻断构建
 
       - name: 📏 检查代码格式 (gofmt)
         run: |
