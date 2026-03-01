@@ -61,27 +61,17 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
-      - name: 🛡️ 安装 Trivy
+      - name: 🛡️ 依赖漏洞扫描 (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
-          trivy_version: '0.57.2'
-          install-only: true
-
-      - name: 🛡️ 依赖漏洞扫描 (Trivy)
-        run: |
-          echo "::group::依赖漏洞扫描 (Trivy)"
-          # 验证 Trivy 安装
-          trivy --version
-          
-          # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别，忽略未修复的漏洞）
-          echo "扫描 Go 依赖漏洞..."
-          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format table --exit-code 1 . || {
-            EXIT_CODE=$?
-            echo "::error::Trivy 发现 HIGH/CRITICAL 级别漏洞，阻断构建"
-            exit $EXIT_CODE
-          }
-          echo "✅ Trivy 扫描通过，无高/严重级漏洞"
-          echo "::endgroup::"
+          scan-type: 'fs'
+          scan-ref: '.'
+          scanners: 'vuln'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          format: 'table'
+          exit-code: '1'
+          version: '0.57.2'
 
       - name: 📏 检查代码格式 (gofmt)
         run: |
