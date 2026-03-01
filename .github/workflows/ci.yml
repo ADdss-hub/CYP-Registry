@@ -71,8 +71,6 @@ jobs:
           echo "::endgroup::"
 
       - name: 🔎 静态代码分析 (golangci-lint)
-        # 临时关闭 golangci-lint 检查，如需恢复请删除此行
-        if: ${{ false }}
         run: |
           echo "::group::静态代码分析 (golangci-lint)"
           go mod tidy
@@ -104,8 +102,6 @@ jobs:
           echo "::endgroup::"
 
       - name: 🔎 静态代码分析 (staticcheck)
-        # 临时关闭 staticcheck 检查，如需恢复请删除此行
-        if: ${{ false }}
         run: |
           echo "::group::静态代码分析 (staticcheck)"
           go install honnef.co/go/tools/cmd/staticcheck@latest
@@ -137,7 +133,10 @@ jobs:
       - name: 🛡️ 依赖漏洞扫描 (nancy)
         run: |
           echo "::group::依赖漏洞扫描 (nancy)"
-          go install github.com/sonatypecommunity/nancy@latest
+          # 使用预编译二进制安装 nancy，避免 go install 在 CI 环境下触发 Git 凭证/交互问题
+          curl -L https://github.com/sonatypecommunity/nancy/releases/latest/download/nancy-linux-amd64 -o /usr/local/bin/nancy
+          chmod +x /usr/local/bin/nancy
+          nancy version || echo "nancy 安装完成，开始进行依赖扫描..."
           go list -json -deps | nancy sleuth || {
             echo "::warning::nancy 发现依赖漏洞，请检查"
           }
