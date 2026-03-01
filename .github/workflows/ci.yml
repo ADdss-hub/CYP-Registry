@@ -109,8 +109,8 @@ jobs:
             exit 1
           fi
           echo "✅ 构建验证通过，依赖解析正常"
-          # 使用 golangci-lint v1.59.3 稳定版（2024年10月最新小版本，兼容 Go 1.24）
-          GOLANGCI_LINT_VERSION="v1.59.3"
+          # 使用 golangci-lint v1.59.0 稳定版（兼容 Go 1.24，官方已发布该标签）
+          GOLANGCI_LINT_VERSION="v1.59.0"
           # 优先使用 GitCode 镜像安装脚本，加速国内访问；失败时回退到官方地址
           GOLANGCI_INSTALL_MIRROR="https://gitcode.com/golangci/golangci-lint/raw/master/install.sh"
           GOLANGCI_INSTALL_OFFICIAL="https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh"
