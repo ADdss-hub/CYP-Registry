@@ -15,8 +15,8 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
+    # 注意：gofmt 和 goimports 是 formatter，不能作为 linter 启用（v2 要求）
+    # 格式检查已在 CI 中单独处理
     - misspell
     - gocritic
     - gocyclo

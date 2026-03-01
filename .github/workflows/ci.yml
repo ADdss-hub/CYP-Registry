@@ -62,15 +62,36 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
-      - name: 🔍 代码格式检查
+      - name: 📏 检查代码格式 (gofmt)
         run: |
-          echo "::group::代码格式检查"
-          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
-            echo "::error::发现格式问题，请运行 'gofmt -w .' 修复"
-            gofmt -d .
+          echo "::group::检查代码格式 (gofmt)"
+          # 检查 gofmt 格式（独立步骤，与 linter 解耦）
+          FMT_OUTPUT=$(gofmt -d -s . 2>&1)
+          if [ -n "$FMT_OUTPUT" ]; then
+            echo "::error::代码格式不符合 gofmt 要求！"
+            echo "请运行: gofmt -w -s ."
+            echo "$FMT_OUTPUT" | head -50  # 显示前50行差异
             exit 1
           fi
           echo "✅ 代码格式检查通过"
+          echo "::endgroup::"
+      
+      - name: 📏 检查导入格式 (goimports)
+        run: |
+          echo "::group::检查导入格式 (goimports)"
+          # 检查 goimports 格式（导入分组和排序）
+          if ! command -v goimports &> /dev/null; then
+            echo "安装 goimports..."
+            go install golang.org/x/tools/cmd/goimports@latest
+          fi
+          IMPORT_OUTPUT=$(goimports -d . 2>&1)
+          if [ -n "$IMPORT_OUTPUT" ]; then
+            echo "::error::导入格式不符合 goimports 要求！"
+            echo "请运行: goimports -w ."
+            echo "$IMPORT_OUTPUT" | head -50  # 显示前50行差异
+            exit 1
+          fi
+          echo "✅ 导入格式检查通过"
           echo "::endgroup::"
 
       - name: 🔎 静态代码分析 (golangci-lint)
@@ -104,7 +125,23 @@ jobs:
             echo "请参考迁移指南：https://golangci-lint.run/docs/product/migration-guide"
             exit 1
           fi
-          echo "✅ 配置文件格式验证通过（v2 格式）"
+          # 🔍 预检：检测配置中是否包含被禁止的 formatter
+          echo "检查配置中是否包含 formatter（gofmt/goimports/gofumpt）..."
+          if grep -qE '^\s*-\s+(gofmt|goimports|gofumpt)' .golangci.yml; then
+            echo "::error::检测到配置中包含 formatter（gofmt/goimports/gofumpt）"
+            echo "在 golangci-lint v2 中，这些不能作为 linter 启用"
+            echo "请从 linters.enable 中移除它们，格式检查已在 CI 中单独处理"
+            grep -nE '^\s*-\s+(gofmt|goimports|gofumpt)' .golangci.yml || true
+            exit 1
+          fi
+          echo "✅ 配置文件格式验证通过（v2 格式，无 formatter）"
+          # ✅ 验证配置文件语法（v2.5+ 支持）
+          echo "验证 golangci-lint 配置文件语法..."
+          if golangci-lint config validate --config .golangci.yml 2>&1; then
+            echo "✅ 配置文件语法验证通过"
+          else
+            echo "::warning::配置文件语法验证失败，但继续执行（可能是版本兼容性问题）"
+          fi
           # 运行 golangci-lint，使用配置文件
           # 使用 --modules-download-mode=readonly 确保依赖解析正确
           # v2.x 版本已修复与 Go 1.24 的兼容性问题，shadow 检查现在是 govet 的子检查项
