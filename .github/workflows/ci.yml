@@ -62,15 +62,36 @@ jobs:
           echo "::endgroup::"
 
       - name: 🛡️ 依赖漏洞扫描 (Trivy)
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          scanners: 'vuln'
-          severity: 'HIGH,CRITICAL'
-          ignore-unfixed: true
-          format: 'table'
-          exit-code: '1'
+        run: |
+          echo "::group::依赖漏洞扫描 (Trivy)"
+          # 直接下载 Trivy 预编译二进制文件（避免 Git 仓库下载问题）
+          TRIVY_VERSION="0.57.1"
+          TRIVY_URL="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          
+          echo "下载 Trivy v${TRIVY_VERSION}..."
+          curl -sfL "$TRIVY_URL" -o /tmp/trivy.tar.gz || {
+            echo "::error::Trivy 下载失败"
+            exit 1
+          }
+          
+          # 解压并安装
+          tar -xzf /tmp/trivy.tar.gz -C /tmp/ trivy
+          chmod +x /tmp/trivy
+          sudo mv /tmp/trivy /usr/local/bin/trivy
+          rm -f /tmp/trivy.tar.gz
+          
+          # 验证安装
+          trivy --version
+          
+          # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别，忽略未修复的漏洞）
+          echo "扫描 Go 依赖漏洞..."
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format table --exit-code 1 . || {
+            EXIT_CODE=$?
+            echo "::error::Trivy 发现 HIGH/CRITICAL 级别漏洞，阻断构建"
+            exit $EXIT_CODE
+          }
+          echo "✅ Trivy 扫描通过，无高/严重级漏洞"
+          echo "::endgroup::"
 
       - name: 📏 检查代码格式 (gofmt)
         run: |
