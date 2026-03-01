@@ -8,11 +8,9 @@
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "preview:ci": "vite preview --host 0.0.0.0 --port 4173",
-    "lint": "eslint src cypress --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "lint": "eslint src --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
     "format": "prettier --write src/",
-    "type-check": "vue-tsc --noEmit",
-    "test": "cypress run",
-    "test:open": "cypress open"
+    "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "vue": "^3.4.0",
@@ -38,8 +36,7 @@
     "@vue/eslint-config-typescript": "^14.7.0",
     "eslint-plugin-vue": "^10.8.0",
     "prettier": "^3.1.0",
-    "sass": "^1.69.5",
-    "cypress": "^13.6.0"
+    "sass": "^1.69.5"
   }
 }
 

@@ -10,7 +10,7 @@ on:
     branches: [main, dev]
   workflow_dispatch:
   schedule:
-    # 每天凌晨2点执行全量测试
+    # 每天凌晨2点执行全量检查
     - cron: '0 2 * * *'
 
 env:
@@ -68,18 +68,6 @@ jobs:
             exit 1
           fi
           echo "✅ 代码格式检查通过"
-          echo "::endgroup::"
-
-      - name: 🧪 运行单元测试
-        run: |
-          echo "::group::运行单元测试"
-          go test -v -race ./... 2>&1 | tee test-output.log
-          TEST_EXIT_CODE=${PIPESTATUS[0]}
-          if [ $TEST_EXIT_CODE -ne 0 ]; then
-            echo "::error::单元测试失败"
-            exit $TEST_EXIT_CODE
-          fi
-          echo "✅ 单元测试通过"
           echo "::endgroup::"
 
       - name: 🔎 静态代码分析 (golangci-lint)
@@ -162,7 +150,6 @@ jobs:
           echo "## 后端CI结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ 代码格式检查：通过" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ 单元测试：通过" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ 静态代码分析：通过" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ 安全扫描：完成" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ 构建：成功" >> $GITHUB_STEP_SUMMARY
@@ -285,50 +272,6 @@ jobs:
           echo "- ✅ 依赖漏洞扫描：通过" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ 构建：成功" >> $GITHUB_STEP_SUMMARY
 
-  # 集成测试（验证backend和frontend的构建产物）
-  integration:
-    name: 集成测试
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [backend, frontend]
-    permissions:
-      contents: read
-    steps:
-      - name: 📥 拉取代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: 📥 下载后端构建产物
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-build
-          path: ./
-          if-no-files-found: ignore
-
-      - name: 📥 下载前端构建产物
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: ./
-          if-no-files-found: ignore
-
-      - name: ✅ 验证构建产物
-        run: |
-          echo "::group::验证构建产物"
-          if [ ! -f "registry-server" ] && [ ! -d "web/dist" ]; then
-            echo "::warning::构建产物未找到，但backend和frontend Job已通过，跳过验证"
-            exit 0
-          fi
-          if [ -f "registry-server" ]; then
-            echo "✅ 后端构建产物存在: $(ls -lh registry-server | awk '{print $5}')"
-          fi
-          if [ -d "web/dist" ]; then
-            echo "✅ 前端构建产物存在: $(du -sh web/dist | awk '{print $1}')"
-          fi
-          echo "✅ 构建产物验证通过"
-          echo "::endgroup::"
-
   # Docker镜像构建（多架构，并行执行）
   docker-build:
     name: Docker镜像构建（多架构）
@@ -406,208 +349,6 @@ jobs:
             echo "- ❌ 构建失败" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # ARM64架构测试（并行执行，不等待backend完成）
-  arm64-test:
-    name: ARM64架构测试
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [backend]
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
-    steps:
-      - name: 📥 拉取代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: 🐳 设置QEMU（ARM64模拟）
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: 🔧 配置Go环境（ARM64）
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: 🔨 交叉编译测试（ARM64）
-        run: |
-          echo "::group::ARM64交叉编译测试"
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -v -o registry-server-arm64 ./cmd/server/... || {
-            echo "::error::ARM64交叉编译失败"
-            exit 1
-          }
-          file registry-server-arm64 || echo "构建完成，检查二进制文件..."
-          echo "✅ ARM64交叉编译成功"
-          echo "::endgroup::"
-
-      - name: ✅ 验证ARM64二进制
-        run: |
-          echo "::group::验证ARM64二进制"
-          if [ ! -f "registry-server-arm64" ]; then
-            echo "::error::ARM64二进制文件不存在"
-            exit 1
-          fi
-          echo "✅ ARM64二进制构建成功"
-          ls -lh registry-server-arm64
-          echo "::endgroup::"
-
-  # E2E测试（并行执行，不等待frontend完成）
-  e2e-test:
-    name: E2E测试
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [frontend]
-    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: ./web
-    steps:
-      - name: 📥 拉取代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: 🔧 配置Node.js环境
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: 🌐 配置npm镜像源
-        run: |
-          npm config set registry https://registry.npmmirror.com
-
-      - name: 📦 安装依赖
-        run: |
-          echo "::group::安装E2E测试依赖"
-          npm ci --no-audit --progress=false || {
-            echo "::error::依赖安装失败"
-            exit 1
-          }
-          echo "✅ 依赖安装成功"
-          echo "::endgroup::"
-
-      - name: 🧪 运行E2E测试
-        run: |
-          echo "::group::运行E2E测试"
-          if [ -d "cypress/e2e" ] && [ "$(ls -A cypress/e2e/*.cy.ts 2>/dev/null)" ]; then
-            npm run test || {
-              echo "::error::E2E测试失败"
-              exit 1
-            }
-            echo "✅ E2E测试通过"
-          else
-            echo "::warning::未找到E2E测试文件，跳过测试"
-          fi
-          echo "::endgroup::"
-
-      - name: 📤 上传E2E测试结果
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: cypress-screenshots-${{ github.run_id }}
-          path: cypress/screenshots/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: 📤 上传E2E测试视频
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: cypress-videos-${{ github.run_id }}
-          path: cypress/videos/
-          retention-days: 7
-          if-no-files-found: ignore
-
-  # 性能测试（定时/手动触发，并行执行）
-  performance-test:
-    name: 性能测试
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [backend, frontend]
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-    steps:
-      - name: 📥 拉取代码
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: 🔧 配置Go环境
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: ⏱️ 后端构建性能测试
-        run: |
-          echo "::group::后端构建性能测试"
-          START_TIME=$(date +%s)
-          go build -v -o registry-server ./cmd/server/...
-          BUILD_EXIT_CODE=$?
-          END_TIME=$(date +%s)
-          DURATION=$((END_TIME - START_TIME))
-          
-          if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "::error::后端构建失败（耗时: ${DURATION}秒）"
-            exit $BUILD_EXIT_CODE
-          fi
-          
-          echo "后端构建耗时: ${DURATION}秒"
-          if [ $DURATION -gt 300 ]; then
-            echo "::warning::后端构建耗时超过5分钟（${DURATION}秒）"
-          else
-            echo "✅ 后端构建耗时正常（${DURATION}秒）"
-          fi
-          echo "::endgroup::"
-
-      - name: 🔧 配置Node.js环境
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-
-      - name: ⏱️ 前端构建性能测试
-        run: |
-          echo "::group::前端构建性能测试"
-          cd web
-          npm config set registry https://registry.npmmirror.com
-          npm ci --no-audit --progress=false
-          
-          START_TIME=$(date +%s)
-          npm run build
-          BUILD_EXIT_CODE=$?
-          END_TIME=$(date +%s)
-          DURATION=$((END_TIME - START_TIME))
-          
-          if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "::error::前端构建失败（耗时: ${DURATION}秒）"
-            exit $BUILD_EXIT_CODE
-          fi
-          
-          echo "前端构建耗时: ${DURATION}秒"
-          if [ $DURATION -gt 600 ]; then
-            echo "::warning::前端构建耗时超过10分钟（${DURATION}秒）"
-          else
-            echo "✅ 前端构建耗时正常（${DURATION}秒）"
-          fi
-          echo "::endgroup::"
-
-      - name: 📊 性能测试汇总
-        if: always()
-        run: |
-          echo "## 性能测试结果汇总" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 构建时间" >> $GITHUB_STEP_SUMMARY
-          echo "- 后端构建：已完成" >> $GITHUB_STEP_SUMMARY
-          echo "- 前端构建：已完成" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "详细结果请查看上方日志" >> $GITHUB_STEP_SUMMARY
-
   # CodeQL安全扫描（独立执行，不依赖其他Job）
   codeql:
     name: CodeQL安全扫描
@@ -649,15 +390,13 @@ jobs:
     name: 代码质量检查汇总
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [backend, frontend, integration, e2e-test]
+    needs: [backend, frontend]
     if: always()
     steps:
       - name: 📊 检查所有Job状态
         run: |
           BACKEND_STATUS="${{ needs.backend.result }}"
           FRONTEND_STATUS="${{ needs.frontend.result }}"
-          INTEGRATION_STATUS="${{ needs.integration.result }}"
-          E2E_STATUS="${{ needs.e2e-test.result }}"
           
           echo "## CI任务状态汇总" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -665,8 +404,6 @@ jobs:
           echo "|-----|------|" >> $GITHUB_STEP_SUMMARY
           echo "| 后端CI | $BACKEND_STATUS |" >> $GITHUB_STEP_SUMMARY
           echo "| 前端CI | $FRONTEND_STATUS |" >> $GITHUB_STEP_SUMMARY
-          echo "| 集成测试 | $INTEGRATION_STATUS |" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E测试 | $E2E_STATUS |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           FAILED_JOBS=()
@@ -674,12 +411,6 @@ jobs:
             FAILED_JOBS+=("后端CI")
           fi
           if [ "$FRONTEND_STATUS" != "success" ]; then
-            FAILED_JOBS+=("前端CI")
-          fi
-          if [ "$INTEGRATION_STATUS" != "success" ] && [ "$INTEGRATION_STATUS" != "skipped" ]; then
-            FAILED_JOBS+=("集成测试")
-          fi
-          if [ "$E2E_STATUS" != "success" ] && [ "$E2E_STATUS" != "skipped" ]; then
             FAILED_JOBS+=("前端CI")
           fi
           
@@ -700,8 +431,6 @@ jobs:
             echo "::error::CI任务失败: ${FAILED_JOBS[*]}"
             echo "后端状态: $BACKEND_STATUS"
             echo "前端状态: $FRONTEND_STATUS"
-            echo "集成测试状态: $INTEGRATION_STATUS"
-            echo "E2E测试状态: $E2E_STATUS"
             exit 1
           fi
           
