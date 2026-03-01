@@ -82,7 +82,9 @@ jobs:
             exit 1
           fi
           echo "✅ 构建验证通过"
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+          # 升级到适配 Go 1.24 的最新版本（v1.60.1+）
+          GOLANGCI_LINT_VERSION="v1.60.1"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
           # 确保 PATH 包含 golangci-lint
           export PATH=$(go env GOPATH)/bin:$PATH
           golangci-lint --version
@@ -92,9 +94,9 @@ jobs:
             exit 1
           fi
           # 运行 golangci-lint，使用配置文件
-          # 注意：配置文件中已通过 exclude-rules 排除所有 typecheck 错误
-          # 某些启用的 linter 可能依赖 typecheck，但错误会被排除规则过滤
-          golangci-lint run --config .golangci.yml ./... || {
+          # 使用 --modules-download-mode=readonly 确保依赖解析正确
+          # 新版本已修复与 Go 1.24 的兼容性问题，typecheck 应能正常工作
+          golangci-lint run --config .golangci.yml --modules-download-mode=readonly ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
           }
