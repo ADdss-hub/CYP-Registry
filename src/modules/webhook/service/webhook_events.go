@@ -175,4 +175,3 @@ func (s *WebhookService) PushScanEvent(projectID, repository, tag, digest, scanS
 
 	return s.TriggerEvent(eventType, projectID, repository, payload, actor)
 }
-

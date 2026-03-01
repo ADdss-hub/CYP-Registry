@@ -58,15 +58,15 @@ func (ImportTask) TableName() string {
 // NewImportTask 创建新的导入任务实体
 func NewImportTask(projectID, userID, sourceURL, normalizedSource, targetImage, targetTag string) *ImportTask {
 	return &ImportTask{
-		ID:              uuid.New().String(),
-		ProjectID:       projectID,
-		UserID:          userID,
-		SourceURL:       sourceURL,
+		ID:               uuid.New().String(),
+		ProjectID:        projectID,
+		UserID:           userID,
+		SourceURL:        sourceURL,
 		NormalizedSource: normalizedSource,
-		TargetImage:     targetImage,
-		TargetTag:       targetTag,
-		Status:          string(TaskStatusPending),
-		Progress:        0,
-		Message:         "任务已创建，等待执行",
+		TargetImage:      targetImage,
+		TargetTag:        targetTag,
+		Status:           string(TaskStatusPending),
+		Progress:         0,
+		Message:          "任务已创建，等待执行",
 	}
 }

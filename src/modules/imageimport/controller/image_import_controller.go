@@ -135,4 +135,3 @@ func (c *ImageImportController) ListTasks(ctx *gin.Context) {
 
 	response.Success(ctx, data)
 }
-

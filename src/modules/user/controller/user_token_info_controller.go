@@ -107,4 +107,3 @@ func (c *UserController) GetCurrentTokenInfo(ctx *gin.Context) {
 
 	response.Success(ctx, resp)
 }
-

@@ -431,11 +431,11 @@ func (s *projectService) GetStatistics(ctx context.Context, userID string) (tota
 		TotalImages  int64 `gorm:"column:total_images"`
 		TotalStorage int64 `gorm:"column:total_storage"`
 	}
-	
+
 	// 使用新的查询实例，避免 Count 操作影响后续查询
 	statsQuery := s.db.Model(&Project{}).
 		Where("(owner_id = ? OR id IN (?)) AND deleted_at IS NULL", userID, subQuery)
-	
+
 	if err := statsQuery.Select("COALESCE(SUM(image_count), 0) as total_images, COALESCE(SUM(storage_used), 0) as total_storage").
 		Scan(&result).Error; err != nil {
 		return 0, 0, 0, fmt.Errorf("failed to calculate statistics: %w", err)

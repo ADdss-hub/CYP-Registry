@@ -431,7 +431,7 @@ func (c *ProjectController) GetStatistics(ctx *gin.Context) {
 	response.Success(ctx, gin.H{
 		"total_projects": totalProjects,
 		"total_images":   totalImages,
-		"total_storage":   totalStorage,
+		"total_storage":  totalStorage,
 	})
 }
 

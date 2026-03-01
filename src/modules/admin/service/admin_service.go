@@ -116,11 +116,11 @@ func (s *Service) GetSystemConfig() (*dto.SystemConfigResponse, error) {
 
 	return &dto.SystemConfigResponse{
 		HTTPS: dto.HTTPSConfig{
-			Enabled:              httpsEnabled,
-			SSLCertificatePath:   sslCertPath,
+			Enabled:               httpsEnabled,
+			SSLCertificatePath:    sslCertPath,
 			SSLCertificateKeyPath: sslKeyPath,
-			SSLProtocols:         sslProtocols,
-			HTTPRedirect:         httpRedirect,
+			SSLProtocols:          sslProtocols,
+			HTTPRedirect:          httpRedirect,
 		},
 		CORS: dto.CORSConfigResponse{
 			AllowedOrigins: cfg.Security.CORS.AllowedOrigins,

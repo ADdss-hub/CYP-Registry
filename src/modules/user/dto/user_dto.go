@@ -120,14 +120,14 @@ type CreatePATResponse struct {
 
 // TokenInfoResponse 当前Token信息响应
 type TokenInfoResponse struct {
-	TokenType string       `json:"token_type"` // "jwt" 或 "pat"
-	User      UserResponse `json:"user"`        // 用户信息
+	TokenType string       `json:"token_type"`       // "jwt" 或 "pat"
+	User      UserResponse `json:"user"`             // 用户信息
 	PATID     *uuid.UUID   `json:"pat_id,omitempty"` // PAT ID（仅PAT token时返回）
 	Scopes    []string     `json:"scopes,omitempty"` // PAT权限范围（仅PAT token时返回）
-	HasRead   bool         `json:"has_read"`   // 是否有读取权限
-	HasWrite  bool         `json:"has_write"`  // 是否有写入权限
-	HasDelete bool         `json:"has_delete"` // 是否有删除权限
-	HasAdmin  bool         `json:"has_admin"`  // 是否有管理员权限
+	HasRead   bool         `json:"has_read"`         // 是否有读取权限
+	HasWrite  bool         `json:"has_write"`        // 是否有写入权限
+	HasDelete bool         `json:"has_delete"`       // 是否有删除权限
+	HasAdmin  bool         `json:"has_admin"`        // 是否有管理员权限
 }
 
 // ==================== 项目相关DTO ====================
