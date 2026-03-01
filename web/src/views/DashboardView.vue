@@ -1,22 +1,32 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useProjectStore } from "@/stores/project";
+import { projectApi } from "@/services/project";
 import CypButton from "@/components/common/CypButton.vue";
 
 const router = useRouter();
 const projectStore = useProjectStore();
 
+const statistics = ref<{
+  total_projects: number;
+  total_images: number;
+  total_storage: number;
+} | null>(null);
+
 const statsCards = computed(() => {
-  // 项目总数应使用分页 total，避免只统计当前页导致仪表盘与项目列表不一致
+  // 优先使用后端统计接口返回的准确数据，避免只统计当前页导致仪表盘与项目列表不一致
   const projectCount =
-    (projectStore.pagination && projectStore.pagination.total) ||
-    projectStore.projects?.length ||
-    0;
-  const imageCount = (projectStore.projects || []).reduce(
-    (sum, p: any) => sum + (p.imageCount || 0),
-    0,
-  );
+    statistics.value?.total_projects ??
+    (projectStore.pagination?.total ??
+      (projectStore.projects?.length ?? 0));
+
+  const imageCount =
+    statistics.value?.total_images ??
+    (projectStore.projects || []).reduce(
+      (sum, p: any) => sum + (p.imageCount || 0),
+      0,
+    );
   return [
     {
       title: "项目总数",
@@ -30,6 +40,12 @@ const statsCards = computed(() => {
 
 async function loadDashboardData() {
   await projectStore.fetchProjects({ pageSize: 5 });
+  // 加载统计数据
+  try {
+    statistics.value = await projectApi.getStatistics();
+  } catch (err) {
+    console.error("Failed to load statistics:", err);
+  }
 }
 
 onMounted(() => {

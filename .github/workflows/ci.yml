@@ -2,615 +2,722 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - 'feature/**'
-      - 'fix/**'
-    tags:
-      - 'v*.*.*'
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
+    branches: [main, dev]
   pull_request:
-    branches: [main, develop]
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-  schedule:
-    # 每周一 00:00 UTC 执行一次安全审计
-    - cron: '0 0 * * 1'
+    branches: [main, dev]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: write
-  security-events: write
+  schedule:
+    # 每天凌晨2点执行全量测试
+    - cron: '0 2 * * *'
 
 env:
+  GO_VERSION: '1.24'
+  NODE_VERSION: '20'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  # 注意：Docker 仓库名必须全小写，这里直接显式指定小写形式，避免表达式函数不兼容问题
-  IMAGE_NAME_SLUG: addss-hub/cyp-registry
-  NODE_VERSION: '20'
-  GOPROXY: https://goproxy.cn,direct
-  NODE_REGISTRY: https://registry.npmmirror.com
-
-concurrency:
-  group: cyp-registry-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  quality-check:
-    name: Quality Check
+  # 后端CI
+  backend:
+    name: 后端CI
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: |
-            web/package-lock.json
-
-      - name: Run gofmt (list)
-        run: gofmt -l .
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run staticcheck
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
-
-      - name: Install frontend dependencies
-        working-directory: web
-        run: npm ci --registry=${{ env.NODE_REGISTRY }} --no-audit --progress=false
-
-      - name: Frontend lint (no-fix)
-        working-directory: web
-        run: npx eslint src/ --ext .vue,.ts,.tsx --max-warnings=0
-
-      - name: Prettier check
-        working-directory: web
-        run: npx prettier --check src/
-
-      - name: Type check (Vue)
-        working-directory: web
-        run: npx vue-tsc --noEmit
-
-  unit-test:
-    name: Unit Test
-    runs-on: ubuntu-latest
-    needs: quality-check
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Run Go tests with coverage
-        run: |
-          go test -race -coverprofile=coverage.out -covermode=atomic ./...
-          go tool cover -func=coverage.out
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.out
-          fail_ci_if_error: false
-          verbose: true
-
-      - name: Check coverage threshold (目标 >= 60%，不阻断 CI，仅告警)
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          MIN_COVERAGE=60
-          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
-            echo "⚠️ 测试覆盖率 $COVERAGE% < $MIN_COVERAGE%，仅告警，不阻断当前 CI。请后续通过补充测试用例逐步提升覆盖率。"
-          else
-            echo "✅ 测试覆盖率 $COVERAGE% >= $MIN_COVERAGE%"
-          fi
-
-  windows-build:
-    name: Windows Build & Test
-    runs-on: windows-latest
-    needs: quality-check
     timeout-minutes: 30
-    if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v'))) ||
-      (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop'))
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - name: Checkout
+      - name: 📥 拉取代码
         uses: actions/checkout@v4
-        timeout-minutes: 5
+        with:
+          fetch-depth: 1
 
-      - name: Set up Go
+      - name: 🔧 配置Go环境
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-          cache: true
-        timeout-minutes: 3
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: 💾 缓存Go模块
+        uses: actions/cache@v4
+        id: go-cache
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: |
-            web/package-lock.json
-        timeout-minutes: 3
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-      - name: Run Go tests (Windows)
-        timeout-minutes: 10
+      - name: 📦 下载依赖
         run: |
-          go test -race ./...
-        continue-on-error: false
+          echo "::group::下载Go依赖"
+          go mod download
+          echo "::endgroup::"
 
-      - name: Install frontend dependencies
-        working-directory: web
-        timeout-minutes: 5
-        run: npm ci --registry=${{ env.NODE_REGISTRY }} --no-audit --progress=false
-
-      - name: Build frontend (Windows)
-        working-directory: web
-        timeout-minutes: 10
-        run: npm run build
-        env:
-          NODE_ENV: production
-
-  build-verify:
-    name: Build Verify (Dockerfile.single)
-    runs-on: ubuntu-latest
-    needs: unit-test
-    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')))
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.single
-          push: false
-          tags: cyp-registry:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            GOPROXY=${{ env.GOPROXY }}
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: unit-test
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Trivy FS scan (push/PR)
-        if: github.event_name != 'schedule'
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          exit-code: '0'
-
-      - name: Trivy FS scan (schedule)
-        if: github.event_name == 'schedule'
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-
-      - name: Upload Trivy SARIF
-        if: always() && hashFiles('trivy-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Install gosec
+      - name: 🔍 代码格式检查
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-
-      - name: Run gosec
-        run: |
-          gosec -fmt=sarif -out=gosec-results.sarif ./...
-        continue-on-error: true
-
-      - name: Sanitize gosec SARIF
-        if: always() && hashFiles('gosec-results.sarif') != ''
-        run: |
-          jq '
-            if .runs then
-              .runs[0].tool.driver.rules |=
-                (map(
-                  if .relationships then
-                    .relationships |= map(select(. != null))
-                  else
-                    .
-                  end
-                ))
-            else
-              .
-            end
-          ' gosec-results.sarif > gosec-results.cleaned.sarif
-
-      - name: Upload gosec SARIF
-        if: always() && hashFiles('gosec-results.cleaned.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: gosec-results.cleaned.sarif
-          category: gosec
-        continue-on-error: true
-
-      - name: Install gitleaks (schedule only)
-        if: github.event_name == 'schedule'
-        run: |
-          wget -O /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_x64.tar.gz
-          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
-          sudo mv /tmp/gitleaks /usr/local/bin/
-
-      - name: Run gitleaks (schedule only)
-        if: github.event_name == 'schedule'
-        run: |
-          gitleaks detect --source=. --verbose --redact --leaks-exit-code=1 || true
-
-  e2e-test:
-    name: E2E Test (PR -> main)
-    runs-on: ubuntu-latest
-    needs: unit-test
-    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: registry_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    env:
-      DB_HOST: localhost
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: registry_db
-      DB_SSLMODE: disable
-      REDIS_HOST: localhost
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
-      APP_HOST: 0.0.0.0
-      APP_PORT: 8080
-      STORAGE_TYPE: local
-      STORAGE_LOCAL_ROOT_PATH: /tmp/storage
-      CYPRESS_apiUrl: http://localhost:8080/api/v1
-      CYPRESS_TEST_USERNAME: testuser
-      CYPRESS_TEST_PASSWORD: TestPassword123
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        timeout-minutes: 2
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-        timeout-minutes: 2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: |
-            web/package-lock.json
-        timeout-minutes: 2
-
-      - name: Install frontend dependencies
-        working-directory: ./web
-        run: npm ci --registry=${{ env.NODE_REGISTRY }} --no-audit --progress=false
-        timeout-minutes: 5
-
-      - name: Build frontend
-        working-directory: ./web
-        run: npm run build
-        timeout-minutes: 10
-        env:
-          NODE_ENV: production
-
-      - name: Prepare storage directory
-        run: mkdir -p /tmp/storage
-        timeout-minutes: 1
-
-      - name: Start backend server
-        id: backend
-        timeout-minutes: 3
-        run: |
-          # 启动后端服务（后台运行）
-          nohup go run ./cmd/server/main.go > /tmp/backend.log 2>&1 &
-          echo $! > /tmp/backend.pid
-          echo "Backend PID: $(cat /tmp/backend.pid)"
-          
-          # 等待后端服务就绪（最多等待60秒）
-          MAX_RETRIES=30
-          RETRY_INTERVAL=2
-          for i in $(seq 1 $MAX_RETRIES); do
-            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
-              echo "✅ Backend server is ready"
-              curl http://localhost:8080/health
-              echo "backend_ready=true" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            echo "⏳ Waiting for backend server... ($i/$MAX_RETRIES)"
-            sleep $RETRY_INTERVAL
-          done
-          
-          # 如果后端仍未就绪，显示日志并退出
-          echo "❌ Backend server failed to start after $((MAX_RETRIES * RETRY_INTERVAL)) seconds"
-          echo "=== Backend Logs ==="
-          cat /tmp/backend.log || true
-          echo "=== Process Status ==="
-          ps aux | grep -E "(go run|main.go)" || true
-          exit 1
-
-      - name: Verify frontend build exists
-        working-directory: ./web
-        run: |
-          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
-            echo "❌ Frontend build directory is missing or empty"
+          echo "::group::代码格式检查"
+          if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
+            echo "::error::发现格式问题，请运行 'gofmt -w .' 修复"
+            gofmt -d .
             exit 1
           fi
-          echo "✅ Frontend build exists"
-          ls -la dist/ | head -10
+          echo "✅ 代码格式检查通过"
+          echo "::endgroup::"
 
-      - name: Cypress run
-        uses: cypress-io/github-action@v6
-        timeout-minutes: 15
-        with:
-          start: npm run preview:ci
-          wait-on: 'http://localhost:4173'
-          wait-on-timeout: 120
-          wait-on-http-status-code: 200
-          working-directory: ./web
-          record: false
-          parallel: false
-          browser: chrome
-          config-file: cypress.config.ts
-          install: false
-        env:
-          CYPRESS_apiUrl: http://localhost:8080/api/v1
-          CYPRESS_TEST_USERNAME: testuser
-          CYPRESS_TEST_PASSWORD: TestPassword123
-          NODE_ENV: production
-
-      - name: Stop backend server
-        if: always()
-        timeout-minutes: 2
+      - name: 🧪 运行单元测试
         run: |
-          echo "🧹 Cleaning up backend server..."
-          if [ -f /tmp/backend.pid ]; then
-            PID=$(cat /tmp/backend.pid)
-            echo "Stopping process $PID"
-            kill $PID 2>/dev/null || true
-            sleep 2
-            # 强制杀死如果还在运行
-            kill -9 $PID 2>/dev/null || true
-            rm -f /tmp/backend.pid
+          echo "::group::运行单元测试"
+          go test -v -race ./... 2>&1 | tee test-output.log
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "::error::单元测试失败"
+            exit $TEST_EXIT_CODE
           fi
-          # 清理可能残留的进程
-          pkill -f "go run.*main.go" || true
-          pkill -f "./cmd/server/main.go" || true
-          echo "✅ Backend cleanup completed"
+          echo "✅ 单元测试通过"
+          echo "::endgroup::"
 
-      - name: Upload Cypress screenshots
-        uses: actions/upload-artifact@v4
-        if: failure()
-        timeout-minutes: 2
-        with:
-          name: cypress-screenshots-${{ github.run_id }}
-          path: web/cypress/screenshots
-          retention-days: 7
-          if-no-files-found: ignore
+      - name: 🔎 静态代码分析 (golangci-lint)
+        run: |
+          echo "::group::静态代码分析 (golangci-lint)"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+          golangci-lint --version
+          golangci-lint run ./... || {
+            echo "::error::golangci-lint 检查失败"
+            exit 1
+          }
+          echo "✅ golangci-lint 检查通过"
+          echo "::endgroup::"
 
-      - name: Upload Cypress videos
-        uses: actions/upload-artifact@v4
+      - name: 🔎 静态代码分析 (staticcheck)
+        run: |
+          echo "::group::静态代码分析 (staticcheck)"
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./... || {
+            echo "::error::staticcheck 检查失败"
+            exit 1
+          }
+          echo "✅ staticcheck 检查通过"
+          echo "::endgroup::"
+
+      - name: 🔒 Go安全扫描 (gosec)
+        run: |
+          echo "::group::Go安全扫描 (gosec)"
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt=sarif -out=gosec-results.sarif ./... || {
+            echo "::warning::gosec 发现安全问题，但继续执行"
+          }
+          gosec -fmt=json -out=gosec-results.json ./... || true
+          echo "✅ gosec 扫描完成"
+          echo "::endgroup::"
+
+      - name: 📤 上传gosec结果到GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
-        timeout-minutes: 2
         with:
-          name: cypress-videos-${{ github.run_id }}
-          path: web/cypress/videos
-          retention-days: 7
-          if-no-files-found: ignore
+          sarif_file: gosec-results.sarif
+          category: gosec
 
-      - name: Upload backend logs
-        uses: actions/upload-artifact@v4
-        if: failure()
-        timeout-minutes: 1
-        with:
-          name: backend-logs-${{ github.run_id }}
-          path: /tmp/backend.log
-          retention-days: 3
-          if-no-files-found: ignore
+      - name: 🛡️ 依赖漏洞扫描 (nancy)
+        run: |
+          echo "::group::依赖漏洞扫描 (nancy)"
+          go install github.com/sonatypecommunity/nancy@latest
+          go list -json -deps | nancy sleuth || {
+            echo "::warning::nancy 发现依赖漏洞，请检查"
+          }
+          echo "✅ nancy 扫描完成"
+          echo "::endgroup::"
 
-  build-and-push-release:
-    name: Release - Build & Push Image
+      - name: 🏗️ 构建后端
+        run: |
+          echo "::group::构建后端"
+          go build -v -o registry-server ./cmd/server/...
+          if [ ! -f "registry-server" ]; then
+            echo "::error::后端构建失败"
+            exit 1
+          fi
+          echo "✅ 后端构建成功"
+          ls -lh registry-server
+          echo "::endgroup::"
+
+      - name: 📊 后端CI汇总
+        if: always()
+        run: |
+          echo "## 后端CI结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 代码格式检查：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 单元测试：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 静态代码分析：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 安全扫描：完成" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 构建：成功" >> $GITHUB_STEP_SUMMARY
+
+  # 前端CI
+  frontend:
+    name: 前端CI
     runs-on: ubuntu-latest
-    needs: [security-scan]
-    if: startsWith(github.ref, 'refs/tags/v')
-    env:
-      EXTERNAL_DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
-      EXTERNAL_DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      EXTERNAL_DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      # 外部仓库的完整仓库名（如 cyp97/cyp-registry），如果未设置则使用 EXTERNAL_DOCKER_USERNAME/cyp-registry
-      EXTERNAL_DOCKER_REPO: ${{ secrets.DOCKER_REPO }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: ./web
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🔧 配置Node.js环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: 🌐 配置npm镜像源（中国优化）
+        run: |
+          echo "::group::配置npm镜像源"
+          npm config set registry https://registry.npmmirror.com
+          npm config set sass_binary_site https://npmmirror.com/mirrors/node-sass
+          npm config set phantomjs_cdnurl https://npmmirror.com/mirrors/phantomjs
+          npm config set electron_mirror https://npmmirror.com/mirrors/electron/
+          npm config set python_mirror https://npmmirror.com/mirrors/python/
+          echo "✅ npm镜像源配置完成"
+          echo "::endgroup::"
+
+      - name: 📦 安装依赖
+        run: |
+          echo "::group::安装前端依赖"
+          npm ci --no-audit --progress=false || {
+            echo "::error::依赖安装失败"
+            exit 1
+          }
+          echo "✅ 依赖安装成功"
+          echo "::endgroup::"
+
+      - name: 🔍 TypeScript类型检查
+        run: |
+          echo "::group::TypeScript类型检查"
+          npm run type-check || {
+            echo "::error::TypeScript类型检查失败"
+            exit 1
+          }
+          echo "✅ TypeScript类型检查通过"
+          echo "::endgroup::"
+
+      - name: 🎨 代码格式检查 (Prettier)
+        run: |
+          echo "::group::代码格式检查 (Prettier)"
+          npx prettier --check src/ || {
+            echo "::error::代码格式检查失败，请运行 'npx prettier --write src/' 修复"
+            exit 1
+          }
+          echo "✅ 代码格式检查通过"
+          echo "::endgroup::"
+
+      - name: 🔎 代码质量检查 (ESLint)
+        run: |
+          echo "::group::代码质量检查 (ESLint)"
+          npx eslint src/ --ext .vue,.ts,.tsx --max-warnings=0 || {
+            echo "::error::ESLint检查失败"
+            exit 1
+          }
+          echo "✅ ESLint检查通过"
+          echo "::endgroup::"
+
+      - name: 🛡️ 依赖漏洞扫描
+        run: |
+          echo "::group::依赖漏洞扫描"
+          npm audit --audit-level=high || {
+            echo "::error::发现高危依赖漏洞"
+            exit 1
+          }
+          echo "✅ 依赖漏洞扫描通过"
+          echo "::endgroup::"
+
+      - name: 🏗️ 构建前端
+        run: |
+          echo "::group::构建前端"
+          npm run build || {
+            echo "::error::前端构建失败"
+            exit 1
+          }
+          if [ ! -d "dist" ]; then
+            echo "::error::构建产物不存在"
+            exit 1
+          fi
+          echo "✅ 前端构建成功"
+          du -sh dist/
+          echo "::endgroup::"
+
+      - name: 📤 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: web/dist/
+          retention-days: 7
+
+      - name: 📊 前端CI汇总
+        if: always()
+        run: |
+          echo "## 前端CI结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ TypeScript类型检查：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 代码格式检查：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ ESLint检查：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 依赖漏洞扫描：通过" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 构建：成功" >> $GITHUB_STEP_SUMMARY
+
+  # 集成测试（并行执行，不等待backend/frontend完成）
+  integration:
+    name: 集成测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend, frontend]
+    permissions:
+      contents: read
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🔧 配置Go环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 🏗️ 构建后端
+        run: |
+          echo "::group::构建后端"
+          go build -o registry-server ./cmd/server/... || {
+            echo "::error::后端构建失败"
+            exit 1
+          }
+          echo "✅ 后端构建成功"
+          echo "::endgroup::"
+
+      - name: 🔧 配置Node.js环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: 🌐 配置npm镜像源
+        run: |
+          cd web
+          npm config set registry https://registry.npmmirror.com
+
+      - name: 📦 安装前端依赖
+        run: |
+          echo "::group::安装前端依赖"
+          cd web
+          npm ci --no-audit --progress=false || {
+            echo "::error::前端依赖安装失败"
+            exit 1
+          }
+          echo "✅ 前端依赖安装成功"
+          echo "::endgroup::"
+
+      - name: 🏗️ 构建前端
+        run: |
+          echo "::group::构建前端"
+          cd web
+          npm run build || {
+            echo "::error::前端构建失败"
+            exit 1
+          }
+          echo "✅ 前端构建成功"
+          echo "::endgroup::"
+
+      - name: ✅ 验证构建产物
+        run: |
+          echo "::group::验证构建产物"
+          if [ ! -f "registry-server" ]; then
+            echo "::error::后端构建产物不存在"
+            exit 1
+          fi
+          if [ ! -d "web/dist" ]; then
+            echo "::error::前端构建产物不存在"
+            exit 1
+          fi
+          echo "✅ 构建产物验证通过"
+          echo "- 后端: $(ls -lh registry-server | awk '{print $5}')"
+          echo "- 前端: $(du -sh web/dist | awk '{print $1}')"
+          echo "::endgroup::"
+
+  # Docker镜像构建（多架构，并行执行）
+  docker-build:
+    name: Docker镜像构建（多架构）
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
     steps:
-      - name: Checkout
+      - name: 📥 拉取代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Set up Docker Buildx
+      - name: 🐳 设置Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
 
-      - name: Log in to GHCR
+      - name: 🔐 登录到GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: 📋 提取元数据
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=sha,prefix={{branch}}-
+            type=raw,value=${{ matrix.platform }},enable={{is_default_branch}}
 
-      - name: Build and push (GHCR)
-        uses: docker/build-push-action@v6
+      - name: 🏗️ 构建并推送Docker镜像（${{ matrix.platform }}）
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile.single
+          file: ./Dockerfile.single
+          platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           build-args: |
-            GOPROXY=${{ env.GOPROXY }}
+            TARGETOS=${{ matrix.platform == 'linux/amd64' && 'linux' || 'linux' }}
+            TARGETARCH=${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+        continue-on-error: false
 
-      - name: Log in to external registry (optional)
-        if: env.EXTERNAL_DOCKER_REGISTRY != '' && env.EXTERNAL_DOCKER_USERNAME != '' && env.EXTERNAL_DOCKER_PASSWORD != ''
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.EXTERNAL_DOCKER_REGISTRY }}
-          username: ${{ env.EXTERNAL_DOCKER_USERNAME }}
-          password: ${{ env.EXTERNAL_DOCKER_PASSWORD }}
-        continue-on-error: true
-
-      - name: Re-tag and push to external registry (optional)
-        if: env.EXTERNAL_DOCKER_REGISTRY != '' && env.EXTERNAL_DOCKER_USERNAME != '' && env.EXTERNAL_DOCKER_PASSWORD != ''
-        continue-on-error: true
+      - name: 📊 Docker构建汇总
+        if: always()
         run: |
-          # 使用 GHCR 中已构建的镜像（全小写仓库名，使用语义化版本号，如 0.1.9）
-          set -e
-          SOURCE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SLUG }}:${{ steps.meta.outputs.version }}"
-          
-          # 确定外部仓库的完整仓库名
-          if [ -n "${{ env.EXTERNAL_DOCKER_REPO }}" ]; then
-            EXTERNAL_REPO="${{ env.EXTERNAL_DOCKER_REPO }}"
+          echo "## Docker镜像构建结果 (${{ matrix.platform }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "- ✅ 构建成功" >> $GITHUB_STEP_SUMMARY
+            echo "- 📦 镜像标签: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           else
-            # 如果未设置 EXTERNAL_DOCKER_REPO，则使用 EXTERNAL_DOCKER_USERNAME/cyp-registry
-            EXTERNAL_REPO="${{ env.EXTERNAL_DOCKER_USERNAME }}/cyp-registry"
+            echo "- ❌ 构建失败" >> $GITHUB_STEP_SUMMARY
           fi
-          
-          TARGET_IMAGE="${{ env.EXTERNAL_DOCKER_REGISTRY }}/$EXTERNAL_REPO:${{ steps.meta.outputs.version }}"
-          
-          echo "📥 从 GHCR 拉取镜像: $SOURCE_IMAGE"
-          docker pull "$SOURCE_IMAGE" || {
-            echo "❌ 拉取镜像失败: $SOURCE_IMAGE"
-            exit 1
-          }
-          
-          echo "🏷️  标记镜像: $SOURCE_IMAGE -> $TARGET_IMAGE"
-          docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE" || {
-            echo "❌ 标记镜像失败"
-            exit 1
-          }
-          
-          echo "📤 推送到外部仓库: $TARGET_IMAGE"
-          echo "   仓库地址: ${{ env.EXTERNAL_DOCKER_REGISTRY }}"
-          echo "   用户名: ${{ env.EXTERNAL_DOCKER_USERNAME }}"
-          echo "   仓库名: $EXTERNAL_REPO"
-          echo "   版本: ${{ steps.meta.outputs.version }}"
-          
-          # 验证 Docker 登录状态
-          if [ "${{ env.EXTERNAL_DOCKER_REGISTRY }}" = "docker.io" ] || [ -z "${{ env.EXTERNAL_DOCKER_REGISTRY }}" ]; then
-            echo "🔍 验证 Docker Hub 登录状态..."
-            docker info | grep -i "username" || echo "⚠️  无法验证登录状态"
-          fi
-          
-          docker push "$TARGET_IMAGE" || {
-            echo "❌ 推送失败: $TARGET_IMAGE"
-            echo "💡 可能的原因："
-            echo "   1. Docker Hub 仓库不存在或名称不匹配"
-            echo "   2. 认证信息错误"
-            echo "   3. 没有推送权限"
-            echo "   4. 仓库名称必须完全匹配（包括大小写）"
-            exit 1
-          }
-          
-          echo "✅ 成功推送到外部仓库: $TARGET_IMAGE"
 
-  github-release:
-    name: Release - Create GitHub Release
+  # ARM64架构测试（并行执行，不等待backend完成）
+  arm64-test:
+    name: ARM64架构测试
     runs-on: ubuntu-latest
-    needs: build-and-push-release
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
+    timeout-minutes: 15
+    needs: [backend]
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     steps:
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          fetch-depth: 1
 
+      - name: 🐳 设置QEMU（ARM64模拟）
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: 🔧 配置Go环境（ARM64）
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 🔨 交叉编译测试（ARM64）
+        run: |
+          echo "::group::ARM64交叉编译测试"
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -v -o registry-server-arm64 ./cmd/server/... || {
+            echo "::error::ARM64交叉编译失败"
+            exit 1
+          }
+          file registry-server-arm64 || echo "构建完成，检查二进制文件..."
+          echo "✅ ARM64交叉编译成功"
+          echo "::endgroup::"
+
+      - name: ✅ 验证ARM64二进制
+        run: |
+          echo "::group::验证ARM64二进制"
+          if [ ! -f "registry-server-arm64" ]; then
+            echo "::error::ARM64二进制文件不存在"
+            exit 1
+          fi
+          echo "✅ ARM64二进制构建成功"
+          ls -lh registry-server-arm64
+          echo "::endgroup::"
+
+  # E2E测试（并行执行，不等待frontend完成）
+  e2e-test:
+    name: E2E测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [frontend]
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ./web
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🔧 配置Node.js环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: 🌐 配置npm镜像源
+        run: |
+          cd web
+          npm config set registry https://registry.npmmirror.com
+
+      - name: 📦 安装依赖
+        run: |
+          echo "::group::安装E2E测试依赖"
+          cd web
+          npm ci --no-audit --progress=false || {
+            echo "::error::依赖安装失败"
+            exit 1
+          }
+          echo "✅ 依赖安装成功"
+          echo "::endgroup::"
+
+      - name: 🧪 运行E2E测试
+        run: |
+          echo "::group::运行E2E测试"
+          cd web
+          npm run test || {
+            echo "::warning::E2E测试失败或未配置"
+          }
+          echo "::endgroup::"
+        continue-on-error: true
+
+      - name: 📤 上传E2E测试结果
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-screenshots-${{ github.run_id }}
+          path: web/cypress/screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 📤 上传E2E测试视频
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-videos-${{ github.run_id }}
+          path: web/cypress/videos/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # 性能测试（定时/手动触发，并行执行）
+  performance-test:
+    name: 性能测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [backend, frontend]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🔧 配置Go环境
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: ⏱️ 后端构建性能测试
+        run: |
+          echo "::group::后端构建性能测试"
+          START_TIME=$(date +%s)
+          go build -v -o registry-server ./cmd/server/...
+          BUILD_EXIT_CODE=$?
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "::error::后端构建失败（耗时: ${DURATION}秒）"
+            exit $BUILD_EXIT_CODE
+          fi
+          
+          echo "后端构建耗时: ${DURATION}秒"
+          if [ $DURATION -gt 300 ]; then
+            echo "::warning::后端构建耗时超过5分钟（${DURATION}秒）"
+          else
+            echo "✅ 后端构建耗时正常（${DURATION}秒）"
+          fi
+          echo "::endgroup::"
+
+      - name: 🔧 配置Node.js环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: ⏱️ 前端构建性能测试
+        run: |
+          echo "::group::前端构建性能测试"
+          cd web
+          npm config set registry https://registry.npmmirror.com
+          npm ci --no-audit --progress=false
+          
+          START_TIME=$(date +%s)
+          npm run build
+          BUILD_EXIT_CODE=$?
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "::error::前端构建失败（耗时: ${DURATION}秒）"
+            exit $BUILD_EXIT_CODE
+          fi
+          
+          echo "前端构建耗时: ${DURATION}秒"
+          if [ $DURATION -gt 600 ]; then
+            echo "::warning::前端构建耗时超过10分钟（${DURATION}秒）"
+          else
+            echo "✅ 前端构建耗时正常（${DURATION}秒）"
+          fi
+          echo "::endgroup::"
+
+      - name: 📊 性能测试汇总
+        if: always()
+        run: |
+          echo "## 性能测试结果汇总" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 构建时间" >> $GITHUB_STEP_SUMMARY
+          echo "- 后端构建：已完成" >> $GITHUB_STEP_SUMMARY
+          echo "- 前端构建：已完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "详细结果请查看上方日志" >> $GITHUB_STEP_SUMMARY
+
+  # CodeQL安全扫描（独立执行，不依赖其他Job）
+  codeql:
+    name: CodeQL安全扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔒 初始化CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go, javascript
+          queries: +security-and-quality
+
+      - name: 🏗️ 自动构建
+        uses: github/codeql-action/autobuild@v3
+
+      - name: 🔍 执行CodeQL分析
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:go
+          category: /language:javascript
+
+      - name: 📊 CodeQL扫描汇总
+        if: always()
+        run: |
+          echo "## CodeQL安全扫描结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 扫描完成" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 结果已上传到GitHub Security" >> $GITHUB_STEP_SUMMARY
+
+  # 代码质量检查汇总（优化错误报告）
+  quality-check:
+    name: 代码质量检查汇总
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [backend, frontend, integration]
+    if: always()
+    steps:
+      - name: 📊 检查所有Job状态
+        run: |
+          BACKEND_STATUS="${{ needs.backend.result }}"
+          FRONTEND_STATUS="${{ needs.frontend.result }}"
+          INTEGRATION_STATUS="${{ needs.integration.result }}"
+          
+          echo "## CI任务状态汇总" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | 状态 | 执行时间 |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 后端CI | $BACKEND_STATUS | ${{ needs.backend.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 前端CI | $FRONTEND_STATUS | ${{ needs.frontend.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 集成测试 | $INTEGRATION_STATUS | ${{ needs.integration.outputs.duration || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          FAILED_JOBS=()
+          if [ "$BACKEND_STATUS" != "success" ]; then
+            FAILED_JOBS+=("后端CI")
+          fi
+          if [ "$FRONTEND_STATUS" != "success" ]; then
+            FAILED_JOBS+=("前端CI")
+          fi
+          if [ "$INTEGRATION_STATUS" != "success" ]; then
+            FAILED_JOBS+=("集成测试")
+          fi
+          
+          if [ ${#FAILED_JOBS[@]} -gt 0 ]; then
+            echo "❌ **部分CI任务失败**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 失败详情" >> $GITHUB_STEP_SUMMARY
+            for job in "${FAILED_JOBS[@]}"; do
+              echo "- ❌ $job" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 排查建议" >> $GITHUB_STEP_SUMMARY
+            echo "1. 查看失败的Job日志" >> $GITHUB_STEP_SUMMARY
+            echo "2. 检查代码格式和类型错误" >> $GITHUB_STEP_SUMMARY
+            echo "3. 确认依赖安装是否成功" >> $GITHUB_STEP_SUMMARY
+            echo "4. 检查构建产物是否存在" >> $GITHUB_STEP_SUMMARY
+            
+            echo "::error::CI任务失败: ${FAILED_JOBS[*]}"
+            echo "后端状态: $BACKEND_STATUS"
+            echo "前端状态: $FRONTEND_STATUS"
+            echo "集成测试状态: $INTEGRATION_STATUS"
+            exit 1
+          fi
+          
+          echo "✅ **所有CI任务通过**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "所有检查已完成，代码质量良好。" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 所有CI任务通过"

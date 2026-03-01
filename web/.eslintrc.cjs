@@ -1,5 +1,3 @@
-/* eslint-env node */
-
 /**
  * 基于 Vue 3 + TypeScript 的基础 ESLint 配置，
  * 使用项目中已经安装的 eslint、eslint-plugin-vue 和 @vue/eslint-config-typescript。

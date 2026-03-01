@@ -12,6 +12,7 @@ import CypDialog from "@/components/common/CypDialog.vue";
 import CypLoading from "@/components/common/CypLoading.vue";
 import CypCheckbox from "@/components/common/CypCheckbox.vue";
 import { copyToClipboard } from "@/utils/clipboard";
+import { imageImportApi, type ImportTask } from "@/services/imageImport";
 const route = useRoute();
 const router = useRouter();
 const projectStore = useProjectStore();
@@ -42,6 +43,16 @@ interface ProjectImage {
   // 若后端暂未提供推送时间/用户信息，则使用空值并在界面上展示“未知”
   pushTime: string | null;
   pushedBy: string | null;
+}
+
+interface ImportFormState {
+  source_url: string;
+  target_image: string;
+  target_tag: string;
+  auth: {
+    username: string;
+    password: string;
+  };
 }
 
 // 镜像列表（从后端 Registry 实时加载）
@@ -350,50 +361,130 @@ function handlePushImageHelp() {
 }
 
 const showImportDialog = ref(false);
-const importSource = ref("");
+const importForm = ref<ImportFormState>({
+  source_url: "",
+  target_image: "",
+  target_tag: "",
+  auth: {
+    username: "",
+    password: "",
+  },
+});
+const isImporting = ref(false);
+const importTask = ref<ImportTask | null>(null);
+const importTaskPolling = ref<number | null>(null);
 
 function openImportFromUrl() {
-  importSource.value = "";
+  importForm.value = {
+    source_url: "",
+    target_image: "",
+    target_tag: "",
+    auth: {
+      username: "",
+      password: "",
+    },
+  };
+  importTask.value = null;
   showImportDialog.value = true;
 }
 
-function handleImportFromUrl() {
-  if (!importSource.value || !project.value?.name) {
-    openMessageDialog("校验失败", "请输入有效的镜像地址或命令");
+async function handleImportFromUrl() {
+  if (!importForm.value.source_url || !project.value?.id) {
+    openMessageDialog("校验失败", "请输入有效的镜像URL");
     return;
   }
 
-  const repo = project.value.name;
-  const helper = [
-    "# 示例：在本地 Docker 中从远程地址导入并推送到当前项目",
-    `docker pull ${importSource.value}`,
-    `docker tag ${importSource.value} ${repo}:your-tag`,
-    `docker push ${repo}:your-tag`,
-  ].join("\n");
-
-  copyToClipboard(helper)
-    .then(() => {
-      openMessageDialog(
-        "指令已复制",
-        `已将从 URL 导入并推送到项目的参考命令复制到剪贴板：\n\n${helper}`,
-      );
-    })
-    .catch((err: any) => {
-      console.error("复制导入命令失败", err);
-      openMessageDialog(
-        "复制失败",
-        err?.message || "复制导入并推送命令失败，请尝试手动复制",
-      );
+  isImporting.value = true;
+  try {
+    const task = await imageImportApi.importImage(project.value.id, {
+      source_url: importForm.value.source_url,
+      target_image: importForm.value.target_image || undefined,
+      target_tag: importForm.value.target_tag || undefined,
+      auth: importForm.value.auth?.username
+        ? {
+            username: importForm.value.auth.username,
+            password: importForm.value.auth.password,
+          }
+        : undefined,
     });
-  showImportDialog.value = false;
 
-  // 写入通知中心：推送/导入命令复制（视为“推送/分享”类操作）
-  notificationStore.addNotification({
-    source: "registry",
-    title: "推送镜像命令已生成",
-    message: `已为项目 ${repo} 生成从远程导入并推送镜像的参考命令`,
-    status: "success",
-  });
+    importTask.value = task;
+    notificationStore.addNotification({
+      source: "registry",
+      title: "镜像导入任务已创建",
+      message: `已开始导入镜像 ${importForm.value.source_url}`,
+      status: "success",
+    });
+
+    // 开始轮询任务状态
+    startTaskPolling(task.task_id);
+  } catch (error: any) {
+    console.error("导入镜像失败", error);
+    openMessageDialog(
+      "导入失败",
+      error.response?.data?.message || error.message || "导入镜像失败，请稍后重试"
+    );
+    notificationStore.addNotification({
+      source: "registry",
+      title: "镜像导入失败",
+      message: error.response?.data?.message || error.message || "导入镜像失败",
+      status: "failed",
+    });
+  } finally {
+    isImporting.value = false;
+  }
+}
+
+function startTaskPolling(taskId: string) {
+  if (importTaskPolling.value) {
+    clearInterval(importTaskPolling.value);
+  }
+
+  importTaskPolling.value = window.setInterval(async () => {
+    if (!project.value?.id || !taskId) return;
+
+    try {
+      const task = await imageImportApi.getTask(project.value.id, taskId);
+      importTask.value = task;
+
+      if (task.status === "success" || task.status === "failed") {
+        stopTaskPolling();
+        if (task.status === "success") {
+          notificationStore.addNotification({
+            source: "registry",
+            title: "镜像导入完成",
+            message: `镜像 ${importForm.value.source_url} 已成功导入`,
+            status: "success",
+          });
+          // 刷新镜像列表
+          await loadImages();
+        } else {
+          notificationStore.addNotification({
+            source: "registry",
+            title: "镜像导入失败",
+            message: task.error || "镜像导入失败",
+            status: "failed",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("获取任务状态失败", error);
+      stopTaskPolling();
+    }
+  }, 2000); // 每2秒轮询一次
+}
+
+function stopTaskPolling() {
+  if (importTaskPolling.value) {
+    clearInterval(importTaskPolling.value);
+    importTaskPolling.value = null;
+  }
+}
+
+function closeImportDialog() {
+  stopTaskPolling();
+  showImportDialog.value = false;
+  importTask.value = null;
 }
 
 function handleDeleteImage(image: any) {
@@ -803,24 +894,92 @@ async function handleSaveSettings() {
     <CypDialog
       v-model="showImportDialog"
       title="从 URL 添加镜像"
-      width="520px"
-      @close="showImportDialog = false"
+      width="600px"
+      @close="closeImportDialog"
     >
-      <div class="dialog-form">
-        <p>请输入远程镜像地址或现有镜像名称，例如：</p>
-        <p class="hint-text">registry.example.com/app/backend:1.0.0</p>
-        <CypInput v-model="importSource" placeholder="输入镜像地址或名称" />
-        <p class="hint-text">
-          系统会生成一段参考命令（pull / tag / push），复制到剪贴板后可直接在
-          Docker CLI 中执行。
-        </p>
+      <div class="dialog-content">
+        <div class="form-group" style="margin-bottom: 16px">
+          <label>镜像URL *</label>
+          <CypInput
+            v-model="importForm.source_url"
+            placeholder="例如: docker.io/library/nginx:latest 或 nginx:latest"
+            :disabled="isImporting || importTask !== null"
+          />
+          <small style="color: #64748b; margin-top: 4px; display: block">
+            支持 Docker Hub、GHCR 等公共仓库的镜像URL
+          </small>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px">
+          <label>目标镜像名称（可选）</label>
+          <CypInput
+            v-model="importForm.target_image"
+            placeholder="留空则使用源镜像名称"
+            :disabled="isImporting || importTask !== null"
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px">
+          <label>目标标签（可选）</label>
+          <CypInput
+            v-model="importForm.target_tag"
+            placeholder="留空则使用源镜像标签"
+            :disabled="isImporting || importTask !== null"
+          />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px">
+          <label>认证信息（可选，私有镜像需要）</label>
+          <CypInput
+            v-model="importForm.auth!.username"
+            placeholder="用户名"
+            style="margin-bottom: 8px"
+            :disabled="isImporting || importTask !== null"
+          />
+          <CypInput
+            v-model="importForm.auth!.password"
+            type="password"
+            placeholder="密码/Token"
+            :disabled="isImporting || importTask !== null"
+          />
+        </div>
+
+        <!-- 任务进度显示 -->
+        <div v-if="importTask" class="task-progress" style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px">
+            <span style="font-weight: 500">任务状态: {{ importTask.status }}</span>
+            <span style="color: #64748b">{{ importTask.progress }}%</span>
+          </div>
+          <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 8px">
+            <div
+              :style="{
+                width: importTask.progress + '%',
+                height: '100%',
+                background: importTask.status === 'failed' ? '#ef4444' : '#3b82f6',
+                transition: 'width 0.3s',
+              }"
+            ></div>
+          </div>
+          <div style="font-size: 13px; color: #64748b">{{ importTask.message }}</div>
+          <div v-if="importTask.error" style="margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; color: #dc2626; font-size: 12px">
+            {{ importTask.error }}
+          </div>
+        </div>
+
+        <div class="dialog-actions" style="margin-top: 24px">
+          <CypButton @click="closeImportDialog" :disabled="isImporting && importTask === null">
+            取消
+          </CypButton>
+          <CypButton
+            type="primary"
+            @click="handleImportFromUrl"
+            :loading="isImporting"
+            :disabled="importTask !== null && (importTask.status === 'running' || importTask.status === 'pending')"
+          >
+            {{ importTask ? (importTask.status === 'success' ? '完成' : importTask.status === 'failed' ? '重试' : '导入中...') : '开始导入' }}
+          </CypButton>
+        </div>
       </div>
-      <template #footer>
-        <CypButton @click="showImportDialog = false"> 取消 </CypButton>
-        <CypButton type="primary" @click="handleImportFromUrl">
-          复制命令
-        </CypButton>
-      </template>
     </CypDialog>
 
     <!-- 通用提示框（信息/错误提示） -->

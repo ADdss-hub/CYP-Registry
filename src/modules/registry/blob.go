@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/cyp-registry/registry/src/pkg/response"
@@ -149,8 +150,10 @@ func (r *Registry) UploadBlobChunk(ctx context.Context, project, uploadID string
 		// 合并数据
 		buf.Write(newData)
 
-		// 重新上传
-		r.storage.Delete(ctx, path)
+		// 重新上传（删除旧数据失败时仅记录错误，由后续覆盖操作保证一致性）
+		if err := r.storage.Delete(ctx, path); err != nil {
+			log.Printf(`{"timestamp":"%s","level":"warn","module":"registry","operation":"append_blob","path":"%s","error":"failed to delete old blob: %v"}`, time.Now().Format(time.RFC3339), path, err)
+		}
 		if err := r.storage.Put(ctx, path, &buf, int64(buf.Len())); err != nil {
 			return 0, err
 		}
@@ -211,8 +214,10 @@ func (r *Registry) CompleteBlobUpload(ctx context.Context, project, uploadID, di
 		return err
 	}
 
-	// 删除上传的临时文件
-	r.storage.Delete(ctx, uploadPath)
+	// 删除上传的临时文件（删除失败不应影响后续读操作）
+	if err := r.storage.Delete(ctx, uploadPath); err != nil {
+		log.Printf(`{"timestamp":"%s","level":"warn","module":"registry","operation":"complete_blob_upload","upload_path":"%s","error":"failed to delete upload temp blob: %v"}`, time.Now().Format(time.RFC3339), uploadPath, err)
+	}
 
 	// 保存到最终位置
 	return r.storage.Put(ctx, finalPath, reader2, actualSize)

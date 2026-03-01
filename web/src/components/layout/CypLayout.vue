@@ -19,6 +19,7 @@ const menuItems = [
   { path: "/dashboard", icon: "dashboard", label: "仪表盘" },
   { path: "/projects", icon: "project", label: "项目管理" },
   { path: "/webhooks", icon: "webhook", label: "Webhook" },
+  { path: "/logs", icon: "logs", label: "系统日志" },
   { path: "/settings", icon: "settings", label: "系统设置" },
   { path: "/docs", icon: "docs", label: "API文档" },
 ];

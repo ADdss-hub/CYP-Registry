@@ -13,6 +13,7 @@ import ProjectDetailView from "@/views/project/ProjectDetailView.vue";
 import WebhookListView from "@/views/webhook/WebhookListView.vue";
 import SettingsView from "@/views/settings/SettingsView.vue";
 import ApiDocsView from "@/views/ApiDocsView.vue";
+import LogsView from "@/views/admin/LogsView.vue";
 import LegalStatementView from "@/views/legal/LegalStatementView.vue";
 
 // 路由配置
@@ -73,6 +74,12 @@ const routes: RouteRecordRaw[] = [
         name: "Settings",
         component: SettingsView,
         meta: { title: "系统设置" },
+      },
+      {
+        path: "logs",
+        name: "Logs",
+        component: LogsView,
+        meta: { title: "系统日志" },
       },
       {
         path: "docs",

@@ -306,7 +306,12 @@
       "UGREEN",
       "tmaster",
       "FeiNiu",
-      "feiniu"
+      "feiniu",
+      "autobuild",
+      "TARGETOS",
+      "TARGETARCH",
+      "TARGETVARIANT",
+      "armv"
   ],
   "ignorePaths": [
     "node_modules/**",

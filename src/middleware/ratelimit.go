@@ -210,31 +210,43 @@ func (b *BruteForceProtection) Protect() gin.HandlerFunc {
 func (b *BruteForceProtection) CheckBruteForce(ctx context.Context, username, ip string, success bool) {
 	// 成功登录，清除失败记录
 	if success {
-		cache.Del(ctx, "fail:ip:"+ip, "fail:user:"+username)
+		_ = cache.Del(ctx, "fail:ip:"+ip, "fail:user:"+username)
 		return
 	}
 
 	// 记录失败
 	failKey := "fail:" + ip
-	cache.Incr(ctx, failKey)
-	cache.Expire(ctx, failKey, time.Minute)
+	if _, err := cache.Incr(ctx, failKey); err != nil {
+		// 计数失败不影响主流程
+		_ = err
+	}
+	_ = cache.Expire(ctx, failKey, time.Minute)
 
 	userFailKey := "fail:user:" + username
-	cache.Incr(ctx, userFailKey)
-	cache.Expire(ctx, userFailKey, time.Minute)
+	if _, err := cache.Incr(ctx, userFailKey); err != nil {
+		// 计数失败不影响主流程
+		_ = err
+	}
+	_ = cache.Expire(ctx, userFailKey, time.Minute)
 
 	// 检查是否达到阈值
 	failCount, _ := cache.GetInt(ctx, failKey)
 	if failCount >= b.config.MaxAttemptsPerIP {
 		// 封禁IP
-		cache.SetNX(ctx, "blocked:ip:"+ip, "1", time.Duration(b.config.LockoutDuration)*time.Second)
+		if _, err := cache.SetNX(ctx, "blocked:ip:"+ip, "1", time.Duration(b.config.LockoutDuration)*time.Second); err != nil {
+			// 封禁标记失败不应阻断主流程
+			_ = err
+		}
 		// TODO: 记录安全事件
 	}
 
 	userFailCount, _ := cache.GetInt(ctx, userFailKey)
 	if userFailCount >= b.config.MaxAttemptsPerMinute {
 		// 锁定账户
-		cache.SetNX(ctx, "locked:user:"+username, "1", time.Duration(b.config.LockoutDuration)*time.Second)
+		if _, err := cache.SetNX(ctx, "locked:user:"+username, "1", time.Duration(b.config.LockoutDuration)*time.Second); err != nil {
+			// 锁定标记失败不应阻断主流程
+			_ = err
+		}
 		// TODO: 记录安全事件
 	}
 }

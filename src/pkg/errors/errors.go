@@ -96,6 +96,13 @@ var (
 	ErrIPBlocked              = NewCodeError(30011, "IP地址被封禁")
 	ErrRefreshTokenInvalid    = NewCodeError(30012, "Refresh Token无效")
 	ErrPATInvalid             = NewCodeError(30013, "Personal Access Token无效")
+	// PAT权限相关错误码
+	ErrPATMissingReadScope   = NewCodeError(30014, "PAT令牌缺少读取权限，请在创建令牌时选择'读取'权限")
+	ErrPATMissingWriteScope  = NewCodeError(30015, "PAT令牌缺少写入权限，请在创建令牌时选择'写入'权限")
+	ErrPATMissingDeleteScope = NewCodeError(30016, "PAT令牌缺少删除权限，请在创建令牌时选择'删除'权限")
+	ErrPATMissingAdminScope  = NewCodeError(30017, "PAT令牌缺少管理员权限，请在创建令牌时选择'管理'权限")
+	ErrPATMissingScopes      = NewCodeError(30018, "PAT令牌缺少权限信息")
+	ErrPATInvalidScopes      = NewCodeError(30019, "PAT令牌权限信息格式错误")
 )
 
 // 系统错误码 (50001-59999)

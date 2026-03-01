@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +51,7 @@ func NewLocalStorage(cfg *config.Config) (*LocalStorage, error) {
 	// 确保目录权限正确（即使目录已存在）
 	if err := os.Chmod(absPath, 0755); err != nil {
 		// 记录警告但不失败，允许继续运行
+		log.Printf(`{"timestamp":"%s","level":"warn","module":"storage","driver":"local","operation":"chmod_base","path":"%s","error":"%v"}`, time.Now().Format(time.RFC3339), absPath, err)
 		// 如果权限设置失败，后续的文件操作会失败并返回明确的错误
 	}
 
@@ -120,6 +122,7 @@ func (s *LocalStorage) Put(ctx context.Context, path string, reader io.Reader, s
 	// 确保目录权限正确（即使目录已存在）
 	if err := os.Chmod(dir, 0755); err != nil {
 		// 记录警告但不失败，允许继续运行
+		log.Printf(`{"timestamp":"%s","level":"warn","module":"storage","driver":"local","operation":"chmod_dir","path":"%s","error":"%v"}`, time.Now().Format(time.RFC3339), dir, err)
 		// 如果权限设置失败，后续的文件操作会失败并返回明确的错误
 	}
 
@@ -137,6 +140,7 @@ func (s *LocalStorage) Put(ctx context.Context, path string, reader io.Reader, s
 	// 确保文件权限正确（0644: 所有者可读写，组和其他用户可读）
 	if err := os.Chmod(fullPath, 0644); err != nil {
 		// 记录警告但不失败，允许继续运行
+		log.Printf(`{"timestamp":"%s","level":"warn","module":"storage","driver":"local","operation":"chmod_file","path":"%s","error":"%v"}`, time.Now().Format(time.RFC3339), fullPath, err)
 		// 如果权限设置失败，文件已经创建，可以继续写入
 	}
 

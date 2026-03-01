@@ -139,29 +139,33 @@ const apiSections: Array<{
       {
         method: "POST",
         path: "/api/v1/users/me/pat",
-        description: "创建 Personal Access Token",
+        description: "创建 Personal Access Token（PAT）",
         auth: true,
         params: [
           { name: "name", type: "string", required: true, desc: "令牌名称" },
-          { name: "scopes", type: "array", required: true, desc: "权限范围" },
           {
-            name: "expireInDays",
+            name: "scopes",
+            type: "array",
+            required: true,
+            desc: "权限范围数组，可选值：read（读取）、write（写入）、delete（删除）、admin（管理）。选择什么权限就是什么权限。",
+          },
+          {
+            name: "expire_in",
             type: "number",
             required: false,
-            desc: "有效期（天），为空则不过期",
+            desc: "有效期（秒），0表示使用默认过期时间，-1表示永不过期",
           },
         ],
         response: {
           code: 20000,
           data: {
-            accessToken: {
-              id: "uuid",
-              name: "string",
-              scopes: ["read"],
-              createdAt: "2026-01-01T10:00:00Z",
-            },
-            token: "实际一次性返回的明文令牌",
-            tokenType: "Bearer",
+            id: "uuid",
+            name: "string",
+            scopes: ["read", "write"],
+            expires_at: "2026-01-01T10:00:00Z",
+            created_at: "2026-01-01T10:00:00Z",
+            token: "pat_v1_实际一次性返回的明文令牌",
+            token_type: "pat",
           },
         },
       },
@@ -176,8 +180,10 @@ const apiSections: Array<{
             {
               id: "uuid",
               name: "string",
-              scopes: ["read"],
-              createdAt: "2026-01-01T10:00:00Z",
+              scopes: ["read", "write"],
+              expires_at: "2026-01-01T10:00:00Z",
+              created_at: "2026-01-01T10:00:00Z",
+              last_used_at: "2026-01-15T10:00:00Z",
             },
           ],
         },
@@ -187,7 +193,91 @@ const apiSections: Array<{
         path: "/api/v1/users/me/pat/{id}",
         description: "撤销指定 PAT",
         auth: true,
-        response: { code: 20000, message: "PAT已撤销" },
+        response: { code: 20000, message: "PAT已删除" },
+      },
+    ],
+  },
+  {
+    name: "管理员功能",
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/v1/admin/logs",
+        description: "获取系统审计日志列表（需要管理员权限和admin scope）",
+        auth: true,
+        params: [
+          {
+            name: "page",
+            type: "number",
+            required: false,
+            desc: "页码，从1开始，默认1",
+          },
+          {
+            name: "page_size",
+            type: "number",
+            required: false,
+            desc: "每页数量，默认20，最大100",
+          },
+          {
+            name: "user_id",
+            type: "string",
+            required: false,
+            desc: "用户ID筛选（UUID格式）",
+          },
+          {
+            name: "action",
+            type: "string",
+            required: false,
+            desc: "操作类型筛选",
+          },
+          {
+            name: "resource",
+            type: "string",
+            required: false,
+            desc: "资源类型筛选",
+          },
+          {
+            name: "start_time",
+            type: "string",
+            required: false,
+            desc: "开始时间（RFC3339格式，如：2026-01-01T00:00:00Z）",
+          },
+          {
+            name: "end_time",
+            type: "string",
+            required: false,
+            desc: "结束时间（RFC3339格式）",
+          },
+          {
+            name: "keyword",
+            type: "string",
+            required: false,
+            desc: "关键词搜索（在操作详情中搜索）",
+          },
+        ],
+        response: {
+          code: 20000,
+          data: {
+            logs: [
+              {
+                id: "uuid",
+                user_id: "uuid",
+                action: "login",
+                resource: "user",
+                resource_id: "uuid",
+                ip: "192.168.1.1",
+                user_agent: "Mozilla/5.0...",
+                details: "用户登录",
+                status: "success",
+                created_at: "2026-01-01T10:00:00Z",
+              },
+            ],
+            total: 100,
+            page: 1,
+            page_size: 20,
+            total_page: 5,
+          },
+        },
       },
     ],
   },
@@ -491,6 +581,45 @@ function openSwaggerUI() {
             <pre class="code-block">
 Authorization: Bearer &lt;your-access-token&gt;</pre
             >
+            <p style="margin-top: 8px; font-size: 12px; color: #64748b;">
+              支持两种Token类型：
+            </p>
+            <ul style="margin: 8px 0 0 20px; font-size: 12px; color: #64748b;">
+              <li><strong>JWT Token</strong>：通过登录接口获取，继承用户所有权限</li>
+              <li><strong>PAT Token</strong>：Personal Access Token，可自定义权限范围</li>
+            </ul>
+          </div>
+          <div class="info-section">
+            <h4>PAT权限说明</h4>
+            <p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+              PAT支持以下权限范围（scopes）：
+            </p>
+            <table class="error-table" style="font-size: 12px;">
+              <thead>
+                <tr>
+                  <th>权限</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>read</code></td>
+                  <td>读取权限：拉取镜像、查看项目信息</td>
+                </tr>
+                <tr>
+                  <td><code>write</code></td>
+                  <td>写入权限：推送镜像、创建/更新项目（包含read权限）</td>
+                </tr>
+                <tr>
+                  <td><code>delete</code></td>
+                  <td>删除权限：删除镜像、删除项目（包含write和read权限）</td>
+                </tr>
+                <tr>
+                  <td><code>admin</code></td>
+                  <td>管理权限：访问管理员功能、查看日志、用户管理（包含所有权限）</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
           <div class="info-section">
             <h4>基础URL</h4>
@@ -539,6 +668,42 @@ Authorization: Bearer &lt;your-access-token&gt;</pre
                 <tr>
                   <td>30011</td>
                   <td>Token过期</td>
+                </tr>
+                <tr>
+                  <td>40001</td>
+                  <td>资源不存在</td>
+                </tr>
+                <tr>
+                  <td>30003</td>
+                  <td>禁止访问</td>
+                </tr>
+                <tr>
+                  <td>30004</td>
+                  <td>权限不足（通用）</td>
+                </tr>
+                <tr>
+                  <td>30014</td>
+                  <td>PAT缺少读取权限（需要选择'读取'权限）</td>
+                </tr>
+                <tr>
+                  <td>30015</td>
+                  <td>PAT缺少写入权限（需要选择'写入'权限）</td>
+                </tr>
+                <tr>
+                  <td>30016</td>
+                  <td>PAT缺少删除权限（需要选择'删除'权限）</td>
+                </tr>
+                <tr>
+                  <td>30017</td>
+                  <td>PAT缺少管理员权限（需要选择'管理'权限）</td>
+                </tr>
+                <tr>
+                  <td>30018</td>
+                  <td>PAT缺少权限信息</td>
+                </tr>
+                <tr>
+                  <td>30019</td>
+                  <td>PAT权限信息格式错误</td>
                 </tr>
                 <tr>
                   <td>40001</td>

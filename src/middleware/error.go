@@ -3,12 +3,6 @@
 package middleware
 
 import (
-	"fmt"
-	"log"
-	"runtime"
-	"strings"
-	"time"
-
 	"github.com/cyp-registry/registry/src/pkg/errors"
 	"github.com/cyp-registry/registry/src/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -26,73 +20,15 @@ func NewErrorHandlerMiddleware() *ErrorHandlerMiddleware {
 // 捕获所有panic和错误，统一记录日志并返回错误响应
 func (e *ErrorHandlerMiddleware) ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取TraceID
-		traceID, _ := c.Get(ContextKeyTraceID)
-		traceIDStr := "unknown"
-		if id, ok := traceID.(string); ok {
-			traceIDStr = id
-		}
-
 		// 处理请求
 		c.Next()
 
-		// 检查HTTP状态码，记录4xx和5xx错误
-		status := c.Writer.Status()
-		if status >= 400 {
-			// 获取错误信息
-			errMsg := fmt.Sprintf("HTTP %d", status)
-			if len(c.Errors) > 0 {
-				errMsg = c.Errors.String()
-			}
+		// 注意：错误日志已在 Logger 中间件中记录，这里不再重复记录
+		// 只处理错误响应，不记录日志（避免重复）
 
-			// 记录错误日志
-			log.Printf("[ERROR] [%s] %s %s - Status: %d, Error: %s",
-				traceIDStr,
-				c.Request.Method,
-				c.Request.URL.Path,
-				status,
-				errMsg,
-			)
-
-			// JSON格式日志
-			log.Printf(`{"timestamp":"%s","level":"error","trace_id":"%s","method":"%s","path":"%s","status":%d,"error":"%s"}`,
-				time.Now().Format(time.RFC3339),
-				traceIDStr,
-				c.Request.Method,
-				c.Request.URL.Path,
-				status,
-				strings.ReplaceAll(errMsg, `"`, `\"`),
-			)
-		}
-
-		// 检查是否有错误
+		// 检查是否有错误（仅处理错误响应，不记录日志）
 		if len(c.Errors) > 0 {
 			for _, err := range c.Errors {
-				// 获取错误堆栈
-				stack := make([]byte, 4096)
-				length := runtime.Stack(stack, false)
-				stackStr := string(stack[:length])
-
-				// 记录错误日志
-				errMsg := err.Error()
-				log.Printf("[ERROR] [%s] %s %s - Error: %s\nStack:\n%s",
-					traceIDStr,
-					c.Request.Method,
-					c.Request.URL.Path,
-					errMsg,
-					stackStr,
-				)
-
-				// JSON格式日志
-				log.Printf(`{"timestamp":"%s","level":"error","trace_id":"%s","method":"%s","path":"%s","error":"%s","stack":"%s"}`,
-					time.Now().Format(time.RFC3339),
-					traceIDStr,
-					c.Request.Method,
-					c.Request.URL.Path,
-					strings.ReplaceAll(errMsg, `"`, `\"`),
-					strings.ReplaceAll(strings.ReplaceAll(stackStr, "\n", "\\n"), `"`, `\"`),
-				)
-
 				// 如果是CodeError，使用其错误码和消息
 				if codeErr, ok := errors.As(err.Err); ok {
 					response.Fail(c, codeErr.Code, codeErr.Message)

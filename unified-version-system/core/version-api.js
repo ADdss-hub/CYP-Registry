@@ -182,7 +182,7 @@ console.log('统一版本模块已加载:', module.exports.getSummary());
 
         patterns.forEach(pattern => {
           if (pattern.test(content)) {
-            content = content.replace(pattern, `version: "${version}"`);
+            content = content.replace(pattern, `version: "v1.1.0"`);
             updated = true;
           }
         });

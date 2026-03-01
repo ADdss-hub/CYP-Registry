@@ -1,23 +1,23 @@
 /**
  * 自动生成的版本模块
- * 版本: v1.0.0
- * 生成时间: 2026-02-27T16:34:55.017Z
+ * 版本: v1.1.0
+ * 生成时间: 2026-03-01T12:32:43.844Z
  */
 
-const version = 'v1.0.0';
+const version = 'v1.1.0';
 const versionData = {
-  "version": "v1.0.0",
-  "timestamp": "2026-02-27T16:34:55.016Z",
-  "author": "Unknown",
+  "version": "v1.1.0",
+  "timestamp": "2026-03-01T12:32:43.844Z",
+  "author": "CYP",
   "project": "CYP-Registry",
   "changes": [
     {
       "type": "chore",
-      "description": "发布 1.0.0 版本"
+      "description": "发布 v1.1.0 版本"
     }
   ],
   "metadata": {
-    "previousVersion": "v0.1.0",
+    "previousVersion": "v1.0.3",
     "updated": true,
     "schema": "2.1.0"
   }

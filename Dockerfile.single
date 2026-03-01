@@ -29,9 +29,12 @@ COPY . .
 RUN mkdir -p migrations
 
 # 支持多架构构建（通过 buildx --platform 参数）
+# 支持架构：linux/amd64, linux/arm64, linux/arm/v7
 # 默认构建 AMD64，可通过 --build-arg 指定其他架构
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
+ARG TARGETVARIANT=
+# 构建参数：根据目标架构设置Go编译参数
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o registry-server \
     -installsuffix cgo ./cmd/server
@@ -103,10 +106,11 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 运行时依赖 + 单机内置依赖服务
 # - bash/curl/wget: 健康检查与脚本依赖
-# - postgresql15 + contrib: pg_trgm/pgcrypto 等扩展
-# - redis: 单机缓存
+# - postgresql15 + contrib: pg_trgm/pgcrypto 等扩展（支持ARM64）
+# - redis: 单机缓存（支持ARM64）
 # - su-exec: 入口脚本 root 修复权限后降权运行应用
 # - python3 / yq: 启动前检查脚本用于验证 config.yaml 的 YAML 语法（避免线上才暴露配置错误）
+# 注意：所有依赖都支持多架构（AMD64、ARM64），Alpine包管理器会自动选择对应架构的包
 RUN apk add --no-cache \
       ca-certificates tzdata wget curl bash iputils bind-tools busybox-extras su-exec \
       postgresql15 postgresql15-client postgresql15-contrib \

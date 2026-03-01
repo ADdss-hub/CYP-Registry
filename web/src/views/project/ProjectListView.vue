@@ -3,6 +3,7 @@ import { ref, computed, onMounted, h } from "vue";
 import { useRouter } from "vue-router";
 import { useProjectStore } from "@/stores/project";
 import { useNotificationStore } from "@/stores/notification";
+import { projectApi } from "@/services/project";
 import CypButton from "@/components/common/CypButton.vue";
 import CypInput from "@/components/common/CypInput.vue";
 import CypTable from "@/components/common/CypTable.vue";
@@ -169,11 +170,19 @@ const isLoading = computed(() => projectStore.isLoading);
 const projects = computed(() => projectStore.projects);
 const pagination = computed(() => projectStore.pagination);
 
+const statistics = ref<{
+  total_projects: number;
+  total_images: number;
+  total_storage: number;
+} | null>(null);
+
 const totalImages = computed(() =>
+  statistics.value?.total_images ?? 
   projects.value.reduce((sum, p) => sum + (p.imageCount || 0), 0),
 );
 
 const totalStorage = computed(() =>
+  statistics.value?.total_storage ?? 
   projects.value.reduce((sum, p) => sum + (p.storageUsed || 0), 0),
 );
 
@@ -191,6 +200,16 @@ function formatDate(dateStr: string): string {
 
 function navigateToProject(project: Project) {
   router.push(`/projects/${project.id}`);
+}
+
+async function handleRefresh() {
+  await projectStore.fetchProjects();
+  // 刷新统计数据
+  try {
+    statistics.value = await projectApi.getStatistics();
+  } catch (err) {
+    console.error("Failed to load statistics:", err);
+  }
 }
 
 async function handleDelete(project: Project) {
@@ -229,6 +248,12 @@ async function handleCopyShare() {
 
 async function handleSearch() {
   await projectStore.fetchProjects({ keyword: searchKeyword.value });
+  // 刷新统计数据
+  try {
+    statistics.value = await projectApi.getStatistics();
+  } catch (err) {
+    console.error("Failed to load statistics:", err);
+  }
 }
 
 async function handlePageChange(page: number, pageSize: number) {
@@ -278,6 +303,12 @@ async function handleCreateProject() {
     };
     // 创建成功后刷新项目列表，确保列表与后端状态一致
     await projectStore.fetchProjects();
+    // 刷新统计数据
+    try {
+      statistics.value = await projectApi.getStatistics();
+    } catch (err) {
+      console.error("Failed to load statistics:", err);
+    }
     notificationStore.addNotification({
       source: "project",
       title: "项目已创建",
@@ -310,8 +341,14 @@ async function handleCreateProject() {
   }
 }
 
-onMounted(() => {
-  projectStore.fetchProjects();
+onMounted(async () => {
+  await projectStore.fetchProjects();
+  // 加载统计数据
+  try {
+    statistics.value = await projectApi.getStatistics();
+  } catch (err) {
+    console.error("Failed to load statistics:", err);
+  }
 });
 </script>
 
@@ -355,7 +392,7 @@ onMounted(() => {
       <CypButton
         type="default"
         :loading="isLoading"
-        @click="() => projectStore.fetchProjects()"
+        @click="handleRefresh"
       >
         刷新列表
       </CypButton>

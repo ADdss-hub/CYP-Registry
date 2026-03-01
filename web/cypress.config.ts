@@ -34,6 +34,8 @@ export default defineConfig({
       TEST_PASSWORD: process.env.CYPRESS_TEST_PASSWORD || 'TestPassword123',
     },
     setupNodeEvents(on, config) {
+      // 显式标记 config 参数已使用，避免 ESLint 无用变量告警
+      void config
       // 可以在这里添加自定义任务
       on('task', {
         log(message) {

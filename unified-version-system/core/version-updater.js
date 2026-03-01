@@ -242,7 +242,7 @@ class VersionUpdater {
  * 生成时间: ${new Date().toISOString()}
  */
 
-const version = '${version}';
+const version: "v1.1.0";
 const versionData = ${JSON.stringify(versionData, null, 2)};
 
 module.exports = {

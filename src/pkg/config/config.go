@@ -292,7 +292,10 @@ func applyEnvOverrides(c *Config) {
 		c.App.Host = host
 	}
 	if port := os.Getenv("APP_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &c.App.Port)
+		var p int
+		if _, err := fmt.Sscanf(port, "%d", &p); err == nil {
+			c.App.Port = p
+		}
 	}
 	if env := os.Getenv("APP_ENV"); env != "" {
 		c.App.Env = env
@@ -307,9 +310,15 @@ func applyEnvOverrides(c *Config) {
 		c.Database.Host = host
 	}
 	if port := os.Getenv("APP_DB_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &c.Database.Port)
+		var p int
+		if _, err := fmt.Sscanf(port, "%d", &p); err == nil {
+			c.Database.Port = p
+		}
 	} else if port := os.Getenv("DB_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &c.Database.Port)
+		var p int
+		if _, err := fmt.Sscanf(port, "%d", &p); err == nil {
+			c.Database.Port = p
+		}
 	}
 	if user := os.Getenv("APP_DB_USER"); user != "" {
 		c.Database.Username = user
@@ -340,9 +349,15 @@ func applyEnvOverrides(c *Config) {
 		c.Redis.Host = host
 	}
 	if port := os.Getenv("APP_REDIS_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &c.Redis.Port)
+		var p int
+		if _, err := fmt.Sscanf(port, "%d", &p); err == nil {
+			c.Redis.Port = p
+		}
 	} else if port := os.Getenv("REDIS_PORT"); port != "" {
-		fmt.Sscanf(port, "%d", &c.Redis.Port)
+		var p int
+		if _, err := fmt.Sscanf(port, "%d", &p); err == nil {
+			c.Redis.Port = p
+		}
 	}
 	if password := os.Getenv("APP_REDIS_PASSWORD"); password != "" {
 		c.Redis.Password = password
@@ -350,9 +365,15 @@ func applyEnvOverrides(c *Config) {
 		c.Redis.Password = password
 	}
 	if db := os.Getenv("APP_REDIS_DB"); db != "" {
-		fmt.Sscanf(db, "%d", &c.Redis.DB)
+		var d int
+		if _, err := fmt.Sscanf(db, "%d", &d); err == nil {
+			c.Redis.DB = d
+		}
 	} else if db := os.Getenv("REDIS_DB"); db != "" {
-		fmt.Sscanf(db, "%d", &c.Redis.DB)
+		var d int
+		if _, err := fmt.Sscanf(db, "%d", &d); err == nil {
+			c.Redis.DB = d
+		}
 	}
 
 	// JWT配置
@@ -364,15 +385,13 @@ func applyEnvOverrides(c *Config) {
 	}
 	if expire := os.Getenv("JWT_ACCESS_TOKEN_EXPIRE"); expire != "" {
 		var exp int64
-		fmt.Sscanf(expire, "%d", &exp)
-		if exp > 0 {
+		if _, err := fmt.Sscanf(expire, "%d", &exp); err == nil && exp > 0 {
 			c.Auth.JWT.AccessTokenExpire = exp
 		}
 	}
 	if expire := os.Getenv("JWT_REFRESH_TOKEN_EXPIRE"); expire != "" {
 		var exp int64
-		fmt.Sscanf(expire, "%d", &exp)
-		if exp > 0 {
+		if _, err := fmt.Sscanf(expire, "%d", &exp); err == nil && exp > 0 {
 			c.Auth.JWT.RefreshTokenExpire = exp
 		}
 	}

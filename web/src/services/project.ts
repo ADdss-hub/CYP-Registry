@@ -55,4 +55,15 @@ export const projectApi = {
 
   deleteProject: (id: string) =>
     api.delete<void>(`/v1/projects/${id}`) as Promise<void>,
+
+  getStatistics: () =>
+    api.get<{
+      total_projects: number;
+      total_images: number;
+      total_storage: number;
+    }>("/v1/projects/statistics") as Promise<{
+      total_projects: number;
+      total_images: number;
+      total_storage: number;
+    }>,
 };

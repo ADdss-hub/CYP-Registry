@@ -2,6 +2,24 @@
   "schema": "2.1.0",
   "history": [
     {
+      "version": "v1.1.0",
+      "timestamp": "2026-03-01T12:32:43.844Z",
+      "author": "CYP",
+      "changes": [
+        {
+          "type": "chore",
+          "description": "发布 v1.1.0 版本"
+        }
+      ],
+      "type": "patch",
+      "previousVersion": "v1.0.3",
+      "metadata": {
+        "previousVersion": "v1.0.3",
+        "updated": true,
+        "schema": "2.1.0"
+      }
+    },
+    {
       "version": "v1.0.0",
       "timestamp": "2026-02-27T16:34:55.016Z",
       "author": "Unknown",

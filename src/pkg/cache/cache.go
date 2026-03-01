@@ -129,7 +129,9 @@ func GetInt(ctx context.Context, key string) (int, error) {
 		return 0, err
 	}
 	var n int
-	fmt.Sscanf(val, "%d", &n)
+	if _, err := fmt.Sscanf(val, "%d", &n); err != nil {
+		return 0, err
+	}
 	return n, nil
 }
 
@@ -140,7 +142,9 @@ func GetInt64(ctx context.Context, key string) (int64, error) {
 		return 0, err
 	}
 	var n int64
-	fmt.Sscanf(val, "%d", &n)
+	if _, err := fmt.Sscanf(val, "%d", &n); err != nil {
+		return 0, err
+	}
 	return n, nil
 }
 
@@ -224,7 +228,9 @@ func GetCounter(ctx context.Context, key string) (int64, error) {
 		return 0, err
 	}
 	var n int64
-	fmt.Sscanf(val, "%d", &n)
+	if _, err := fmt.Sscanf(val, "%d", &n); err != nil {
+		return 0, err
+	}
 	return n, nil
 }
 

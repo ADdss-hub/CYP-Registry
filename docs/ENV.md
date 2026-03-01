@@ -13,7 +13,7 @@
 | **Windows（本机开发，PowerShell）** | 在仓库根目录执行：`.\scripts\auto-config.ps1` | 在仓库根目录执行：`go run .\cmd\server\main.go` | 在 `web` 目录执行：`npm install`（首次）+ `npm run dev` | 依赖已安装：Go、Node 20+；推荐使用 PowerShell 7+；浏览器访问 `http://localhost:3000`（前端）或 `http://localhost:8080`（后端） |
 | **Linux/macOS（本机开发）** | 在仓库根目录执行：`./scripts/auto-config.sh` | 在仓库根目录执行：`go run ./cmd/server/main.go` | 在 `web` 目录执行：`npm install`（首次）+ `npm run dev` | 依赖已安装：Go、Node 20+；浏览器访问 `http://localhost:3000` / `http://localhost:8080` |
 | **Docker 单镜像模式（推荐：Windows/macOS/Linux + Docker Desktop/Podman）** | 无需手动生成：`docker compose -f docker-compose.single.yml up -d --build` 时，由容器自动在宿主机项目根目录生成 `.env` | 同上：`docker compose -f docker-compose.single.yml up -d --build`（启动内置 Postgres + Redis + 后端） | 内置前端已在镜像构建时打包，直接访问 `http://localhost:8080` 即可 | 适合离线/单机/快速体验；所有配置通过宿主机根级 `.env` 控制，容器入口脚本自动加载 |
-| **Linux 服务器 / 生产环境（推荐 Compose 部署）** | 手动准备 `.env`（参考 `env.production.example` 或本文件示例），放在部署目录根 | 使用生产 `docker-compose.yml` 启动：`docker compose up -d` | 同 Docker 单镜像模式，由容器内前端负责 | 建议使用固定版本镜像（如 `ghcr.io/addss-hub/cyp-registry:v1.0.7`），并在 `.env` 中显式设置强随机 `JWT_SECRET` / `DB_PASSWORD` 等 |
+| **Linux 服务器 / 生产环境（推荐 Compose 部署）** | 手动准备 `.env`（参考 `env.production.example` 或本文件示例），放在部署目录根 | 使用生产 `docker-compose.yml` 启动：`docker compose up -d` | 同 Docker 单镜像模式，由容器内前端负责 | 建议使用固定版本镜像（如 `ghcr.io/addss-hub/cyp-registry:v1.0.8`），并在 `.env` 中显式设置强随机 `JWT_SECRET` / `DB_PASSWORD` 等 |
 
 说明（重要约定）：
 - 若 `.env` 已存在，脚本不会覆盖（可重复执行）。
@@ -67,13 +67,58 @@ GRAFANA_ADMIN_PASSWORD=admin
 CLEANUP_ON_SHUTDOWN=0
 ```
 
-说明：
-- `JWT_SECRET`：生产环境务必替换为强随机值（至少 32+ 字符）。
-- `DB_PASSWORD`：会同时用于 `postgres` 容器初始化与 `core` 连接数据库。
-- `REDIS_PASSWORD`：可为空；如在单镜像模式下设置了该值，入口脚本会自动为内置 Redis 启用 `requirepass`，确保配置一致。
-- `MINIO_*`：仅当 `STORAGE_TYPE=minio` 时需要（后端同时兼容 `MINIO_*` 与 `STORAGE_MINIO_*`）。
-- `CORS_ALLOWED_ORIGINS`：用于快速联调/部署时覆盖 CORS 白名单（逗号分隔）。
-- `CLEANUP_ON_SHUTDOWN`：控制服务器关闭时是否清理所有数据。设置为 `1` 时，关闭服务器会永久删除所有数据（包括用户数据、项目数据、镜像文件、缓存数据），此操作不可恢复。生产环境强烈建议设置为 `0` 或不设置，避免误操作导致数据丢失。适用于测试环境重置、开发环境清理等场景。详细说明请参考 `docs/SHUTDOWN_CLEANUP.md`。
+### 环境变量详细说明
+
+#### 应用配置
+- `APP_NAME`：应用名称，默认 `CYP-Registry`
+- `APP_ENV`：运行环境，可选值：`development`、`production`，默认 `production`
+- `APP_HOST`：应用监听地址，默认 `0.0.0.0`（监听所有接口）
+- `APP_PORT`：应用监听端口，默认 `8080`
+
+#### 数据库配置（PostgreSQL）
+- `DB_HOST`：数据库主机地址，单镜像模式为 `127.0.0.1`
+- `DB_PORT`：数据库端口，默认 `5432`
+- `DB_USER`：数据库用户名，单镜像模式为 `registry`
+- `DB_PASSWORD`：数据库密码，**生产环境务必替换为强随机值**（至少 32+ 字符）
+- `DB_NAME`：数据库名称，默认 `registry_db`
+- `DB_SSLMODE`：SSL 模式，单镜像模式为 `disable`
+- `DB_INIT_RETRIES`：数据库初始化重试次数，默认 `60`
+- `DB_INIT_INTERVAL_MS`：数据库初始化重试间隔（毫秒），默认 `1000`
+
+#### Redis 配置
+- `REDIS_HOST`：Redis 主机地址，单镜像模式为 `127.0.0.1`
+- `REDIS_PORT`：Redis 端口，默认 `6379`
+- `REDIS_PASSWORD`：Redis 密码，可为空；如在单镜像模式下设置了该值，入口脚本会自动为内置 Redis 启用 `requirepass`，确保配置一致
+- `REDIS_DB`：Redis 数据库编号，默认 `0`
+
+#### 认证配置
+- `JWT_SECRET`：JWT 签名密钥，**生产环境务必替换为强随机值**（至少 32+ 字符）
+
+#### 存储配置
+- `STORAGE_TYPE`：存储类型，可选值：`local`、`minio`，默认 `local`
+- `STORAGE_LOCAL_ROOT_PATH`：本地存储根路径，默认 `/data/storage`
+- `MINIO_ENDPOINT`：MinIO 端点地址（当 `STORAGE_TYPE=minio` 时需要）
+- `MINIO_ACCESS_KEY`：MinIO 访问密钥（当 `STORAGE_TYPE=minio` 时需要）
+- `MINIO_SECRET_KEY`：MinIO 密钥（当 `STORAGE_TYPE=minio` 时需要）
+- `MINIO_BUCKET`：MinIO 存储桶名称（当 `STORAGE_TYPE=minio` 时需要）
+- **注意**：后端同时兼容 `MINIO_*` 与 `STORAGE_MINIO_*` 两套命名
+
+#### 前端配置
+- `API_BASE_URL`：后端 API 地址，用于前端调用
+- `WEB_BASE_URL`：前端访问地址（如有单独前端服务）
+
+#### 安全配置
+- `CORS_ALLOWED_ORIGINS`：CORS 允许的来源列表（逗号分隔），用于快速联调/部署时覆盖 CORS 白名单
+
+#### 其他配置
+- `UPLOADS_DIR`：上传文件目录（头像等），默认使用 `/tmp/uploads` 或当前工作目录下的 `uploads` 目录
+- `CLEANUP_ON_SHUTDOWN`：控制服务器关闭时是否清理所有数据
+  - `1`：清理所有数据（删除模式）- 会永久删除所有用户数据、项目数据、镜像文件、缓存数据
+  - `0` 或不设置：保留数据（停止模式）- 仅关闭服务，保留所有数据
+  - ⚠️ **警告**：设置为 `1` 时，关闭服务器会永久删除所有数据，此操作不可恢复！
+  - 生产环境强烈建议设置为 `0` 或不设置，避免误操作导致数据丢失
+  - 适用于测试环境重置、开发环境清理等场景
+  - 详细说明请参考 `docs/SHUTDOWN_CLEANUP.md`
 
 启动命令（生产）：
 

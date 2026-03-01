@@ -10,6 +10,8 @@ import CypSwitch from "@/components/common/CypSwitch.vue";
 import CypDialog from "@/components/common/CypDialog.vue";
 import type { AccessToken, NotificationSettings } from "@/types";
 import { copyToClipboard } from "@/utils/clipboard";
+import { adminApi } from "@/services/admin";
+import type { SystemConfig, UpdateSystemConfigRequest } from "@/services/admin";
 
 const userStore = useUserStore();
 const themeStore = useThemeStore();
@@ -69,6 +71,28 @@ const notificationSettings = ref<{
 // 偏好设置
 const language = ref("zh-CN");
 const timezone = ref("Asia/Shanghai");
+
+// 系统配置（仅管理员）
+const systemConfig = ref<SystemConfig>({
+  https: {
+    enabled: false,
+    ssl_certificate_path: "",
+    ssl_certificate_key_path: "",
+    ssl_protocols: ["TLSv1.2", "TLSv1.3"],
+    http_redirect: true,
+  },
+  cors: {
+    allowed_origins: [],
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowed_headers: ["Authorization", "Content-Type", "X-Requested-With"],
+  },
+  rate_limit: {
+    enabled: true,
+    requests_per_second: 100,
+    burst: 200,
+  },
+});
+const systemConfigLoaded = ref(false);
 
 // 访问令牌
 const tokens = ref<AccessToken[]>([]);
@@ -160,6 +184,19 @@ async function loadNotificationSettings() {
   }
 }
 
+// 加载系统配置（进入"系统配置"页签时从后端拉取）
+async function loadSystemConfig() {
+  if (!userStore.isAdmin) return;
+  if (systemConfigLoaded.value) return;
+  try {
+    const config = await adminApi.getSystemConfig();
+    systemConfig.value = config;
+    systemConfigLoaded.value = true;
+  } catch (err: any) {
+    openMessageDialog("加载失败", err?.message || "加载系统配置失败");
+  }
+}
+
 watch(
   () => activeSection.value,
   (section) => {
@@ -168,6 +205,9 @@ watch(
     }
     if (section === "notifications") {
       loadNotificationSettings();
+    }
+    if (section === "system" && userStore.isAdmin) {
+      loadSystemConfig();
     }
   },
   { immediate: true },
@@ -425,6 +465,53 @@ function handleAvatarError() {
   // 只标记失败，避免直接操作 DOM 样式导致后续成功加载也一直不显示
   avatarLoadFailed.value = true;
 }
+
+// 保存系统配置
+async function saveSystemConfig() {
+  if (!userStore.isAdmin) {
+    openMessageDialog("权限不足", "仅管理员可以修改系统配置");
+    return;
+  }
+  try {
+    const updateReq: UpdateSystemConfigRequest = {
+      cors: {
+        allowed_origins: systemConfig.value.cors.allowed_origins,
+        allowed_methods: systemConfig.value.cors.allowed_methods,
+        allowed_headers: systemConfig.value.cors.allowed_headers,
+      },
+      rate_limit: {
+        enabled: systemConfig.value.rate_limit.enabled,
+        requests_per_second: systemConfig.value.rate_limit.requests_per_second,
+        burst: systemConfig.value.rate_limit.burst,
+      },
+    };
+    await adminApi.updateSystemConfig(updateReq);
+    openMessageDialog("保存成功", "系统配置已保存");
+    notificationStore.addNotification({
+      source: "system",
+      title: "系统配置已更新",
+      message: "系统配置已成功保存，部分配置可能需要重启服务生效",
+      status: "success",
+    });
+  } catch (err: any) {
+    openMessageDialog("保存失败", err?.message || "系统配置保存失败");
+  }
+}
+
+// 添加CORS来源
+function addCorsOrigin() {
+  const origin = prompt("请输入允许的来源（例如：https://example.com）");
+  if (origin && origin.trim()) {
+    if (!systemConfig.value.cors.allowed_origins.includes(origin.trim())) {
+      systemConfig.value.cors.allowed_origins.push(origin.trim());
+    }
+  }
+}
+
+// 删除CORS来源
+function removeCorsOrigin(index: number) {
+  systemConfig.value.cors.allowed_origins.splice(index, 1);
+}
 </script>
 
 <template>
@@ -500,6 +587,20 @@ function handleAvatarError() {
             />
           </svg>
           外观设置
+        </button>
+        <button
+          v-if="userStore.isAdmin"
+          class="nav-item"
+          :class="{ active: activeSection === 'system' }"
+          @click="activeSection = 'system'"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path
+              fill="currentColor"
+              d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.3-.07.63-.07.94s.02.64.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
+            />
+          </svg>
+          系统配置
         </button>
       </nav>
 
@@ -797,6 +898,136 @@ function handleAvatarError() {
               ]"
             />
           </div>
+        </section>
+
+        <!-- 系统配置（仅管理员） -->
+        <section
+          v-if="activeSection === 'system' && userStore.isAdmin"
+          class="settings-section"
+        >
+          <h2>系统配置</h2>
+          <p class="section-desc">
+            管理系统级别的配置，包括 HTTPS/SSL、安全策略等。修改后可能需要重启服务才能生效。
+          </p>
+
+          <!-- HTTPS/SSL 配置 -->
+          <div class="config-group">
+            <h3>HTTPS/SSL 配置</h3>
+            <div class="toggle-item">
+              <div class="toggle-info">
+                <span class="toggle-label">启用 HTTPS</span>
+                <span class="toggle-desc"
+                  >通过反向代理（如 Nginx）启用 HTTPS 访问</span
+                >
+              </div>
+              <CypSwitch v-model="systemConfig.https.enabled" />
+            </div>
+            <div v-if="systemConfig.https.enabled" class="form-group">
+              <label>SSL 证书路径</label>
+              <CypInput
+                v-model="systemConfig.https.ssl_certificate_path"
+                placeholder="/etc/ssl/certs/registry.example.com.crt"
+              />
+              <small class="form-hint"
+                >SSL 证书文件路径（在反向代理服务器上，仅展示，需手动配置Nginx）</small
+              >
+            </div>
+            <div v-if="systemConfig.https.enabled" class="form-group">
+              <label>SSL 私钥路径</label>
+              <CypInput
+                v-model="systemConfig.https.ssl_certificate_key_path"
+                placeholder="/etc/ssl/private/registry.example.com.key"
+              />
+              <small class="form-hint"
+                >SSL 私钥文件路径（在反向代理服务器上，仅展示，需手动配置Nginx）</small
+              >
+            </div>
+            <div v-if="systemConfig.https.enabled" class="form-group">
+              <label>HTTP 自动重定向到 HTTPS</label>
+              <CypSwitch v-model="systemConfig.https.http_redirect" />
+              <small class="form-hint"
+                >启用后，所有 HTTP 请求将自动重定向到 HTTPS（需在Nginx配置）</small
+              >
+            </div>
+          </div>
+
+          <!-- CORS 配置 -->
+          <div class="config-group">
+            <h3>CORS 配置</h3>
+            <div class="form-group">
+              <label>允许的来源</label>
+              <div class="cors-origins-list">
+                <div
+                  v-for="(origin, index) in systemConfig.cors.allowed_origins"
+                  :key="index"
+                  class="cors-origin-item"
+                >
+                  <span>{{ origin }}</span>
+                  <CypButton
+                    size="small"
+                    type="danger"
+                    @click="removeCorsOrigin(index)"
+                  >
+                    删除
+                  </CypButton>
+                </div>
+                <CypButton size="small" @click="addCorsOrigin">
+                  + 添加来源
+                </CypButton>
+              </div>
+              <small class="form-hint"
+                >配置允许跨域访问的来源，支持多个域名</small
+              >
+            </div>
+          </div>
+
+          <!-- 速率限制配置 -->
+          <div class="config-group">
+            <h3>速率限制</h3>
+            <div class="toggle-item">
+              <div class="toggle-info">
+                <span class="toggle-label">启用速率限制</span>
+                <span class="toggle-desc"
+                  >限制 API 请求频率，防止滥用</span
+                >
+              </div>
+              <CypSwitch v-model="systemConfig.rate_limit.enabled" />
+            </div>
+            <div v-if="systemConfig.rate_limit.enabled" class="form-group">
+              <label>每秒请求数</label>
+              <CypInput
+                v-model.number="systemConfig.rate_limit.requests_per_second"
+                type="number"
+                placeholder="100"
+              />
+              <small class="form-hint">允许的每秒请求数上限</small>
+            </div>
+            <div v-if="systemConfig.rate_limit.enabled" class="form-group">
+              <label>突发请求数</label>
+              <CypInput
+                v-model.number="systemConfig.rate_limit.burst"
+                type="number"
+                placeholder="200"
+              />
+              <small class="form-hint">允许的突发请求数上限</small>
+            </div>
+          </div>
+
+          <div class="config-warning">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path
+                fill="currentColor"
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+              />
+            </svg>
+            <div>
+              <strong>注意：</strong>修改系统配置后，部分配置可能需要重启服务或反向代理才能生效。请谨慎操作。
+            </div>
+          </div>
+
+          <CypButton type="primary" @click="saveSystemConfig">
+            保存配置
+          </CypButton>
         </section>
       </div>
     </div>
@@ -1393,6 +1624,76 @@ function handleAvatarError() {
   .token-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+}
+
+.config-group {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 16px;
+  }
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.cors-origins-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cors-origin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.config-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  color: #92400e;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  div {
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.5;
+
+    strong {
+      font-weight: 600;
+    }
   }
 }
 </style>

@@ -23,13 +23,21 @@ var (
 
 // 错误码常量
 const (
-	CodeSuccess        = 20000 // 成功
-	CodeNotFound       = 20001 // 资源不存在
-	CodeResourceExists = 20002 // 资源已存在（冲突）
-	CodeInvalidParams  = 10001 // 参数错误
-	CodeUnauthorized   = 30001 // 未授权
-	CodeForbidden      = 30003 // 禁止访问
-	CodeInternalError  = 50001 // 内部服务器错误
+	CodeSuccess                = 20000 // 成功
+	CodeNotFound               = 20001 // 资源不存在
+	CodeResourceExists         = 20002 // 资源已存在（冲突）
+	CodeInvalidParams          = 10001 // 参数错误
+	CodeUnauthorized           = 30001 // 未授权
+	CodeForbidden              = 30003 // 禁止访问
+	CodeInsufficientPermission = 30004 // 权限不足
+	CodeInternalError          = 50001 // 内部服务器错误
+	// PAT权限相关错误码
+	CodePATMissingReadScope   = 30014 // PAT缺少读取权限
+	CodePATMissingWriteScope  = 30015 // PAT缺少写入权限
+	CodePATMissingDeleteScope = 30016 // PAT缺少删除权限
+	CodePATMissingAdminScope  = 30017 // PAT缺少管理员权限
+	CodePATMissingScopes      = 30018 // PAT缺少权限信息
+	CodePATInvalidScopes      = 30019 // PAT权限信息格式错误
 )
 
 // Response 统一API响应结构
@@ -162,6 +170,41 @@ func Unauthorized(c *gin.Context, message string) {
 // Forbidden 禁止访问响应
 func Forbidden(c *gin.Context, message string) {
 	Fail(c, 30003, message)
+}
+
+// PermissionDenied 权限不足响应（通用）
+func PermissionDenied(c *gin.Context, message string) {
+	Fail(c, 30004, message)
+}
+
+// PATMissingReadScope PAT缺少读取权限响应
+func PATMissingReadScope(c *gin.Context) {
+	Fail(c, 30014, "PAT令牌缺少读取权限，请在创建令牌时选择'读取'权限")
+}
+
+// PATMissingWriteScope PAT缺少写入权限响应
+func PATMissingWriteScope(c *gin.Context) {
+	Fail(c, 30015, "PAT令牌缺少写入权限，请在创建令牌时选择'写入'权限")
+}
+
+// PATMissingDeleteScope PAT缺少删除权限响应
+func PATMissingDeleteScope(c *gin.Context) {
+	Fail(c, 30016, "PAT令牌缺少删除权限，请在创建令牌时选择'删除'权限")
+}
+
+// PATMissingAdminScope PAT缺少管理员权限响应
+func PATMissingAdminScope(c *gin.Context) {
+	Fail(c, 30017, "PAT令牌缺少管理员权限，请在创建令牌时选择'管理'权限")
+}
+
+// PATMissingScopes PAT缺少权限信息响应
+func PATMissingScopes(c *gin.Context) {
+	Fail(c, 30018, "PAT令牌缺少权限信息")
+}
+
+// PATInvalidScopes PAT权限信息格式错误响应
+func PATInvalidScopes(c *gin.Context) {
+	Fail(c, 30019, "PAT令牌权限信息格式错误")
 }
 
 // NotFound 资源不存在响应（20001-29999）

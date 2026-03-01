@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -22,12 +21,16 @@ import (
 
 	"github.com/cyp-registry/registry/src/docs"
 	"github.com/cyp-registry/registry/src/middleware"
+	admin_controller "github.com/cyp-registry/registry/src/modules/admin/controller"
+	admin_service "github.com/cyp-registry/registry/src/modules/admin/service"
+	imageimport_module "github.com/cyp-registry/registry/src/modules/imageimport"
+	imageimport_controller "github.com/cyp-registry/registry/src/modules/imageimport/controller"
+	imageimport_service "github.com/cyp-registry/registry/src/modules/imageimport/service"
 	project_controller "github.com/cyp-registry/registry/src/modules/project/controller"
 	project_service "github.com/cyp-registry/registry/src/modules/project/service"
 	"github.com/cyp-registry/registry/src/modules/rbac"
 	"github.com/cyp-registry/registry/src/modules/registry"
 	registry_controller "github.com/cyp-registry/registry/src/modules/registry/controller"
-	"github.com/cyp-registry/registry/src/modules/storage"
 	"github.com/cyp-registry/registry/src/modules/storage/factory"
 	"github.com/cyp-registry/registry/src/modules/user/controller"
 	"github.com/cyp-registry/registry/src/modules/user/service"
@@ -40,160 +43,14 @@ import (
 	appversion "github.com/cyp-registry/registry/src/pkg/version"
 )
 
-// loadDotEnvDefaults 从指定的 .env 文件中加载环境变量：
-// - 仅在当前进程环境中“未显式设置”的键上生效（与单镜像入口脚本保持一致）
-// - 支持 "export KEY=VAL"、KEY=VAL、KEY="VAL" 等常见格式
-func loadDotEnvDefaults(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		idx := strings.Index(line, "=")
-		if idx <= 0 {
-			continue
-		}
-
-		key := strings.TrimSpace(line[:idx])
-		val := strings.TrimSpace(line[idx+1:])
-
-		if strings.HasPrefix(strings.ToLower(key), "export ") {
-			key = strings.TrimSpace(key[len("export "):])
-		}
-		if key == "" {
-			continue
-		}
-
-		// 去掉可能存在的引号
-		if len(val) >= 2 {
-			if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
-				val = val[1 : len(val)-1]
-			}
-		}
-		val = strings.TrimSpace(val)
-
-		// 不覆盖已存在的环境变量
-		if os.Getenv(key) == "" && val != "" {
-			_ = os.Setenv(key, val)
-		}
-	}
-}
-
-// detectCleanupConfig 检测 CLEANUP_ON_SHUTDOWN 配置来源与值：
-// - 同时读取进程环境变量与根级 .env（全局配置中心）
-// - 如两处均设置且不一致，按照“环境变量优先”生效并返回冲突状态
-// 返回值：
-//   - cleanupEnv: 实际生效的值（优先环境变量）
-//   - shouldCleanup: 是否启用清理模式（仅当 cleanupEnv == "1" 时为 true）
-//   - source: "env" | ".env" | "env+.env" | "none"
-//   - conflict: 当同时配置且取值不同时时为 true
-//   - dotEnvVal: .env 中解析到的值（无则为空）
-func detectCleanupConfig() (cleanupEnv string, shouldCleanup bool, source string, conflict bool, dotEnvVal string) {
-	// 1. 读取进程环境变量
-	envVal := strings.TrimSpace(os.Getenv("CLEANUP_ON_SHUTDOWN"))
-
-	// 2. 读取 .env（全局配置中心）
-	//    为兼容不同运行方式（直接运行二进制 / Docker 容器 / Windows 容器），尝试多个候选路径：
-	//    - 当前工作目录下的 .env
-	//    - 可执行文件所在目录下的 .env
-	//    - 容器内约定的 /app/.env（单镜像镜像默认工作目录）
-	if dotEnvVal == "" {
-		candidates := []string{".env"}
-
-		if wd, err := os.Getwd(); err == nil {
-			candidates = append(candidates, filepath.Join(wd, ".env"))
-		}
-		if execPath, err := os.Executable(); err == nil {
-			candidates = append(candidates, filepath.Join(filepath.Dir(execPath), ".env"))
-		}
-		// 单镜像容器内的固定路径（在 Windows 宿主 + Linux 容器场景下更直观）
-		candidates = append(candidates, "/app/.env")
-
-		for _, p := range candidates {
-			if v, ok := readCleanupFromDotEnv(p); ok {
-				dotEnvVal = strings.TrimSpace(v)
-				break
-			}
-		}
-	}
-
-	switch {
-	// 同时存在且不一致：以环境变量为准，但标记冲突
-	case envVal != "" && dotEnvVal != "" && envVal != dotEnvVal:
-		return envVal, envVal == "1", "env+.env", true, dotEnvVal
-	// 同时存在且一致：以环境变量为准，标记为联合作用
-	case envVal != "" && dotEnvVal != "" && envVal == dotEnvVal:
-		return envVal, envVal == "1", "env+.env", false, dotEnvVal
-	// 仅环境变量
-	case envVal != "":
-		return envVal, envVal == "1", "env", false, dotEnvVal
-	// 仅 .env
-	case dotEnvVal != "":
-		return dotEnvVal, dotEnvVal == "1", ".env", false, dotEnvVal
-	// 都未配置：默认未配置（安全优先，关闭清理模式）
-	default:
-		return "", false, "none", false, dotEnvVal
-	}
-}
-
-// readCleanupFromDotEnv 仅解析 .env 中的 CLEANUP_ON_SHUTDOWN 一项，避免引入额外依赖。
-// 支持如下格式：
-//
-//	CLEANUP_ON_SHUTDOWN=1
-//	CLEANUP_ON_SHUTDOWN = "1"
-//	export CLEANUP_ON_SHUTDOWN=1
-func readCleanupFromDotEnv(path string) (string, bool) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", false
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		if idx := strings.Index(line, "="); idx > 0 {
-			key := strings.TrimSpace(line[:idx])
-			val := strings.TrimSpace(line[idx+1:])
-
-			if strings.HasPrefix(strings.ToLower(key), "export ") {
-				key = strings.TrimSpace(key[len("export "):])
-			}
-
-			if key != "CLEANUP_ON_SHUTDOWN" {
-				continue
-			}
-
-			// 去掉可能存在的引号
-			if len(val) >= 2 {
-				if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
-					val = val[1 : len(val)-1]
-				}
-			}
-
-			return strings.TrimSpace(val), true
-		}
-	}
-
-	return "", false
-}
-
 func main() {
 	// 1. 强制使用 release 模式
 	os.Setenv("GIN_MODE", "release")
 	gin.SetMode(gin.ReleaseMode)
+
+	// 1.1 禁用 log 包的默认时间戳前缀（因为我们使用 JSON 格式，自己控制时间戳）
+	// 这样可以避免出现 "026/03/01" 这样的日期格式问题
+	log.SetFlags(0)
 
 	// 2. 尝试从当前工作目录的 .env 加载默认环境变量（仅补齐未显式设置的键）
 	//    这样在本地直接运行二进制/`go run` 时，也能复用全局配置中心 .env。
@@ -269,6 +126,11 @@ func main() {
 		log.Printf("警告: 初始化Webhook数据库表失败: %v", err)
 	}
 
+	// 5.4 初始化数据库表（镜像导入）
+	if err := imageimport_module.InitDatabase(); err != nil {
+		log.Printf("警告: 初始化镜像导入数据库表失败: %v", err)
+	}
+
 	// 6. 初始化RBAC
 	rbacSvc := rbac.NewService()
 	if err := rbacSvc.InitDefaultRoles(context.TODO()); err != nil {
@@ -309,6 +171,17 @@ func main() {
 	projectCtrl := project_controller.NewProjectController(projectSvc, userSvc)
 	regCtrl := registry_controller.NewRegistryController(regSvc, rbacSvc, authMw, projectSvc, userSvc, whSvc)
 	whCtrl := webhook_controller.NewWebhookController(whSvc, authMw)
+	adminSvc := admin_service.NewService()
+	adminCtrl := admin_controller.NewAdminController(adminSvc)
+
+	// 创建镜像导入服务（使用配置中的Host和Port构建本地仓库地址）
+	localRegistryHost := cfg.App.Host
+	if localRegistryHost == "0.0.0.0" {
+		localRegistryHost = "localhost"
+	}
+	localRegistryHost = fmt.Sprintf("%s:%d", localRegistryHost, cfg.App.Port)
+	imageImportSvc := imageimport_service.NewService(localRegistryHost)
+	imageImportCtrl := imageimport_controller.NewImageImportController(imageImportSvc, projectSvc)
 
 	// 10. 配置路由
 	// 健康检查 - 必须在最前面
@@ -591,6 +464,7 @@ func main() {
 		users.Use(authMw.Auth())
 		{
 			users.GET("/me", userCtrl.GetCurrentUser)
+			users.GET("/me/token-info", userCtrl.GetCurrentTokenInfo)
 			users.PUT("/me", userCtrl.UpdateCurrentUser)
 			users.PUT("/me/password", userCtrl.ChangePassword)
 			users.POST("/me/avatar", userCtrl.UploadAvatar)
@@ -613,6 +487,7 @@ func main() {
 		{
 			projects.POST("", projectCtrl.Create)
 			projects.GET("", projectCtrl.List)
+			projects.GET("/statistics", projectCtrl.GetStatistics)
 			projects.GET("/:id", projectCtrl.Get)
 			// 前端使用 PATCH，这里兼容 PUT/PATCH
 			projects.PUT("/:id", projectCtrl.Update)
@@ -620,6 +495,12 @@ func main() {
 			projects.DELETE("/:id", projectCtrl.Delete)
 			projects.PUT("/:id/quota", projectCtrl.UpdateQuota)
 			projects.GET("/:id/storage", projectCtrl.GetStorageUsage)
+
+			// 镜像导入路由
+			projects.POST("/:id/images/import", imageImportCtrl.ImportImage)
+			projects.GET("/:id/images/import", imageImportCtrl.ListTasks)
+			projects.GET("/:id/images/import/:task_id", imageImportCtrl.GetTask)
+
 			// 团队/成员功能已下线，这些路由保留占位但不再提供实际能力
 			projects.POST("/:id/members", func(c *gin.Context) {
 				c.JSON(410, gin.H{
@@ -639,6 +520,16 @@ func main() {
 					"message": "项目成员/团队功能已取消，不再支持移除成员",
 				})
 			})
+		}
+
+		// 管理员路由（需要管理员权限）
+		admin := v1.Group("/admin")
+		admin.Use(authMw.Auth())
+		admin.Use(authMw.AdminRequired())
+		{
+			admin.GET("/logs", adminCtrl.ListAuditLogs)
+			admin.GET("/config", adminCtrl.GetSystemConfig)
+			admin.PUT("/config", adminCtrl.UpdateSystemConfig)
 		}
 	}
 
@@ -694,6 +585,9 @@ func main() {
 			serverErr <- err
 		}
 	}()
+
+	// 启动日志清理定时任务
+	go startAuditLogCleanupTask()
 
 	// 等待服务器开始启动
 	<-serverStarted
@@ -914,127 +808,4 @@ func main() {
 	} else {
 		log.Println("服务器已完全关闭，数据已保留")
 	}
-}
-
-// cleanupDatabase 清理数据库数据
-// 删除所有表的数据，但保留表结构
-func cleanupDatabase() error {
-	db := database.GetDB()
-	if db == nil {
-		return fmt.Errorf("数据库未初始化")
-	}
-
-	// 获取所有表名
-	var tables []string
-	if err := db.Raw(`
-		SELECT tablename 
-		FROM pg_tables 
-		WHERE schemaname = 'public'
-	`).Scan(&tables).Error; err != nil {
-		return fmt.Errorf("获取表列表失败: %w", err)
-	}
-
-	// 禁用外键约束检查（PostgreSQL使用TRUNCATE CASCADE）
-	// 注意：这会删除所有表的数据，包括关联数据
-	for _, table := range tables {
-		// 使用TRUNCATE CASCADE删除所有数据并重置自增序列
-		if err := db.Exec(fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table)).Error; err != nil {
-			log.Printf("警告: 清理表 %s 失败: %v", table, err)
-			// 继续清理其他表
-		}
-	}
-
-	return nil
-}
-
-// cleanupStorage 清理文件存储
-func cleanupStorage(store storage.Storage) error {
-	if store == nil {
-		return fmt.Errorf("存储未初始化")
-	}
-
-	ctx := context.Background()
-
-	// 列出所有文件并删除
-	// 注意：这里假设存储根目录是空字符串或"/"
-	paths, err := store.List(ctx, "")
-	if err != nil {
-		// 如果List失败，尝试删除已知的路径
-		log.Printf("警告: 列出存储文件失败: %v，尝试清理已知路径", err)
-		// 清理常见的存储路径
-		commonPaths := []string{"blobs", "manifests", "repositories"}
-		for _, path := range commonPaths {
-			if exists, _ := store.Exists(ctx, path); exists {
-				if err := store.Delete(ctx, path); err != nil {
-					log.Printf("警告: 删除存储路径 %s 失败: %v", path, err)
-				}
-			}
-		}
-		return nil
-	}
-
-	// 删除所有列出的文件
-	for _, path := range paths {
-		if err := store.Delete(ctx, path); err != nil {
-			log.Printf("警告: 删除存储文件 %s 失败: %v", path, err)
-			// 继续删除其他文件
-		}
-	}
-
-	return nil
-}
-
-// cleanupUploads 清理上传文件（头像等）
-func cleanupUploads(uploadsDir string) error {
-	if uploadsDir == "" {
-		return nil // 没有配置上传目录，跳过
-	}
-
-	// 检查目录是否存在
-	if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
-		return nil // 目录不存在，无需清理
-	}
-
-	// 删除整个上传目录
-	if err := os.RemoveAll(uploadsDir); err != nil {
-		return fmt.Errorf("删除上传目录失败: %w", err)
-	}
-
-	// 重新创建空目录（可选，保持目录结构）
-	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
-		log.Printf("警告: 重新创建上传目录失败: %v", err)
-	}
-
-	return nil
-}
-
-// cleanupCache 清理缓存数据
-func cleanupCache() error {
-	if cache.Cache == nil {
-		return nil // 缓存未初始化，跳过
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// 获取所有键（使用通配符匹配）
-	// 注意：Redis的KEYS命令在生产环境中可能影响性能
-	// 这里使用SCAN来迭代所有键
-	iter := cache.Cache.Scan(ctx, 0, "*", 0).Iterator()
-	keys := []string{}
-	for iter.Next(ctx) {
-		keys = append(keys, iter.Val())
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("扫描缓存键失败: %w", err)
-	}
-
-	// 删除所有键
-	if len(keys) > 0 {
-		if err := cache.Cache.Del(ctx, keys...).Err(); err != nil {
-			return fmt.Errorf("删除缓存键失败: %w", err)
-		}
-	}
-
-	return nil
 }

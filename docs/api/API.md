@@ -81,21 +81,28 @@ Content-Type: application/json
 | 方法 | 路径 | 描述 | 认证 |
 |------|------|------|------|
 | POST | `/api/v1/auth/login` | 用户登录 | 否 |
-| POST | `/api/v1/auth/register` | 用户注册 | 否 |
 | POST | `/api/v1/auth/refresh` | 刷新 Token | 是 |
 | POST | `/api/v1/auth/logout` | 退出登录 | 是 |
-| POST | `/api/v1/auth/mfa/verify` | MFA 验证 | 是 |
+| GET | `/api/v1/auth/default-admin-once` | 获取默认管理员提示（首次启动） | 否 |
 
 ### 用户管理
 
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| GET | `/api/v1/user/profile` | 获取用户信息 | 是 |
-| PUT | `/api/v1/user/profile` | 更新用户信息 | 是 |
-| PUT | `/api/v1/user/password` | 修改密码 | 是 |
-| GET | `/api/v1/user/tokens` | 列出 PAT | 是 |
-| POST | `/api/v1/user/tokens` | 创建 PAT | 是 |
-| DELETE | `/api/v1/user/tokens/:id` | 删除 PAT | 是 |
+| 方法 | 路径 | 描述 | 认证 | 权限 |
+|------|------|------|------|------|
+| GET | `/api/v1/users/me` | 获取当前用户信息 | 是 | - |
+| PUT | `/api/v1/users/me` | 更新当前用户信息 | 是 | - |
+| PUT | `/api/v1/users/me/password` | 修改密码 | 是 | - |
+| POST | `/api/v1/users/me/avatar` | 上传头像 | 是 | - |
+| GET | `/api/v1/users/me/token-info` | 获取当前 Token 信息 | 是 | - |
+| GET | `/api/v1/users/me/notification-settings` | 获取通知设置 | 是 | - |
+| PUT | `/api/v1/users/me/notification-settings` | 更新通知设置 | 是 | - |
+| POST | `/api/v1/users/me/pat` | 创建 Personal Access Token | 是 | - |
+| GET | `/api/v1/users/me/pat` | 列出所有 PAT | 是 | - |
+| DELETE | `/api/v1/users/me/pat/:id` | 撤销 PAT | 是 | - |
+| GET | `/api/v1/users` | 列出所有用户 | 是 | 管理员 |
+| GET | `/api/v1/users/:id` | 获取用户详情 | 是 | 管理员 |
+| PATCH | `/api/v1/users/:id` | 更新用户信息 | 是 | 管理员 |
+| DELETE | `/api/v1/users/:id` | 删除用户 | 是 | 管理员 |
 
 ### 项目管理
 
@@ -103,31 +110,18 @@ Content-Type: application/json
 |------|------|------|------|
 | GET | `/api/v1/projects` | 列出项目 | 是 |
 | POST | `/api/v1/projects` | 创建项目 | 是 |
+| GET | `/api/v1/projects/statistics` | 获取项目统计信息 | 是 |
 | GET | `/api/v1/projects/:id` | 项目详情 | 是 |
 | PUT | `/api/v1/projects/:id` | 更新项目 | 是 |
+| PATCH | `/api/v1/projects/:id` | 更新项目（兼容） | 是 |
 | DELETE | `/api/v1/projects/:id` | 删除项目 | 是 |
-| GET | `/api/v1/projects/:id/members` | 列出成员 | 是 |
-| POST | `/api/v1/projects/:id/members` | 添加成员 | 是 |
-| DELETE | `/api/v1/projects/:id/members/:userId` | 移除成员 | 是 |
+| PUT | `/api/v1/projects/:id/quota` | 更新存储配额 | 是 |
+| GET | `/api/v1/projects/:id/storage` | 获取存储使用情况 | 是 |
+| POST | `/api/v1/projects/:id/images/import` | 从 URL 导入镜像 | 是 |
+| GET | `/api/v1/projects/:id/images/import` | 获取导入任务列表 | 是 |
+| GET | `/api/v1/projects/:id/images/import/:task_id` | 获取导入任务详情 | 是 |
 
-### 镜像管理
-
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| GET | `/api/v1/repositories` | 列出仓库 | 是 |
-| GET | `/api/v1/repositories/:repo/tags` | 列出标签 | 是 |
-| DELETE | `/api/v1/repositories/:repo/tags/:tag` | 删除标签 | 是 |
-| GET | `/api/v1/repositories/:repo/manifests` | 列出清单 | 是 |
-| GET | `/api/v1/repositories/:repo/vulnerabilities` | 漏洞信息 | 是 |
-
-### 漏洞扫描
-
-| 方法 | 路径 | 描述 | 认证 |
-|------|------|------|------|
-| GET | `/api/v1/scans` | 列出扫描任务 | 是 |
-| GET | `/api/v1/scans/:id` | 扫描详情 | 是 |
-| POST | `/api/v1/scans` | 触发扫描 | 是 |
-| GET | `/api/v1/scans/:id/logs` | 扫描日志 | 是 |
+**注意**：项目成员/团队功能已下线，相关接口（`/api/v1/projects/:id/members`）返回 410 状态码。
 
 ### Webhook
 
@@ -190,7 +184,87 @@ Content-Type: application/json
 }
 ```
 
+## 镜像导入接口详细说明
+
+### 创建镜像导入任务
+```http
+POST /api/v1/projects/:id/images/import
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "image": "nginx:latest",
+  "username": "optional_username",
+  "password": "optional_password"
+}
+```
+
+### 响应
+```json
+{
+  "code": 20000,
+  "message": "success",
+  "data": {
+    "task_id": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "pending",
+    "image": "nginx:latest",
+    "created_at": "2026-02-01T00:00:00Z"
+  }
+}
+```
+
+### 查询导入任务列表
+```http
+GET /api/v1/projects/:id/images/import
+Authorization: Bearer <token>
+```
+
+### 查询导入任务详情
+```http
+GET /api/v1/projects/:id/images/import/:task_id
+Authorization: Bearer <token>
+```
+
+### 响应
+```json
+{
+  "code": 20000,
+  "message": "success",
+  "data": {
+    "task_id": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "completed",
+    "image": "nginx:latest",
+    "progress": 100,
+    "message": "镜像导入成功",
+    "created_at": "2026-02-01T00:00:00Z",
+    "updated_at": "2026-02-01T00:05:00Z"
+  }
+}
+```
+
+**任务状态说明：**
+- `pending`: 等待处理
+- `running`: 正在导入
+- `completed`: 导入成功
+- `failed`: 导入失败
+
+## 健康检查
+
+| 方法 | 路径 | 描述 | 认证 |
+|------|------|------|------|
+| GET | `/health` | 健康检查 | 否 |
+| GET | `/api/health` | 健康检查（兼容） | 否 |
+
+### 响应
+```json
+{
+  "status": "healthy",
+  "service": "CYP-Registry",
+  "version": "1.0.8"
+}
+```
+
 ---
-*文档版本: v1.0.3*  
-*更新日期: 2026-02-25*
+*文档版本: v1.0.8*  
+*更新日期: 2026-02-28*
 

@@ -456,7 +456,7 @@ class VersionChecker {
 const versionChecker = require('./version-checker.js');
 
 const changes = ${JSON.stringify(changes, null, 2)};
-const version = '${version}';
+const version: "v1.1.0";
 
 const report = versionChecker.checkVersion(version, changes);
 versionChecker.printReport(report);

@@ -74,6 +74,9 @@ dist/
 build/
 *.tar.gz
 
+# Test image archives (local only, do not upload)
+test-image.tar
+
 # Docker
 .docker/
 

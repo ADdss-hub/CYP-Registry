@@ -95,7 +95,7 @@ class UniversalVersionManager {
   /**
    * 初始化版本系统
    */
-  init(version = '0.1.0', options = {}) {
+  init(version: "v1.1.0", options = {}) {
     console.log('🚀 初始化统一版本管理系统...');
 
     // 1. 初始化配置
@@ -277,7 +277,7 @@ class UniversalVersionManager {
 
         patterns.forEach(pattern => {
           if (pattern.test(content)) {
-            content = content.replace(pattern, `version: "${version}"`);
+            content = content.replace(pattern, `version: "v1.1.0"`);
             updated = true;
           }
         });

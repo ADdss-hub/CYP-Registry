@@ -404,6 +404,37 @@ func (c *ProjectController) GetStorageUsage(ctx *gin.Context) {
 	})
 }
 
+// GetStatistics 获取项目统计信息
+// GET /api/v1/projects/statistics
+func (c *ProjectController) GetStatistics(ctx *gin.Context) {
+	// 获取用户ID（从JWT token中），由认证中间件提前写入上下文
+	userIDVal, exists := ctx.Get(middleware.ContextKeyUserID)
+	if !exists {
+		response.Unauthorized(ctx, "user not authenticated")
+		return
+	}
+
+	userUUID, ok := userIDVal.(uuid.UUID)
+	if !ok {
+		response.Unauthorized(ctx, "user not authenticated")
+		return
+	}
+
+	userID := userUUID.String()
+
+	totalProjects, totalImages, totalStorage, err := c.svc.GetStatistics(ctx.Request.Context(), userID)
+	if err != nil {
+		response.InternalServerError(ctx, "failed to get statistics")
+		return
+	}
+
+	response.Success(ctx, gin.H{
+		"total_projects": totalProjects,
+		"total_images":   totalImages,
+		"total_storage":   totalStorage,
+	})
+}
+
 // toProjectResponse 转换为项目响应
 func toProjectResponse(p *project.Project) dto.ProjectResponse {
 	return dto.ProjectResponse{
