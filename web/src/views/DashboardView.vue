@@ -18,8 +18,9 @@ const statsCards = computed(() => {
   // 优先使用后端统计接口返回的准确数据，避免只统计当前页导致仪表盘与项目列表不一致
   const projectCount =
     statistics.value?.total_projects ??
-    (projectStore.pagination?.total ??
-      (projectStore.projects?.length ?? 0));
+    projectStore.pagination?.total ??
+    projectStore.projects?.length ??
+    0;
 
   const imageCount =
     statistics.value?.total_images ??

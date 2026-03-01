@@ -37,7 +37,7 @@ export const imageImportApi = {
    */
   async importImage(
     projectId: string,
-    data: ImportImageRequest
+    data: ImportImageRequest,
   ): Promise<ImportTask> {
     const response = await apiClient.post<{
       code: number;
@@ -69,7 +69,7 @@ export const imageImportApi = {
   async listTasks(
     projectId: string,
     page: number = 1,
-    pageSize: number = 20
+    pageSize: number = 20,
   ): Promise<ImportTaskListResponse> {
     const response = await apiClient.get<{
       code: number;

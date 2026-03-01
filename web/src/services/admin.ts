@@ -69,7 +69,7 @@ export const adminApi = {
    * 获取审计日志列表
    */
   async getAuditLogs(
-    params: AuditLogQueryParams = {}
+    params: AuditLogQueryParams = {},
   ): Promise<AuditLogListResponse> {
     const response = await apiClient.get<{
       code: number;
@@ -98,9 +98,7 @@ export const adminApi = {
   /**
    * 更新系统配置
    */
-  async updateSystemConfig(
-    config: UpdateSystemConfigRequest
-  ): Promise<void> {
+  async updateSystemConfig(config: UpdateSystemConfigRequest): Promise<void> {
     const response = await apiClient.put<{ code: number; data: null }>(
       "/v1/admin/config",
       config,

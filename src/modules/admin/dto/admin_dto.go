@@ -57,18 +57,18 @@ func ToAuditLogResponse(log *models.AuditLog) AuditLogResponse {
 
 // SystemConfigResponse 系统配置响应
 type SystemConfigResponse struct {
-	HTTPS          HTTPSConfig          `json:"https"`
-	CORS           CORSConfigResponse   `json:"cors"`
-	RateLimit      RateLimitConfigResponse `json:"rate_limit"`
+	HTTPS     HTTPSConfig             `json:"https"`
+	CORS      CORSConfigResponse      `json:"cors"`
+	RateLimit RateLimitConfigResponse `json:"rate_limit"`
 }
 
 // HTTPSConfig HTTPS配置
 type HTTPSConfig struct {
-	Enabled              bool     `json:"enabled"`
-	SSLCertificatePath   string   `json:"ssl_certificate_path"`
-	SSLCertificateKeyPath string  `json:"ssl_certificate_key_path"`
-	SSLProtocols         []string `json:"ssl_protocols"`
-	HTTPRedirect         bool     `json:"http_redirect"`
+	Enabled               bool     `json:"enabled"`
+	SSLCertificatePath    string   `json:"ssl_certificate_path"`
+	SSLCertificateKeyPath string   `json:"ssl_certificate_key_path"`
+	SSLProtocols          []string `json:"ssl_protocols"`
+	HTTPRedirect          bool     `json:"http_redirect"`
 }
 
 // CORSConfigResponse CORS配置响应

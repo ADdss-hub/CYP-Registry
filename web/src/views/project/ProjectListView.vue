@@ -176,14 +176,16 @@ const statistics = ref<{
   total_storage: number;
 } | null>(null);
 
-const totalImages = computed(() =>
-  statistics.value?.total_images ?? 
-  projects.value.reduce((sum, p) => sum + (p.imageCount || 0), 0),
+const totalImages = computed(
+  () =>
+    statistics.value?.total_images ??
+    projects.value.reduce((sum, p) => sum + (p.imageCount || 0), 0),
 );
 
-const totalStorage = computed(() =>
-  statistics.value?.total_storage ?? 
-  projects.value.reduce((sum, p) => sum + (p.storageUsed || 0), 0),
+const totalStorage = computed(
+  () =>
+    statistics.value?.total_storage ??
+    projects.value.reduce((sum, p) => sum + (p.storageUsed || 0), 0),
 );
 
 function formatBytes(bytes: number): string {
@@ -389,11 +391,7 @@ onMounted(async () => {
         @keyup.enter="handleSearch"
       />
       <CypButton type="primary" @click="handleSearch"> 搜索 </CypButton>
-      <CypButton
-        type="default"
-        :loading="isLoading"
-        @click="handleRefresh"
-      >
+      <CypButton type="default" :loading="isLoading" @click="handleRefresh">
         刷新列表
       </CypButton>
     </div>

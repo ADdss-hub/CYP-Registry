@@ -422,7 +422,9 @@ async function handleImportFromUrl() {
     console.error("导入镜像失败", error);
     openMessageDialog(
       "导入失败",
-      error.response?.data?.message || error.message || "导入镜像失败，请稍后重试"
+      error.response?.data?.message ||
+        error.message ||
+        "导入镜像失败，请稍后重试",
     );
     notificationStore.addNotification({
       source: "registry",
@@ -945,38 +947,92 @@ async function handleSaveSettings() {
         </div>
 
         <!-- 任务进度显示 -->
-        <div v-if="importTask" class="task-progress" style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px">
-            <span style="font-weight: 500">任务状态: {{ importTask.status }}</span>
+        <div
+          v-if="importTask"
+          class="task-progress"
+          style="
+            margin-top: 20px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            "
+          >
+            <span style="font-weight: 500"
+              >任务状态: {{ importTask.status }}</span
+            >
             <span style="color: #64748b">{{ importTask.progress }}%</span>
           </div>
-          <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 8px">
+          <div
+            style="
+              width: 100%;
+              height: 8px;
+              background: #e2e8f0;
+              border-radius: 4px;
+              overflow: hidden;
+              margin-bottom: 8px;
+            "
+          >
             <div
               :style="{
                 width: importTask.progress + '%',
                 height: '100%',
-                background: importTask.status === 'failed' ? '#ef4444' : '#3b82f6',
+                background:
+                  importTask.status === 'failed' ? '#ef4444' : '#3b82f6',
                 transition: 'width 0.3s',
               }"
             ></div>
           </div>
-          <div style="font-size: 13px; color: #64748b">{{ importTask.message }}</div>
-          <div v-if="importTask.error" style="margin-top: 8px; padding: 8px; background: #fee2e2; border-radius: 4px; color: #dc2626; font-size: 12px">
+          <div style="font-size: 13px; color: #64748b">
+            {{ importTask.message }}
+          </div>
+          <div
+            v-if="importTask.error"
+            style="
+              margin-top: 8px;
+              padding: 8px;
+              background: #fee2e2;
+              border-radius: 4px;
+              color: #dc2626;
+              font-size: 12px;
+            "
+          >
             {{ importTask.error }}
           </div>
         </div>
 
         <div class="dialog-actions" style="margin-top: 24px">
-          <CypButton @click="closeImportDialog" :disabled="isImporting && importTask === null">
+          <CypButton
+            @click="closeImportDialog"
+            :disabled="isImporting && importTask === null"
+          >
             取消
           </CypButton>
           <CypButton
             type="primary"
             @click="handleImportFromUrl"
             :loading="isImporting"
-            :disabled="importTask !== null && (importTask.status === 'running' || importTask.status === 'pending')"
+            :disabled="
+              importTask !== null &&
+              (importTask.status === 'running' ||
+                importTask.status === 'pending')
+            "
           >
-            {{ importTask ? (importTask.status === 'success' ? '完成' : importTask.status === 'failed' ? '重试' : '导入中...') : '开始导入' }}
+            {{
+              importTask
+                ? importTask.status === "success"
+                  ? "完成"
+                  : importTask.status === "failed"
+                    ? "重试"
+                    : "导入中..."
+                : "开始导入"
+            }}
           </CypButton>
         </div>
       </div>

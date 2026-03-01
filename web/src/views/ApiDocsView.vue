@@ -581,20 +581,25 @@ function openSwaggerUI() {
             <pre class="code-block">
 Authorization: Bearer &lt;your-access-token&gt;</pre
             >
-            <p style="margin-top: 8px; font-size: 12px; color: #64748b;">
+            <p style="margin-top: 8px; font-size: 12px; color: #64748b">
               支持两种Token类型：
             </p>
-            <ul style="margin: 8px 0 0 20px; font-size: 12px; color: #64748b;">
-              <li><strong>JWT Token</strong>：通过登录接口获取，继承用户所有权限</li>
-              <li><strong>PAT Token</strong>：Personal Access Token，可自定义权限范围</li>
+            <ul style="margin: 8px 0 0 20px; font-size: 12px; color: #64748b">
+              <li>
+                <strong>JWT Token</strong>：通过登录接口获取，继承用户所有权限
+              </li>
+              <li>
+                <strong>PAT Token</strong>：Personal Access
+                Token，可自定义权限范围
+              </li>
             </ul>
           </div>
           <div class="info-section">
             <h4>PAT权限说明</h4>
-            <p style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+            <p style="font-size: 12px; color: #64748b; margin-bottom: 8px">
               PAT支持以下权限范围（scopes）：
             </p>
-            <table class="error-table" style="font-size: 12px;">
+            <table class="error-table" style="font-size: 12px">
               <thead>
                 <tr>
                   <th>权限</th>
@@ -616,7 +621,9 @@ Authorization: Bearer &lt;your-access-token&gt;</pre
                 </tr>
                 <tr>
                   <td><code>admin</code></td>
-                  <td>管理权限：访问管理员功能、查看日志、用户管理（包含所有权限）</td>
+                  <td>
+                    管理权限：访问管理员功能、查看日志、用户管理（包含所有权限）
+                  </td>
                 </tr>
               </tbody>
             </table>

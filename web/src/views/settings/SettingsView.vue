@@ -907,7 +907,8 @@ function removeCorsOrigin(index: number) {
         >
           <h2>系统配置</h2>
           <p class="section-desc">
-            管理系统级别的配置，包括 HTTPS/SSL、安全策略等。修改后可能需要重启服务才能生效。
+            管理系统级别的配置，包括
+            HTTPS/SSL、安全策略等。修改后可能需要重启服务才能生效。
           </p>
 
           <!-- HTTPS/SSL 配置 -->
@@ -929,7 +930,8 @@ function removeCorsOrigin(index: number) {
                 placeholder="/etc/ssl/certs/registry.example.com.crt"
               />
               <small class="form-hint"
-                >SSL 证书文件路径（在反向代理服务器上，仅展示，需手动配置Nginx）</small
+                >SSL
+                证书文件路径（在反向代理服务器上，仅展示，需手动配置Nginx）</small
               >
             </div>
             <div v-if="systemConfig.https.enabled" class="form-group">
@@ -939,14 +941,16 @@ function removeCorsOrigin(index: number) {
                 placeholder="/etc/ssl/private/registry.example.com.key"
               />
               <small class="form-hint"
-                >SSL 私钥文件路径（在反向代理服务器上，仅展示，需手动配置Nginx）</small
+                >SSL
+                私钥文件路径（在反向代理服务器上，仅展示，需手动配置Nginx）</small
               >
             </div>
             <div v-if="systemConfig.https.enabled" class="form-group">
               <label>HTTP 自动重定向到 HTTPS</label>
               <CypSwitch v-model="systemConfig.https.http_redirect" />
               <small class="form-hint"
-                >启用后，所有 HTTP 请求将自动重定向到 HTTPS（需在Nginx配置）</small
+                >启用后，所有 HTTP 请求将自动重定向到
+                HTTPS（需在Nginx配置）</small
               >
             </div>
           </div>
@@ -987,9 +991,7 @@ function removeCorsOrigin(index: number) {
             <div class="toggle-item">
               <div class="toggle-info">
                 <span class="toggle-label">启用速率限制</span>
-                <span class="toggle-desc"
-                  >限制 API 请求频率，防止滥用</span
-                >
+                <span class="toggle-desc">限制 API 请求频率，防止滥用</span>
               </div>
               <CypSwitch v-model="systemConfig.rate_limit.enabled" />
             </div>
@@ -1021,7 +1023,8 @@ function removeCorsOrigin(index: number) {
               />
             </svg>
             <div>
-              <strong>注意：</strong>修改系统配置后，部分配置可能需要重启服务或反向代理才能生效。请谨慎操作。
+              <strong>注意：</strong
+              >修改系统配置后，部分配置可能需要重启服务或反向代理才能生效。请谨慎操作。
             </div>
           </div>
 

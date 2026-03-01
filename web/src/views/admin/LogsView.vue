@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import type { AuditLog, AuditLogListResponse, AuditLogQueryParams } from "@/services/admin";
+import type {
+  AuditLog,
+  AuditLogListResponse,
+  AuditLogQueryParams,
+} from "@/services/admin";
 import { adminApi } from "@/services/admin";
 
 const loading = ref(false);
@@ -52,15 +56,18 @@ onMounted(() => {
       <div class="card-header">
         <div class="card-title">日志列表</div>
         <div class="card-actions">
-          <button class="btn" type="button" @click="loadLogs" :disabled="loading">
+          <button
+            class="btn"
+            type="button"
+            @click="loadLogs"
+            :disabled="loading"
+          >
             刷新
           </button>
         </div>
       </div>
 
-      <div v-if="loading" class="logs-loading">
-        正在加载日志...
-      </div>
+      <div v-if="loading" class="logs-loading">正在加载日志...</div>
       <div v-else-if="logs.length === 0" class="logs-empty">
         暂无审计日志记录。
       </div>
@@ -96,7 +103,10 @@ onMounted(() => {
             type="button"
             class="btn"
             :disabled="page <= 1 || loading"
-            @click="page--; loadLogs()"
+            @click="
+              page--;
+              loadLogs();
+            "
           >
             上一页
           </button>
@@ -104,7 +114,10 @@ onMounted(() => {
             type="button"
             class="btn"
             :disabled="logs.length < pageSize || loading"
-            @click="page++; loadLogs()"
+            @click="
+              page++;
+              loadLogs();
+            "
           >
             下一页
           </button>
@@ -205,8 +218,9 @@ onMounted(() => {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 .pagination {
@@ -232,4 +246,3 @@ onMounted(() => {
   cursor: default;
 }
 </style>
-
