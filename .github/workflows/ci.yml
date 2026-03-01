@@ -150,12 +150,33 @@ jobs:
             exit 1
           fi
           echo "✅ 配置文件格式验证通过（v2 格式，无 formatter）"
-          # ✅ 验证配置文件语法（v2.5+ 支持）
+          # 🔍 检查配置中是否包含已废弃的 linters
+          echo "检查配置中是否包含已废弃的 linters..."
+          DEPRECATED_LINTERS=("gosimple" "stylecheck" "exportloopref" "deadcode" "varcheck" "structcheck" "golint")
+          FOUND_DEPRECATED=false
+          for linter in "${DEPRECATED_LINTERS[@]}"; do
+            if grep -qE "^\s*-\s+${linter}" .golangci.yml; then
+              echo "::error::检测到已废弃的 linter: ${linter}"
+              echo "  原因: 在 golangci-lint v2 中已被移除或整合"
+              echo "  建议: 从配置中移除（功能已整合到其他 linter）"
+              FOUND_DEPRECATED=true
+            fi
+          done
+          if [ "$FOUND_DEPRECATED" = true ]; then
+            echo "已废弃的 linter 说明:"
+            echo "  - gosimple/stylecheck → 已整合到 staticcheck"
+            echo "  - exportloopref → Go 1.22+ 已修复循环变量问题，无需此 linter"
+            echo "  - deadcode/varcheck/structcheck → 已整合到 unused"
+            exit 1
+          fi
+          echo "✅ 未发现已废弃的 linter"
+          # ✅ 验证配置文件语法（v2.10.1+ 使用 verify 命令）
           echo "验证 golangci-lint 配置文件语法..."
-          if golangci-lint config validate --config .golangci.yml 2>&1; then
+          if golangci-lint config verify --config .golangci.yml 2>&1; then
             echo "✅ 配置文件语法验证通过"
           else
-            echo "::warning::配置文件语法验证失败，但继续执行（可能是版本兼容性问题）"
+            echo "::error::配置文件语法验证失败，请检查 .golangci.yml"
+            exit 1
           fi
           # 运行 golangci-lint，使用配置文件
           # 使用 --modules-download-mode=readonly 确保依赖解析正确

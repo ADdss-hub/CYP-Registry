@@ -10,14 +10,15 @@ linters:
   default: enable
   enable:
     - errcheck
-    - gosimple
+    # 注意：gosimple 和 stylecheck 已整合到 staticcheck，无需单独启用
     - govet
     - ineffassign
-    - staticcheck
+    - staticcheck  # 包含 gosimple + stylecheck 的全部功能
     - unused
     - typecheck  # 启用类型检查以捕获类型错误
     # 注意：gofmt 和 goimports 是 formatter，不能作为 linter 启用（v2 要求）
     # 格式检查已在 CI 中单独处理
+    # 注意：exportloopref 在 Go 1.22+ 中已修复循环变量问题，linter 已被移除
     - misspell
     - gocritic
     - gocyclo
@@ -27,7 +28,6 @@ linters:
     - unparam
     - nakedret
     - prealloc
-    - exportloopref
     - gosec
     - errname
     - errorlint
@@ -42,7 +42,6 @@ linters:
     - nolintlint
     - rowserrcheck
     - sqlclosecheck
-    - stylecheck
     - unconvert
     - whitespace
   # typecheck 已通过 default: enable 排除（不在列表中即被禁用）
