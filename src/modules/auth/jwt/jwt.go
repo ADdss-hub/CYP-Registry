@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	jwtv5 "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
 	"github.com/cyp-registry/registry/src/pkg/config"
@@ -33,7 +33,7 @@ type TokenClaims struct {
 	UserID    uuid.UUID `json:"user_id"`
 	Username  string    `json:"username"`
 	TokenType string    `json:"token_type"` // "access" 或 "refresh"
-	jwt.RegisteredClaims
+	jwtv5.RegisteredClaims
 }
 
 // TokenPair Token对
@@ -93,18 +93,18 @@ func (s *Service) generateAccessToken(userID uuid.UUID, username string, now, ex
 		UserID:    userID,
 		Username:  username,
 		TokenType: "access",
-		RegisteredClaims: jwt.RegisteredClaims{
+		RegisteredClaims: jwtv5.RegisteredClaims{
 			Issuer:    "cyp-registry",
 			Subject:   userID.String(),
-			Audience:  jwt.ClaimStrings{username},
-			ExpiresAt: jwt.NewNumericDate(expires),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
+			Audience:  jwtv5.ClaimStrings{username},
+			ExpiresAt: jwtv5.NewNumericDate(expires),
+			IssuedAt:  jwtv5.NewNumericDate(now),
+			NotBefore: jwtv5.NewNumericDate(now),
 			ID:        uuid.New().String(),
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.config.AccessSecret))
 }
 
@@ -114,30 +114,30 @@ func (s *Service) generateRefreshToken(userID uuid.UUID, username string, now, e
 		UserID:    userID,
 		Username:  username,
 		TokenType: "refresh",
-		RegisteredClaims: jwt.RegisteredClaims{
+		RegisteredClaims: jwtv5.RegisteredClaims{
 			Issuer:    "cyp-registry",
 			Subject:   userID.String(),
-			ExpiresAt: jwt.NewNumericDate(expires),
-			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwtv5.NewNumericDate(expires),
+			IssuedAt:  jwtv5.NewNumericDate(now),
 			ID:        uuid.New().String(),
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.config.RefreshSecret))
 }
 
 // ValidateAccessToken 验证Access Token
 func (s *Service) ValidateAccessToken(tokenString string) (*TokenClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+	token, err := jwtv5.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwtv5.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwtv5.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(s.config.AccessSecret), nil
 	})
 
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
+		if errors.Is(err, jwtv5.ErrTokenExpired) {
 			return nil, ErrTokenExpired
 		}
 		return nil, ErrTokenInvalid
@@ -157,15 +157,15 @@ func (s *Service) ValidateAccessToken(tokenString string) (*TokenClaims, error) 
 
 // ValidateRefreshToken 验证Refresh Token
 func (s *Service) ValidateRefreshToken(tokenString string) (*TokenClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+	token, err := jwtv5.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwtv5.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwtv5.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(s.config.RefreshSecret), nil
 	})
 
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
+		if errors.Is(err, jwtv5.ErrTokenExpired) {
 			return nil, ErrTokenExpired
 		}
 		return nil, ErrTokenInvalid

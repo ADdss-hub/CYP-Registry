@@ -95,7 +95,7 @@ class UniversalVersionManager {
   /**
    * 初始化版本系统
    */
-  init(version: "v1.1.0", options = {}) {
+  init(version, options = {}) {
     console.log('🚀 初始化统一版本管理系统...');
 
     // 1. 初始化配置

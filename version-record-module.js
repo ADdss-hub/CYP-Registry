@@ -1,20 +1,21 @@
 /**
  * 版本记录模块
  * 自动生成的版本信息汇总
- * 最后更新: 2026-03-01T12:32:43.851Z
+ * 最后更新: 2026-03-01T13:49:16.468Z
  */
 
 const versionRecord = {
-  "totalFiles": 14,
-  "uniqueVersions": 4,
+  "totalFiles": 29,
+  "uniqueVersions": 5,
   "versions": [
-    "v1.0.3",
+    "v1.1.0",
     "v0.0.0-dev",
+    "v1.0.2",
     "v1.0.0",
-    "v1.0.2"
+    "v1.0.3"
   ],
-  "filesWithVersions": 14,
-  "lastUpdate": "2026-03-01T12:32:43.851Z"
+  "filesWithVersions": 29,
+  "lastUpdate": "2026-03-01T13:49:16.468Z"
 };
 
 module.exports = versionRecord;
