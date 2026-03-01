@@ -39,6 +39,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
           cache-dependency-path: go.sum
 
       - name: 💾 缓存Go模块
@@ -95,7 +96,8 @@ jobs:
           fi
           # 运行 golangci-lint，使用配置文件
           # 使用 --modules-download-mode=readonly 确保依赖解析正确
-          # 新版本已修复与 Go 1.24 的兼容性问题，typecheck 应能正常工作
+          # 注意：typecheck 已在配置文件中禁用（通过 disable-all + enable 列表排除）
+          # 因为 typecheck 可能因依赖解析问题产生误报，而 go build 已完成类型检查
           golangci-lint run --config .golangci.yml --modules-download-mode=readonly ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
