@@ -24,7 +24,7 @@ jobs:
   backend:
     name: 后端CI
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
@@ -49,7 +49,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}-${{ hashFiles('**/*.go') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -157,6 +157,14 @@ jobs:
           echo "✅ nancy 扫描完成"
           echo "::endgroup::"
 
+      - name: 🧪 运行后端单元测试
+        run: |
+          echo "::group::运行后端单元测试"
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | grep total || true
+          echo "✅ 单元测试执行完成"
+          echo "::endgroup::"
+
       - name: 🏗️ 构建后端
         run: |
           echo "::group::构建后端"
@@ -190,7 +198,7 @@ jobs:
   frontend:
     name: 前端CI
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
@@ -308,9 +316,14 @@ jobs:
   docker-build:
     name: Docker镜像构建（多架构）
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     needs: [backend, frontend]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/tags/latest')
+    if: >-
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/tags/v') ||
+        github.ref == 'refs/tags/latest'))) ||
+      (github.event_name == 'pull_request')
     permissions:
       contents: read
       packages: write
@@ -365,8 +378,8 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           build-args: |
-            TARGETOS=${{ matrix.platform == 'linux/amd64' && 'linux' || 'linux' }}
-            TARGETARCH=${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+            TARGETPLATFORM=${{ matrix.platform }}
+            BUILDPLATFORM=linux/amd64
         continue-on-error: false
 
       - name: 📊 Docker构建汇总
