@@ -66,30 +66,27 @@ jobs:
       - name: 🛡️ 安装 Trivy（优先使用国内镜像）
         run: |
           echo "::group::安装 Trivy（优先使用国内镜像）"
-          # 使用 latest，避免引用不存在的 v0.57.1 标签（脚本会自动选择最新稳定版）
-          TRIVY_VERSION="latest"
-          TRIVY_MIRROR_REPO="https://gitcode.com/GitHub_Trending/tr/trivy.git"
-          WORK_DIR=$(mktemp -d)
-
-          echo "优先从 GitCode 镜像仓库克隆 Trivy 源码..."
-          if git clone --depth=1 "$TRIVY_MIRROR_REPO" "$WORK_DIR"; then
-            echo "✅ GitCode 镜像克隆成功，使用镜像安装 Trivy..."
-            cd "$WORK_DIR"
-            if [ -f "contrib/install.sh" ]; then
-              chmod +x contrib/install.sh || true
-              ./contrib/install.sh -b /usr/local/bin "$TRIVY_VERSION"
-            else
-              echo "::warning::镜像仓库中未找到 contrib/install.sh，回退到官方安装脚本"
-              curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin "$TRIVY_VERSION"
-            fi
-            cd - >/dev/null 2>&1 || true
+          # 直接下载预编译二进制文件（更可靠，避免安装脚本版本问题）
+          TRIVY_VERSION="0.57.1"
+          TRIVY_BINARY_URL="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          
+          echo "下载 Trivy v${TRIVY_VERSION} 二进制文件..."
+          # 优先尝试从 GitHub Releases 下载（GitHub Actions 环境通常可以访问）
+          if curl -sfL "$TRIVY_BINARY_URL" -o /tmp/trivy.tar.gz; then
+            echo "✅ 从 GitHub Releases 下载成功"
+            # 解压并安装二进制文件
+            tar -xzf /tmp/trivy.tar.gz -C /tmp/ trivy
+            chmod +x /tmp/trivy
+            sudo mv /tmp/trivy /usr/local/bin/trivy
+            rm -f /tmp/trivy.tar.gz
           else
-            echo "::warning::GitCode 镜像克隆失败，回退到官方安装脚本"
-            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin "$TRIVY_VERSION"
+            echo "::warning::GitHub Releases 下载失败，尝试使用官方安装脚本..."
+            # 回退到官方安装脚本（使用具体版本号）
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin "v${TRIVY_VERSION}" || {
+              echo "::error::Trivy 安装失败"
+              exit 1
+            }
           fi
-
-          # 清理临时目录
-          rm -rf "$WORK_DIR"
 
           # 验证安装成功
           if ! command -v trivy >/dev/null 2>&1; then
