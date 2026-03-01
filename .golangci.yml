@@ -1,4 +1,4 @@
-version: "1"  # 匹配 golangci-lint v1.59.1 稳定版
+version: "2"  # golangci-lint v1.59.1 使用 v2 配置格式（v1 格式已废弃）
 
 run:
   timeout: 5m
@@ -102,12 +102,8 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude:
-    # 如果依赖正确下载，typecheck 应该能正常工作
-    # 如果仍然出现 typecheck 错误，说明依赖未正确下载，应检查 CI 配置
-    # 以下规则作为兜底措施，过滤可能的 typecheck 错误
-    - ".* \\(typecheck\\)$"
-    - ".*undefined:.*\\(typecheck\\)"
-    - "Error:.*\\(typecheck\\)"
+    # 注意：typecheck 是核心检查项，不应排除
+    # 如果出现 typecheck 错误，说明依赖未正确下载或存在真实的类型错误，应修复而非排除
     # 仅排除部分标准库的错误检查（已在 exclude-rules 中为测试文件配置）
     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|.*println).* is not checked"
     # 注释相关规则（文档要求，非关键）
