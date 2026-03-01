@@ -61,28 +61,19 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
+      - name: 🛡️ 安装 Trivy
+        run: |
+          echo "::group::安装 Trivy"
+          # 使用官方一键安装脚本（推荐方式，避免 Git 仓库拉取问题）
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.57.1
+          # 验证安装成功
+          trivy --version
+          echo "✅ Trivy 安装成功"
+          echo "::endgroup::"
+
       - name: 🛡️ 依赖漏洞扫描 (Trivy)
         run: |
           echo "::group::依赖漏洞扫描 (Trivy)"
-          # 直接下载 Trivy 预编译二进制文件（避免 Git 仓库下载问题）
-          TRIVY_VERSION="0.57.1"
-          TRIVY_URL="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
-          
-          echo "下载 Trivy v${TRIVY_VERSION}..."
-          curl -sfL "$TRIVY_URL" -o /tmp/trivy.tar.gz || {
-            echo "::error::Trivy 下载失败"
-            exit 1
-          }
-          
-          # 解压并安装
-          tar -xzf /tmp/trivy.tar.gz -C /tmp/ trivy
-          chmod +x /tmp/trivy
-          sudo mv /tmp/trivy /usr/local/bin/trivy
-          rm -f /tmp/trivy.tar.gz
-          
-          # 验证安装
-          trivy --version
-          
           # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别，忽略未修复的漏洞）
           echo "扫描 Go 依赖漏洞..."
           trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format table --exit-code 1 . || {
