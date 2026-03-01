@@ -239,7 +239,7 @@ version: '3.8'
 
 services:
   cyp-registry:
-    image: ghcr.io/addss-hub/cyp-registry:v1.1.0
+    image: ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
     container_name: cyp-registry
     restart: unless-stopped
     ports:
@@ -324,7 +324,7 @@ docker compose logs -f
 
 ```bash
 # 拉取镜像
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.7
+docker pull ghcr.io/ADdss-hub/CYP-Registry:v1.0.7
 
 # 创建数据目录（Linux/macOS）
 mkdir -p /data/cyp-registry/{pg-data,redis-data,storage,logs}
@@ -594,7 +594,7 @@ curl -X GET http://localhost:8080/api/v1/users/me \
 2. 点击 "+ 添加镜像" 或 "导入镜像" 按钮
 3. 填写镜像信息：
    - **镜像**（必填）：输入镜像名称或完整 URL
-     - 示例：`nginx:latest`、`ghcr.io/addss-hub/cyp-registry:v1.1.0`
+     - 示例：`nginx:latest`、`ghcr.io/ADdss-hub/CYP-Registry:v1.1.0`
      - 支持 Docker Hub、GHCR、Quay.io 等公共仓库
    - **用户**（选填）：私有仓库的用户名（如果需要认证）
    - **密码**（选填）：私有仓库的密码或访问令牌
