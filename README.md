@@ -180,7 +180,7 @@ podman run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.1.0
+  ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 ```
 
 ### 方式二：使用预构建镜像
@@ -189,7 +189,7 @@ podman run -d \
 
 ```bash
 # 拉取指定版本（推荐生产环境）
-docker pull ghcr.io/addss-hub/cyp-registry:v1.1.0
+docker pull ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 
 # 运行容器（单镜像模式）
 docker run -d \
@@ -199,14 +199,14 @@ docker run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.1.0
+  ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 ```
 
 #### 从 Docker Hub 拉取（如果已同步）
 
 ```bash
 # 拉取指定版本
-docker pull addss-hub/cyp-registry:v1.1.0
+docker pull ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 
 # 运行容器
 docker run -d \
@@ -216,12 +216,13 @@ docker run -d \
   -v cyp-registry-redis-data:/data/redis \
   -v cyp-registry-storage:/data/storage \
   -v cyp-registry-logs:/app/logs \
-  addss-hub/cyp-registry:v1.1.0
+  ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 ```
 
 **镜像版本说明：**
 - `v1.1.0`：当前标准版本号（语义化版本，推荐使用）
-- **注意**：镜像仓库使用语义化版本号标签，不提供 `latest` 标签，也不再提供带日期后缀的标签；请始终使用类似 `v1.1.0` 这种纯语义化版本标签拉取镜像。
+- `latest`：main分支最新版本（仅GHCR自动构建）
+- **注意**：镜像仓库使用语义化版本号标签，推荐使用类似 `v1.1.0` 这种纯语义化版本标签拉取镜像。main分支会自动构建并推送 `latest` 标签。
 
 #### 在其他环境部署（生产环境推荐）
 
@@ -348,7 +349,7 @@ docker run -d \
   -v /data/cyp-registry/redis-data:/data/redis \
   -v /data/cyp-registry/storage:/data/storage \
   -v /data/cyp-registry/logs:/app/logs \
-  ghcr.io/addss-hub/cyp-registry:v1.1.0
+  ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 
 # Windows/NAS 环境使用命名卷的示例：
 # docker run -d \
@@ -363,7 +364,7 @@ docker run -d \
 #   -v cyp-registry-redis-data:/data/redis \
 #   -v cyp-registry-storage:/data/storage \
 #   -v cyp-registry-logs:/app/logs \
-#   ghcr.io/addss-hub/cyp-registry:v1.1.0
+#   ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 ```
 
 **生产环境注意事项：**
@@ -658,10 +659,10 @@ docker run -d \
 docker login
 
 # 标记镜像（使用版本号标签）
-docker tag cyp-registry:single addss-hub/cyp-registry:v1.1.0
+docker tag cyp-registry:single ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 
 # 推送镜像
-docker push addss-hub/cyp-registry:v1.1.0
+docker push ghcr.io/ADdss-hub/CYP-Registry:v1.1.0
 ```
 
 ## 🧪 测试
