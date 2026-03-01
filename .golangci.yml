@@ -1,4 +1,4 @@
-version: "2"
+version: "1"  # 匹配 golangci-lint v1.59.1 稳定版
 
 run:
   timeout: 5m
@@ -108,25 +108,28 @@ issues:
     - ".* \\(typecheck\\)$"
     - ".*undefined:.*\\(typecheck\\)"
     - "Error:.*\\(typecheck\\)"
+    # 仅排除部分标准库的错误检查（已在 exclude-rules 中为测试文件配置）
     - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|.*println).* is not checked"
+    # 注释相关规则（文档要求，非关键）
     - "exported function .* should have comment or be unexported"
     - "package comment should be of the form"
     - "comment on exported (function|method|type|const|var) .* should be"
     - "func name will be used as test\\.Test.* by other packages, and that stutters; consider calling this"
     - "don't use an underscore in package name"
-    - "var.*is unused"
-    - "func.*is unused"
-    - "type.*is unused"
-    - "const.*is unused"
     - "comment on exported.*"
     - "should have comment"
     - "should not use dot imports"
     - "should have comment or be unexported"
-    - "Error return value of .* is not checked"
-    - "G104: Errors unhandled"
-    - "G204: Subprocess launched.*should be audited"
-    - "G401: Use of weak cryptographic primitive"
-    - "G402: TLS InsecureSkipVerify set true"
-    - "G404: Use of weak random number generator"
-    - "G501: Import block to be grouped"
-    - "G601: Implicit memory aliasing in for loop"
+    # 注意：以下规则已移除，核心业务代码需严格检查
+    # - "var.*is unused"  # 未使用变量应修复
+    # - "func.*is unused"  # 未使用函数应移除
+    # - "type.*is unused"  # 未使用类型应移除
+    # - "const.*is unused"  # 未使用常量应移除
+    # - "Error return value of .* is not checked"  # 错误处理应检查
+    # - "G104: Errors unhandled"  # 错误应处理
+    # - "G204: Subprocess launched.*should be audited"  # 子进程应审计
+    # - "G401: Use of weak cryptographic primitive"  # 弱加密应修复
+    # - "G402: TLS InsecureSkipVerify set true"  # TLS 配置应修复
+    # - "G404: Use of weak random number generator"  # 弱随机数应修复
+    # - "G501: Import block to be grouped"  # 导入分组应修复
+    # - "G601: Implicit memory aliasing in for loop"  # 内存别名应修复

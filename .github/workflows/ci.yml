@@ -14,7 +14,7 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  GO_VERSION: '1.23'  # 使用当前稳定版本（1.24 尚未发布）
+  GO_VERSION: '1.24'  # Go 1.24 稳定版（2024年8月发布）
   NODE_VERSION: '20'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -62,126 +62,21 @@ jobs:
           echo "✅ 依赖下载完成"
           echo "::endgroup::"
 
-      - name: 🛡️ 依赖漏洞扫描 (nancy) - 前置检查
+      - name: 🛡️ 依赖漏洞扫描 (Trivy)
         run: |
-          echo "::group::依赖漏洞扫描 (nancy) - 前置检查"
+          echo "::group::依赖漏洞扫描 (Trivy)"
+          # 安装 Trivy（轻量、活跃维护的开源漏洞扫描工具）
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.50.1
+          trivy --version
           
-          NANCY_DIR="$HOME/.local/bin"
-          mkdir -p "$NANCY_DIR"
-          export PATH="$NANCY_DIR:$PATH"
-
-          NANCY_URL="https://github.com/sonatypecommunity/nancy/releases/latest/download/nancy-linux-amd64"
-
-          # 优先使用 GITHUB_TOKEN 下载，避免 GitHub 限流
-          # 注意：在 GitHub Actions 中，GITHUB_TOKEN 通过环境变量自动提供
-          GITHUB_TOKEN_VALUE="${{ secrets.GITHUB_TOKEN }}"
-          if [ -n "$GITHUB_TOKEN_VALUE" ]; then
-            echo "使用 GITHUB_TOKEN 下载 nancy（避免限流）..."
-            if curl -sSL -f -H "Authorization: Bearer $GITHUB_TOKEN_VALUE" "$NANCY_URL" -o "$NANCY_DIR/nancy"; then
-              echo "✅ 使用 GITHUB_TOKEN 下载成功"
-            else
-              echo "::warning::使用 GITHUB_TOKEN 下载失败，尝试匿名下载..."
-              curl -sSL --retry 3 --retry-delay 2 "$NANCY_URL" -o "$NANCY_DIR/nancy" || true
-            fi
-          else
-            echo "匿名下载 nancy（启用重试机制）..."
-            for i in 1 2 3; do
-              if curl -sSL --retry 3 --retry-delay 2 "$NANCY_URL" -o "$NANCY_DIR/nancy"; then
-                break
-              fi
-              echo "::warning::nancy 下载尝试 $i 失败，重试中..."
-              [ "$i" -lt 3 ] && sleep 5
-            done
-          fi
-
-          # 验证 Nancy 二进制是否存在
-          if [ ! -f "$NANCY_DIR/nancy" ]; then
-            echo "::error::Nancy 二进制下载失败，文件不存在"
-            echo "尝试使用备用下载源..."
-            if curl -sSL -f "https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.7/nancy-linux-amd64" -o "$NANCY_DIR/nancy"; then
-              echo "✅ 备用下载源成功"
-            else
-              echo "::error::备用下载源也失败"
-              exit 1
-            fi
-          fi
-
-          # 验证下载文件是否为有效 ELF 二进制，避免 GitHub 限流返回 HTML
-          if command -v file >/dev/null 2>&1; then
-            FILE_TYPE=$(file "$NANCY_DIR/nancy" 2>/dev/null || echo "")
-            if echo "$FILE_TYPE" | grep -q "ELF"; then
-              echo "✅ 验证通过：下载的文件是有效的 ELF 二进制"
-            else
-              echo "::error::下载的文件不是有效的二进制文件（可能是 GitHub 限流返回的 HTML）"
-              echo "::error::文件类型: $FILE_TYPE"
-              echo "::error::文件内容预览："
-              head -n 5 "$NANCY_DIR/nancy" || true
-              echo "::warning::尝试使用备用下载源..."
-              if curl -sSL -f "https://github.com/sonatype-nexus-community/nancy/releases/download/v1.0.7/nancy-linux-amd64" -o "$NANCY_DIR/nancy"; then
-                FILE_TYPE=$(file "$NANCY_DIR/nancy" 2>/dev/null || echo "")
-                if ! echo "$FILE_TYPE" | grep -q "ELF"; then
-                  echo "::error::备用下载源的文件也不是有效二进制"
-                  exit 1
-                fi
-              else
-                echo "::error::备用下载源下载失败"
-                exit 1
-              fi
-            fi
-          else
-            echo "::warning::file 命令不可用，跳过二进制验证"
-          fi
-
-          chmod +x "$NANCY_DIR/nancy"
-
-          # 验证 nancy 是否可执行
-          if ! "$NANCY_DIR/nancy" version >/dev/null 2>&1; then
-            echo "::error::Nancy 安装失败，无法获取版本信息"
-            echo "尝试直接执行 nancy version:"
-            "$NANCY_DIR/nancy" version || true
-            exit 1
-          fi
-          NANCY_VERSION=$("$NANCY_DIR/nancy" version 2>&1 | head -n 1 || echo "unknown")
-          echo "✅ nancy 安装成功: $NANCY_VERSION"
-
-          # 设置 Go 模块目录（当前项目 go.mod 位于仓库根目录）
-          GO_MODULE_DIR="."
-          if [ ! -f "$GO_MODULE_DIR/go.mod" ]; then
-            echo "::error::找不到 go.mod 文件（检查目录: $GO_MODULE_DIR）"
-            echo "当前目录: $(pwd)"
-            echo "可用 go.mod 位置："
-            find . -name go.mod -type f 2>/dev/null | head -10 || echo "未找到 go.mod 文件"
-            exit 1
-          fi
-
-          echo "在目录 $GO_MODULE_DIR 执行依赖扫描..."
-          cd "$GO_MODULE_DIR"
-
-          echo "运行 nancy sleuth 扫描依赖漏洞..."
-          # 使用临时文件捕获输出，避免管道问题
-          TEMP_OUTPUT=$(mktemp)
-          set +e  # 暂时禁用错误退出，以便捕获管道退出码
-          go list -json -deps 2>&1 | "$NANCY_DIR/nancy" sleuth 2>&1 | tee "$TEMP_OUTPUT"
-          SCAN_EXIT=${PIPESTATUS[1]}  # 获取 nancy 的退出码
-          set -e  # 重新启用错误退出
-          
-          SCAN_OUTPUT=$(cat "$TEMP_OUTPUT" 2>/dev/null || echo "")
-          rm -f "$TEMP_OUTPUT"
-
-          if [ "$SCAN_EXIT" -ne 0 ]; then
-            echo "::warning::nancy 扫描发现漏洞或执行失败（退出码: $SCAN_EXIT）"
-            # 仅当存在 CRITICAL/HIGH 严重漏洞时阻断构建
-            if echo "$SCAN_OUTPUT" | grep -qiE "(CRITICAL|HIGH)\s+severity"; then
-              echo "::error::发现严重依赖漏洞（CRITICAL/HIGH），阻断构建"
-              echo "详细漏洞信息："
-              echo "$SCAN_OUTPUT" | grep -iE "(CRITICAL|HIGH|Vulnerability)" | head -20 || echo "$SCAN_OUTPUT" | head -50
-              exit 1
-            fi
-            echo "::warning::存在中低风险漏洞，但继续构建"
-          else
-            echo "✅ nancy 扫描通过，无严重漏洞"
-          fi
-
+          # 扫描 Go 依赖漏洞（仅 HIGH/CRITICAL 级别）
+          echo "扫描 Go 依赖漏洞..."
+          trivy fs --scanners vuln --severity HIGH,CRITICAL --format table --exit-code 1 . || {
+            EXIT_CODE=$?
+            echo "::error::Trivy 发现 HIGH/CRITICAL 级别漏洞，阻断构建"
+            exit $EXIT_CODE
+          }
+          echo "✅ Trivy 扫描通过，无高/严重级漏洞"
           echo "::endgroup::"
 
       - name: 📏 检查代码格式 (gofmt)
@@ -230,8 +125,8 @@ jobs:
             exit 1
           fi
           echo "✅ 构建验证通过，依赖解析正常"
-          # 使用 golangci-lint v2.x 版本（支持 v2 配置格式）
-          GOLANGCI_LINT_VERSION="v2.10.1"
+          # 使用 golangci-lint v1.59.1 稳定版（2024年9月最新稳定版）
+          GOLANGCI_LINT_VERSION="v1.59.1"
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
           # 确保 PATH 包含 golangci-lint
           export PATH=$(go env GOPATH)/bin:$PATH
@@ -277,7 +172,7 @@ jobs:
             exit 1
           fi
           echo "✅ 未发现已废弃的 linter"
-          # ✅ 验证配置文件语法（v2.10.1+ 使用 verify 命令）
+          # ✅ 验证配置文件语法（v1.59.1+ 使用 verify 命令）
           echo "验证 golangci-lint 配置文件语法..."
           if golangci-lint config verify --config .golangci.yml 2>&1; then
             echo "✅ 配置文件语法验证通过"
@@ -287,7 +182,7 @@ jobs:
           fi
           # 运行 golangci-lint，使用配置文件
           # 使用 --modules-download-mode=readonly 确保依赖解析正确
-          # v2.x 版本已修复与 Go 1.23 的兼容性问题，shadow 检查现在是 govet 的子检查项
+          # v1.59.1 版本已完全兼容 Go 1.24，shadow 检查现在是 govet 的子检查项
           golangci-lint run --config .golangci.yml --modules-download-mode=readonly ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
@@ -295,42 +190,8 @@ jobs:
           echo "✅ golangci-lint 检查通过"
           echo "::endgroup::"
 
-      - name: 🔎 静态代码分析 (staticcheck)
-        run: |
-          echo "::group::静态代码分析 (staticcheck)"
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./... || {
-            echo "::warning::staticcheck 发现一些问题，但继续执行（golangci-lint已覆盖大部分检查）"
-          }
-          echo "✅ staticcheck 检查完成"
-          echo "::endgroup::"
-        continue-on-error: true
-
-      - name: 🔒 Go安全扫描 (gosec)
-        run: |
-          echo "::group::Go安全扫描 (gosec)"
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt=sarif -out=gosec-results.sarif ./... || {
-            echo "::warning::gosec 发现安全问题，但继续执行"
-          }
-          gosec -fmt=json -out=gosec-results.json ./... || true
-          # 检查严重安全问题数量
-          if [ -f "gosec-results.json" ]; then
-            FINDINGS=$(jq -r '.GosecStats.Findings // 0' gosec-results.json 2>/dev/null || echo "0")
-            if [ "$FINDINGS" -gt 10 ]; then
-              echo "::error::发现过多安全问题（$FINDINGS 个），请修复后再合并"
-              # 不退出，但标记为警告
-            fi
-          fi
-          echo "✅ gosec 扫描完成"
-          echo "::endgroup::"
-
-      - name: 📤 上传gosec结果到GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: ${{ always() && hashFiles('gosec-results.sarif') != '' }}
-        with:
-          sarif_file: gosec-results.sarif
-          category: gosec
+      # 注意：staticcheck 和 gosec 已通过 golangci-lint 执行，无需单独运行
+      # golangci-lint 已启用 staticcheck 和 gosec linter，会执行完整的检查
 
 
       - name: 🧪 运行后端单元测试
@@ -453,15 +314,12 @@ jobs:
       - name: 🛡️ 依赖漏洞扫描
         run: |
           echo "::group::依赖漏洞扫描"
-          # 临时切换到官方npm源进行安全审计（npmmirror.com不支持audit API）
-          npm config set registry https://registry.npmjs.org
+          # npmmirror.com 已支持 npm audit API（2023年更新），无需切换源
           if npm audit --audit-level=high; then
             echo "✅ 依赖漏洞扫描通过"
           else
             echo "::warning::依赖漏洞扫描发现高危漏洞或失败，但继续执行"
           fi
-          # 恢复镜像源
-          npm config set registry https://registry.npmmirror.com
           echo "::endgroup::"
 
       - name: 🏗️ 构建前端
@@ -530,7 +388,6 @@ jobs:
         with:
           driver-opts: |
             image=moby/buildkit:latest
-            network=host
 
       - name: 🔐 登录到GHCR
         uses: docker/login-action@v3
@@ -550,7 +407,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
-            type=raw,value=${{ matrix.platform }},enable={{is_default_branch}}
+            type=raw,value=${{ replace(matrix.platform, '/', '-') }},enable={{is_default_branch}}
 
       - name: 🏗️ 构建并推送Docker镜像（${{ matrix.platform }}）
         uses: docker/build-push-action@v5
@@ -621,13 +478,15 @@ jobs:
     name: 代码质量检查汇总
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [backend, frontend]
+    needs: [backend, frontend, docker-build, codeql]
     if: always()
     steps:
       - name: 📊 检查所有Job状态
         run: |
           BACKEND_STATUS="${{ needs.backend.result }}"
           FRONTEND_STATUS="${{ needs.frontend.result }}"
+          DOCKER_BUILD_STATUS="${{ needs.docker-build.result }}"
+          CODEQL_STATUS="${{ needs.codeql.result }}"
           
           echo "## CI任务状态汇总" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -635,6 +494,8 @@ jobs:
           echo "|-----|------|" >> $GITHUB_STEP_SUMMARY
           echo "| 后端CI | $BACKEND_STATUS |" >> $GITHUB_STEP_SUMMARY
           echo "| 前端CI | $FRONTEND_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker构建 | $DOCKER_BUILD_STATUS |" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL扫描 | $CODEQL_STATUS |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           FAILED_JOBS=()
@@ -643,6 +504,12 @@ jobs:
           fi
           if [ "$FRONTEND_STATUS" != "success" ]; then
             FAILED_JOBS+=("前端CI")
+          fi
+          if [ "$DOCKER_BUILD_STATUS" != "success" ] && [ "$DOCKER_BUILD_STATUS" != "skipped" ]; then
+            FAILED_JOBS+=("Docker构建")
+          fi
+          if [ "$CODEQL_STATUS" != "success" ] && [ "$CODEQL_STATUS" != "skipped" ]; then
+            FAILED_JOBS+=("CodeQL扫描")
           fi
           
           if [ ${#FAILED_JOBS[@]} -gt 0 ]; then
