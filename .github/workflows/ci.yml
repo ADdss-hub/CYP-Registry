@@ -66,7 +66,8 @@ jobs:
       - name: 🛡️ 安装 Trivy（优先使用国内镜像）
         run: |
           echo "::group::安装 Trivy（优先使用国内镜像）"
-          TRIVY_VERSION="v0.57.1"
+          # 使用 latest，避免引用不存在的 v0.57.1 标签（脚本会自动选择最新稳定版）
+          TRIVY_VERSION="latest"
           TRIVY_MIRROR_REPO="https://gitcode.com/GitHub_Trending/tr/trivy.git"
           WORK_DIR=$(mktemp -d)
 
