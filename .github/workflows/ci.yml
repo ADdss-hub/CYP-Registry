@@ -25,6 +25,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      security-events: write
     steps:
       - name: 📥 拉取代码
         uses: actions/checkout@v4
@@ -112,8 +113,8 @@ jobs:
           echo "::endgroup::"
 
       - name: 📤 上传gosec结果到GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: ${{ always() && hashFiles('gosec-results.sarif') != '' }}
         with:
           sarif_file: gosec-results.sarif
           category: gosec
@@ -179,10 +180,6 @@ jobs:
         run: |
           echo "::group::配置npm镜像源"
           npm config set registry https://registry.npmmirror.com
-          npm config set sass_binary_site https://npmmirror.com/mirrors/node-sass
-          npm config set phantomjs_cdnurl https://npmmirror.com/mirrors/phantomjs
-          npm config set electron_mirror https://npmmirror.com/mirrors/electron/
-          npm config set python_mirror https://npmmirror.com/mirrors/python/
           echo "✅ npm镜像源配置完成"
           echo "::endgroup::"
 
@@ -640,16 +637,16 @@ jobs:
           fetch-depth: 0
 
       - name: 🔒 初始化CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: go, javascript
           queries: +security-and-quality
 
       - name: 🏗️ 自动构建
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: 🔍 执行CodeQL分析
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: /language:multi
 

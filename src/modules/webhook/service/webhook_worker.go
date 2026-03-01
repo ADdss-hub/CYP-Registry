@@ -256,4 +256,3 @@ func (s *WebhookService) StartEventWorker(ctx context.Context) {
 		}
 	}
 }
-
