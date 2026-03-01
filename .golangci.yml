@@ -3,14 +3,6 @@ run:
   tests: true
   modules-download-mode: readonly
 
-issues:
-  exclude-dirs:
-    - vendor
-    - .git
-  exclude-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.gen\\.go$"
-
 linters-settings:
   # typecheck 已通过 linters.disable-all + enable 列表排除（不在列表中即被禁用）
   # 即使升级到 v1.60.1+，typecheck 仍可能因依赖解析问题产生误报
@@ -83,11 +75,18 @@ linters:
     - stylecheck
     - unconvert
     - whitespace
+    - shadow  # 检查变量遮蔽（替代已废弃的 govet.check-shadowing）
   # typecheck 已通过 disable-all + enable 列表排除（不在列表中即被禁用）
   # 如果依赖正确下载，可以启用 typecheck 进行更严格的类型检查
   # 如需启用 typecheck，将其添加到 enable 列表即可
 
 issues:
+  exclude-dirs:
+    - vendor
+    - .git
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
   exclude-rules:
     - path: _test\.go
       linters:
@@ -103,8 +102,9 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude:
-    # 排除所有 typecheck 错误（兜底措施，实际上 typecheck 已通过 disable-all 禁用）
-    # 如果某些启用的 linter 内部依赖 typecheck 并产生错误，这些规则会过滤掉
+    # 如果依赖正确下载，typecheck 应该能正常工作
+    # 如果仍然出现 typecheck 错误，说明依赖未正确下载，应检查 CI 配置
+    # 以下规则作为兜底措施，过滤可能的 typecheck 错误
     - ".* \\(typecheck\\)$"
     - ".*undefined:.*\\(typecheck\\)"
     - "Error:.*\\(typecheck\\)"
