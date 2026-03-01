@@ -1,7 +1,7 @@
 {
-  "lastUpdate": "2026-02-27T16:35:02.923Z",
+  "lastUpdate": "2026-03-01T12:40:00.000Z",
   "files": {
-    "docs\\api\\API.md": "v1.0.3",
+    "docs\\api\\API.md": "v1.1.0",
     "src\\pkg\\version\\version.go": "v0.0.0-dev",
     "规范文件\\全平台Git与GitHub工作流管理规范.md": "v1.0.0",
     "规范文件\\全平台通用容器开发设计规范.md": "v1.0.0",
@@ -11,9 +11,9 @@
     "规范文件\\项目库、依赖及服务使用管理规范.md": "v1.0.0",
     "规范文件\\项目级规范-全局配置中心（.env）与派生规范.md": "v1.0.0",
     "项目设计文档\\系统开发设计文档.md": "v1.0.2",
-    ".version\\version-module.js": "v1.0.0",
-    ".version\\version.json": "v1.0.0",
-    ".version\\changelog.json": "v1.0.0",
-    "web\\src\\constants\\legal.ts": "v1.0.0"
+    ".version\\version-module.js": "v1.1.0",
+    ".version\\version.json": "v1.1.0",
+    ".version\\changelog.json": "v1.1.0",
+    "web\\src\\constants\\legal.ts": "v1.1.0"
   }
 }

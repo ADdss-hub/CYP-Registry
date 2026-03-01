@@ -38,10 +38,10 @@ docker run -d \
 
 ```bash
 # ARM64架构
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.8-linux-arm64
+docker pull ghcr.io/addss-hub/cyp-registry:v1.1.0-linux-arm64
 
 # AMD64架构
-docker pull ghcr.io/addss-hub/cyp-registry:v1.0.8-linux-amd64
+docker pull ghcr.io/addss-hub/cyp-registry:v1.1.0-linux-amd64
 ```
 
 ### 方式2: 从源码构建（ARM设备本地构建）

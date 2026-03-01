@@ -260,11 +260,11 @@ Authorization: Bearer <token>
 {
   "status": "healthy",
   "service": "CYP-Registry",
-  "version": "1.0.8"
+  "version": "v1.1.0"
 }
 ```
 
 ---
-*文档版本: v1.0.8*  
-*更新日期: 2026-02-28*
+*文档版本: v1.1.0*  
+*适用后端版本: v1.1.0*
 
