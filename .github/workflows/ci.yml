@@ -651,8 +651,7 @@ jobs:
       - name: 🔍 执行CodeQL分析
         uses: github/codeql-action/analyze@v3
         with:
-          category: /language:go
-          category: /language:javascript
+          category: /language:multi
 
       - name: 📊 CodeQL扫描汇总
         if: always()
