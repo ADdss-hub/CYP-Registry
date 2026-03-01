@@ -14,7 +14,7 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.23'  # 使用当前稳定版本（1.24 尚未发布）
   NODE_VERSION: '20'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -49,7 +49,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}-${{ hashFiles('**/*.go') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -60,6 +60,21 @@ jobs:
           go mod tidy
           go mod download
           echo "✅ 依赖下载完成"
+          echo "::endgroup::"
+
+      - name: 🛡️ 依赖漏洞扫描 (nancy) - 前置检查
+        run: |
+          echo "::group::依赖漏洞扫描 (nancy) - 前置检查"
+          # 使用预编译二进制安装 nancy，避免 go install 在 CI 环境下触发 Git 凭证/交互问题
+          curl -L https://github.com/sonatypecommunity/nancy/releases/latest/download/nancy-linux-amd64 -o /usr/local/bin/nancy
+          chmod +x /usr/local/bin/nancy
+          nancy version || echo "nancy 安装完成，开始进行依赖扫描..."
+          # 前置扫描：发现严重漏洞时阻断构建
+          if ! go list -json -deps | nancy sleuth; then
+            echo "::error::发现严重依赖漏洞，请修复后再继续构建"
+            exit 1
+          fi
+          echo "✅ nancy 扫描通过，无严重漏洞"
           echo "::endgroup::"
 
       - name: 📏 检查代码格式 (gofmt)
@@ -144,7 +159,7 @@ jobs:
           fi
           # 运行 golangci-lint，使用配置文件
           # 使用 --modules-download-mode=readonly 确保依赖解析正确
-          # v2.x 版本已修复与 Go 1.24 的兼容性问题，shadow 检查现在是 govet 的子检查项
+          # v2.x 版本已修复与 Go 1.23 的兼容性问题，shadow 检查现在是 govet 的子检查项
           golangci-lint run --config .golangci.yml --modules-download-mode=readonly ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
@@ -171,6 +186,14 @@ jobs:
             echo "::warning::gosec 发现安全问题，但继续执行"
           }
           gosec -fmt=json -out=gosec-results.json ./... || true
+          # 检查严重安全问题数量
+          if [ -f "gosec-results.json" ]; then
+            FINDINGS=$(jq -r '.GosecStats.Findings // 0' gosec-results.json 2>/dev/null || echo "0")
+            if [ "$FINDINGS" -gt 10 ]; then
+              echo "::error::发现过多安全问题（$FINDINGS 个），请修复后再合并"
+              # 不退出，但标记为警告
+            fi
+          fi
           echo "✅ gosec 扫描完成"
           echo "::endgroup::"
 
@@ -181,26 +204,23 @@ jobs:
           sarif_file: gosec-results.sarif
           category: gosec
 
-      - name: 🛡️ 依赖漏洞扫描 (nancy)
-        run: |
-          echo "::group::依赖漏洞扫描 (nancy)"
-          # 使用预编译二进制安装 nancy，避免 go install 在 CI 环境下触发 Git 凭证/交互问题
-          curl -L https://github.com/sonatypecommunity/nancy/releases/latest/download/nancy-linux-amd64 -o /usr/local/bin/nancy
-          chmod +x /usr/local/bin/nancy
-          nancy version || echo "nancy 安装完成，开始进行依赖扫描..."
-          go list -json -deps | nancy sleuth || {
-            echo "::warning::nancy 发现依赖漏洞，请检查"
-          }
-          echo "✅ nancy 扫描完成"
-          echo "::endgroup::"
 
       - name: 🧪 运行后端单元测试
         run: |
           echo "::group::运行后端单元测试"
           go test -v -race -coverprofile=coverage.out ./...
-          go tool cover -func=coverage.out | grep total || true
-          echo "✅ 单元测试执行完成"
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+          echo "✅ 单元测试执行完成，覆盖率: $COVERAGE"
           echo "::endgroup::"
+
+      - name: 📊 上传测试覆盖率
+        uses: codecov/codecov-action@v4
+        if: github.event_name != 'pull_request' || github.actor != 'dependabot[bot]'
+        with:
+          file: ./coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: 🏗️ 构建后端
         run: |
@@ -219,7 +239,7 @@ jobs:
         with:
           name: backend-build
           path: registry-server
-          retention-days: 1
+          retention-days: 7  # 统一保留时间为 7 天
 
       - name: 📊 后端CI汇总
         if: always()
@@ -360,7 +380,8 @@ jobs:
        (github.ref == 'refs/heads/main' ||
         startsWith(github.ref, 'refs/tags/v') ||
         github.ref == 'refs/tags/latest')) ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request' &&
+       github.base_ref == 'main')
     permissions:
       contents: read
       packages: write
