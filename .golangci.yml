@@ -1,13 +1,9 @@
-version: "2"  # golangci-lint v1.59.1 使用 v2 配置格式（v1 格式已废弃）
-
 run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
 
 linters:
-  # 使用 default: enable 启用默认 linter 集合，然后添加额外的 linter
-  default: enable
   enable:
     - errcheck
     # 注意：gosimple 和 stylecheck 已整合到 staticcheck，无需单独启用
@@ -44,41 +40,40 @@ linters:
     - sqlclosecheck
     - unconvert
     - whitespace
-  # typecheck 已通过 default: enable 排除（不在列表中即被禁用）
-  # 如果依赖正确下载，可以启用 typecheck 进行更严格的类型检查
-  # 如需启用 typecheck，将其添加到 enable 列表即可
-  settings:
-    # govet 设置：在 v2 中，shadow 检查是 govet 的子检查项
-    govet:
-      enable:
-        - shadow  # 检查变量遮蔽（替代已废弃的 govet.check-shadowing）
-    gocyclo:
-      min-complexity: 15
-    dupl:
-      threshold: 100
-    goconst:
-      min-len: 2
-      min-occurrences: 2
-    misspell:
-      locale: US
-    lll:
-      line-length: 140
-    errcheck:
-      check-type-assertions: true
-      check-blank: true
-    gocritic:
-      enabled-tags:
-        - diagnostic
-        - experimental
-        - opinionated
-        - performance
-        - style
-      disabled-checks:
-        - dupImport
-        - ifElseChain
-        - octalLiteral
-        - whyNoLint
-        - wrapperFunc
+  # 其余未显式列出的 linters 使用默认配置
+
+linters-settings:
+  # govet 设置：启用 shadow 检查（替代已废弃的 govet.check-shadowing）
+  govet:
+    enable:
+      - shadow
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  misspell:
+    locale: US
+  lll:
+    line-length: 140
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
 
 issues:
   exclude-dirs:
