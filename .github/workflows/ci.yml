@@ -62,7 +62,7 @@ jobs:
           echo "::endgroup::"
 
       - name: 🛡️ 依赖漏洞扫描 (Trivy)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -71,7 +71,6 @@ jobs:
           ignore-unfixed: true
           format: 'table'
           exit-code: '1'
-          version: '0.57.2'
 
       - name: 📏 检查代码格式 (gofmt)
         run: |
