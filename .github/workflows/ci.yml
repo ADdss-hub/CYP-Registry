@@ -168,9 +168,11 @@ jobs:
             exit 1
           fi
           # 运行 golangci-lint，使用配置文件
-          # 使用 --modules-download-mode=readonly 确保依赖解析正确
-          # v1.59.3 版本已完全兼容 Go 1.24.3，shadow 检查现在是 govet 的子检查项
-          golangci-lint run --config .golangci.yml --modules-download-mode=readonly ./... || {
+          # 说明：
+          # - 不再强制使用 --modules-download-mode=readonly
+          # - 允许 golangci-lint 按需下载依赖，避免在某些环境下出现 typecheck 对第三方包（yaml/redis/minio 等）误报 undefined
+          # v1.59.0 版本已兼容 Go 1.24.3，shadow 检查现在是 govet 的子检查项
+          golangci-lint run --config .golangci.yml ./... || {
             echo "::error::golangci-lint 检查失败"
             exit 1
           }
